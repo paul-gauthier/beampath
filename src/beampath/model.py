@@ -369,5 +369,8 @@ class Path:
 
 
 def beam(direction: str | float = "east", *, origin: Point = (0, 0)) -> Path:
-    """Start a new setup without drawing an initial source or lead-in gap."""
+    """Start a setup with an incoming stub at its first free-space input.
+
+    origin locates the first optic, not the open end of the incoming beam.
+    """
     return Setup().beam(direction, origin=origin)

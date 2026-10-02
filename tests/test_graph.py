@@ -109,7 +109,8 @@ def test_heading_mirrors_on_splitter_branches_and_join():
     b = split.reflect() >> mirror(heading="east")
     combined = a.join(b, beamsplitter(angle=45))
     assert combined.end.instance.heading == 90
-    assert len([segment for segment in split.layout().segments if segment.target]) == 5
+    assert len([segment for segment in split.layout().segments
+                if segment.source is not None and segment.target is not None]) == 5
 
 
 @pytest.mark.parametrize("initial,target", [
@@ -214,7 +215,15 @@ def test_two_nominal_inputs_can_start_at_one_splitter():
     drawing.beam("east").connect(shared.input("primary"))
     drawing.beam("south").connect(shared.input("secondary"))
     assert shared.instance.heading == 0
-    assert drawing.layout().placements[shared.id].position == (200, 300)
+    result = drawing.layout()
+    assert result.placements[shared.id].position == (200, 300)
+    leads = [s for s in result.segments if s.source is None]
+    assert len(leads) == 2
+    assert len({s.id for s in leads}) == 2
+    assert all(s.target == shared.id and s.end == (200, 300) for s in leads)
+    assert {s.input: s.start for s in leads} == {
+        "primary": (105, 300), "secondary": (200, 205)}
+    assert drawing.connections == ()
 
 
 def test_failed_chain_is_atomic():

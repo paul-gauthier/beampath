@@ -147,7 +147,7 @@ def render_svg(layout: Layout) -> str:
         element(beams, "line", id=segment.id,
                 x1=number(segment.start[0]), y1=number(segment.start[1]),
                 x2=number(segment.end[0]), y2=number(segment.end[1]),
-                data_source=segment.source, data_output=segment.output,
+                data_source=segment.source or "", data_output=segment.output or "",
                 data_target=segment.target or "", data_input=segment.input or "")
         dx = (segment.end[0] - segment.start[0]) / segment.length
         dy = (segment.end[1] - segment.start[1]) / segment.length

@@ -79,11 +79,13 @@ class PlacedOptic:
 
 @dataclass(frozen=True)
 class Segment:
+    """A beam segment; open ends have no source/output or target/input."""
+
     id: str
     start: Point
     end: Point
-    source: str
-    output: str
+    source: str | None
+    output: str | None
     target: str | None = None
     input: str | None = None
 
@@ -279,6 +281,19 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
                 length = max(style.open_length, reach + style.clearance)
                 b = a[0] + length * d[0], a[1] + length * d[1]
                 segments.append(Segment(f"stub-{placed.id}-{index:02d}", a, b, placed.id, port.name))
+    for index, root in enumerate(setup._roots):
+        if root.input is None:
+            continue
+        placed = placements[root.optic]
+        if not placed.instance.port(root.input, "input").draw_lead_in:
+            continue
+        b = placed.port_position(root.input)
+        d = unit(placed.port_direction(root.input))
+        reach = -_project(placed.bounds, b, d)[0]
+        length = max(style.open_length, reach + style.clearance)
+        a = b[0] - length * d[0], b[1] - length * d[1]
+        segments.append(Segment(f"lead-in-{placed.id}-{index:02d}", a, b,
+                                None, None, placed.id, root.input))
     for segment in segments:
         for placed in placements.values():
             if placed.id not in {segment.source, segment.target} and segment_intersects(

@@ -5,10 +5,108 @@ from uuid import uuid4
 import pytest
 
 from beampath import (
-    Artwork, ComponentDefinition, Geometry, HWP, LP, LayoutError, Port, QWP,
-    Setup, Style, beam, beamsplitter, component, iris, mirror, register_component,
+    Artwork, ComponentDefinition, ComponentSpec, Geometry, HWP, LP, LayoutError,
+    Port, QWP, Setup, Style, beam, beamsplitter, component, fiber_launch, iris,
+    mirror, register_component,
 )
 from beampath.examples import cage_system, mzi
+from beampath.layout import segment_intersects
+
+
+@pytest.mark.parametrize("direction", [0, 90, 180, 270, 31.7])
+def test_input_stub_follows_heading_and_preserves_graph(direction):
+    path = beam(direction, origin=(120, -60)) >> mirror(turn="left") >> iris()
+    before = path.setup.optics, path.setup.connections
+    result = path.layout()
+    lead, = [s for s in result.segments if s.source is None]
+    first = result.placements["optic-001"]
+    assert first.position == (120, -60)
+    assert lead.output is None and lead.target == first.id and lead.input == "in"
+    assert lead.end == pytest.approx(first.port_position("in"))
+    assert lead.length == pytest.approx(result.style.open_length)
+    assert tuple(lead.end[i] - lead.start[i] for i in (0, 1)) == pytest.approx((
+        95 * math.cos(math.radians(direction)), 95 * math.sin(math.radians(direction))))
+    assert (path.setup.optics, path.setup.connections) == before
+    assert len(result.placements) == 2 and len(path.setup.connections) == 1
+    assert all(not segment_intersects(lead.start, lead.end, label.bounds)
+               for label in result.labels)
+    x0, y0, x1, y1 = result.bounds
+    for x, y in (lead.start, lead.end):
+        assert x0 + result.style.margin <= x <= x1 - result.style.margin
+        assert y0 + result.style.margin <= y <= y1 - result.style.margin
+
+
+def test_shorthand_chain_draws_the_same_input_stub_as_explicit_beam():
+    shorthand = (iris() >> HWP()).layout()
+    explicit = (beam() >> iris() >> HWP()).layout()
+    assert shorthand == explicit
+    assert len([s for s in shorthand.segments if s.source is None]) == 1
+
+
+def test_input_stub_uses_displaced_port_and_extends_for_artwork():
+    spec = ComponentSpec(ComponentDefinition(
+        "wide", "", Artwork((0, 0), (-150, -20, 40, 20),
+                            svg='<svg xmlns="http://www.w3.org/2000/svg"/>'),
+        lambda p: Geometry((Port("in", "input", position=(-20, 5)),
+                            Port("out", "output", position=(10, 5))))))
+    path = beam(origin=(100, -70)).append(spec, at=(500, 60))
+    result = path.layout(style=Style(open_length=30, clearance=20))
+    lead, = [s for s in result.segments if s.source is None]
+    assert result.placements[path.end.id].position == (500, 60)
+    assert lead.end == pytest.approx((480, 65))
+    assert lead.start == pytest.approx((330, 65))
+    assert lead.length == pytest.approx(150)
+
+
+@pytest.mark.parametrize("direction", [0, 90, 180, 270, 31.7])
+@pytest.mark.parametrize("role", ["launch", "couple"])
+def test_fiber_launch_has_no_input_stub_but_coupler_does(direction, role):
+    path = beam(direction) >> fiber_launch(role=role)
+    result = path.layout()
+    leads = [s for s in result.segments if s.source is None]
+    if role == "launch":
+        assert leads == []
+        outgoing, = result.segments
+        assert outgoing.source == path.end.id and outgoing.target is None
+    else:
+        lead, = result.segments
+        assert leads == [lead]
+        assert lead.target == path.end.id and lead.input == "in"
+        assert tuple((lead.end[i] - lead.start[i]) / lead.length
+                     for i in (0, 1)) == pytest.approx((
+                         math.cos(math.radians(direction)), math.sin(math.radians(direction))))
+
+
+@pytest.mark.parametrize("ports,default_input", [
+    ((Port("out", "output"),), None),
+    ((Port("in", "input", draw_lead_in=False), Port("out", "output")), "in"),
+])
+def test_custom_sources_can_omit_input_stub(ports, default_input):
+    spec = ComponentSpec(ComponentDefinition(
+        "source", "", Artwork((0, 0), (-5, -5, 5, 5),
+                              svg='<svg xmlns="http://www.w3.org/2000/svg"/>'),
+        lambda p: Geometry(ports), default_input=default_input))
+    result = (beam() >> spec).layout()
+    outgoing, = result.segments
+    assert outgoing.source == "optic-001" and outgoing.target is None
+
+
+def test_splitter_only_draws_input_stubs_for_bound_roots():
+    result = (beam() >> beamsplitter(angle=-45)).layout()
+    lead, = [s for s in result.segments if s.source is None]
+    assert lead.input == "primary"
+
+
+def test_input_stub_crossing_unrelated_optic_fails():
+    blocker = ComponentSpec(ComponentDefinition(
+        "blocker", "", Artwork((0, 0), (-5, -5, 5, 5),
+                               svg='<svg xmlns="http://www.w3.org/2000/svg"/>'),
+        lambda p: Geometry((Port("in", "input", draw_lead_in=False),))))
+    drawing = Setup()
+    drawing.beam() >> iris(label="")
+    drawing.beam(origin=(-70, 0)) >> blocker
+    with pytest.raises(LayoutError, match="lead-in-.*beam crosses unrelated optic optic-002"):
+        drawing.layout()
 
 
 def test_cage_layout_and_labels():
@@ -28,7 +126,7 @@ def test_unequal_mzi_closes_shared_optic_by_stretching():
     p = mzi()
     result = p.layout()
     combined = next(o for o in result.placements.values() if o.instance.spec.label == "BS2")
-    incident = [s for s in result.segments if s.target == combined.id]
+    incident = [s for s in result.segments if s.source is not None and s.target == combined.id]
     assert sorted(s.length for s in incident) == pytest.approx([380, 570])
     assert all(s.end == pytest.approx(combined.position) for s in incident)
     assert combined.position == pytest.approx((570, 570))
@@ -138,7 +236,8 @@ def test_crossing_beams_do_not_connect():
     drawing.beam("south", origin=(-100, -150)) >> HWP() >> LP()
     result = drawing.layout(style=Style(pitch=300))
     assert len(drawing.connections) == 2
-    assert len([s for s in result.segments if s.target]) == 2
+    assert len([s for s in result.segments
+                if s.source is not None and s.target is not None]) == 2
 
 
 def test_style_scales_spacing_and_clearance():

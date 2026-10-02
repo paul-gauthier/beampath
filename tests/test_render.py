@@ -14,6 +14,30 @@ from beampath.layout import artwork_point
 from beampath.render import artwork_bytes, render_svg, tag
 
 
+def test_incoming_stub_renders_with_arrow_and_open_source_metadata():
+    path = beam("east") >> mirror(heading="north") >> mirror(turn="right") >> iris()
+    layout = path.layout()
+    lead, = [s for s in layout.segments if s.source is None]
+    root = ET.fromstring(path.to_svg())
+    beams = root.find(f"{tag('g')}[@id='optical-path']")
+    line = beams.find(f"{tag('line')}[@id='{lead.id}']")
+    assert (float(line.get("x1")), float(line.get("y1"))) == (-95, 0)
+    assert (float(line.get("x2")), float(line.get("y2"))) == (0, 0)
+    assert line.get("data-source") == line.get("data-output") == ""
+    assert line.get("data-target") == "optic-001" and line.get("data-input") == "in"
+    arrow = beams.find(f"{tag('line')}[@id='{lead.id}-arrow']")
+    assert arrow.get("marker-end") == "url(#beam-arrow)"
+    assert float(arrow.get("x2")) > float(arrow.get("x1"))
+    assert float(arrow.get("y1")) == float(arrow.get("y2")) == 0
+    assert len(beams.findall(tag("line"))) == 2 * len(layout.segments)
+    manifest = json.loads(root.find(
+        f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text)
+    incoming, = [s for s in manifest["segments"] if s["source"] is None]
+    assert incoming["output"] is None
+    assert incoming["target"] == "optic-001" and incoming["input"] == "in"
+    assert len(manifest["optics"]) == 3
+
+
 def test_each_physical_optic_and_beam_segment_render_once():
     p = mzi()
     layout = p.layout()

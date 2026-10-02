@@ -59,8 +59,11 @@ Runnable example: [cage.py](examples/cage.py).
 
 Chains start building to the east. Use `beam("west") >> fiber_launch(...)` for another direction,
 or `beam(30)` for a numeric heading. Angles are degrees, clockwise positive:
-east is 0, south 90, west 180, and north 270. The initial beam draws no source
-or leading gap. For a single component, write `beam() >> iris()`.
+east is 0, south 90, west 180, and north 270. An incoming beam stub is drawn
+automatically when the first component has a free-space input, including in
+shorthand chains such as `iris() >> HWP()`. A fiber launch starts at its output,
+with no incoming free-space stub on its fiber side. A fiber coupler used first
+receives an incoming stub. For a single component, write `beam() >> iris()`.
 
 Mirror and beamsplitter `angle` arguments describe the surface normal relative
 to the incoming beam: `mirror(angle=-45)` turns east to south. A mirror accepts
@@ -157,7 +160,9 @@ Failed appends, connects, and joins leave the graph and cursors intact.
 The graph fixes beam headings; Kiwi solves positions and gap lengths.
 Automatic gaps are at least 190 diagram units, or the artwork clearance if
 larger. They stretch to close joins, with equal gaps preferred along straight
-runs. Beam crossings do not create connections. Open outputs get short stubs.
+runs. Beam crossings do not create connections. Initial free-space inputs and
+open outputs get short stubs, controlled by `Style.open_length` (95 diagram
+units by default) and extended as needed for artwork clearance.
 
 ```python
 polarization = chain(LP(), HWP(), QWP())
@@ -175,7 +180,8 @@ Runnable example: [reuse.py](examples/reuse.py).
 it may be below the default pitch if artwork still clears. `at` fixes an
 optic's reference point. Both hints are required constraints, and incompatible
 hints raise `LayoutError`. For a chain, hints apply to its first component.
-The first component's `at` overrides the initial beam origin. Named port
+The initial beam origin locates the first optic, rather than its incoming
+stub's open end. The first component's `at` overrides that origin. Named port
 positions may differ from the optic's reference point.
 
 `Setup.add(spec, at=...)` and `path.connect(input_ref, distance=...)` accept
@@ -202,6 +208,10 @@ Runnable example: [rendering.py](examples/rendering.py).
 `Layout` is an immutable snapshot with `placements`, `segments`, `labels`, and
 canvas `bounds`.
 Editing the setup afterward does not change the snapshot.
+Incoming stubs have `source=None` and `output=None`, with the actual `target`
+and `input`; outgoing stubs have `target=None` and `input=None`. Segments with
+both endpoints describe component-to-component connections. Stubs add no optics
+or connections to the setup graph.
 SVG export has no raster dependency. PNG export retains credits in a PNG text
 chunk and embeds the requested resolution. The optional CairoSVG converter
 requires native Cairo. On macOS with Homebrew, if the loader cannot find it,
@@ -270,7 +280,10 @@ geometry is available as `optic_ref.instance.geometry`; specifications stay
 reusable even when their artwork depends on incidence.
 Set `default_input` on the definition when its input is named differently;
 mark optional inputs with `required=False`. Source definitions without inputs
-use `default_input=None`. Bounds should conservatively contain retained artwork,
+use `default_input=None` and receive no incoming stub. Inputs draw a lead-in
+when they start a beam; set `Port.draw_lead_in=False` for inputs such as a
+source's fiber input where an incoming free-space beam should not be drawn.
+Bounds should conservatively contain retained artwork,
 including strokes and intrinsic text. A selector may remove captions or demo
 elements from source SVGs. SVG IDs and local references are namespaced per
 instance. Supply intrinsic text as ordinary positioned SVG text; placement

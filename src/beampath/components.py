@@ -57,7 +57,7 @@ def _fiber(parameters):
     role = parameters.get("role", "launch")
     if role not in {"launch", "couple"}:
         raise ComponentError("fiber_launch role must be 'launch' or 'couple'")
-    ports = (Port("in", "input"),)
+    ports = (Port("in", "input", draw_lead_in=role == "couple"),)
     if role == "launch":
         ports += (Port("out", "output"),)
     return Geometry(ports, reflected=role == "launch")

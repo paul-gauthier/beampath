@@ -18,6 +18,7 @@ class Port:
     Input headings point INTO the component, output headings point OUT.
     Positions are in diagram units relative to its placement origin.
     An absolute output direction uses the drawing's compass frame instead.
+    draw_lead_in controls the incoming stub when an input starts a beam.
     """
 
     name: str
@@ -26,6 +27,7 @@ class Port:
     position: Point = (0, 0)
     required: bool = True
     absolute: bool = False
+    draw_lead_in: bool = True
 
     def __post_init__(self):
         if not isinstance(self.name, str) or not self.name:
@@ -34,6 +36,8 @@ class Port:
             raise ComponentError(f"Invalid port kind {self.kind!r}")
         if self.absolute and self.kind != "output":
             raise ComponentError("Only output ports can have absolute headings")
+        if not isinstance(self.draw_lead_in, bool):
+            raise ComponentError("draw_lead_in must be a boolean")
         object.__setattr__(self, "direction", finite(self.direction, "port direction") % 360)
         object.__setattr__(self, "position", point(self.position, "port position"))
 
