@@ -12,27 +12,23 @@ pip install '.[png]'
 Python 3.11 or later is required. Component artwork is credited to the Photonics
 Component Library under CC BY 4.0; credits and source hashes travel with exported SVGs.
 
-A Mach–Zehnder interferometer (MZI) with two arms and a shared recombining
-beamsplitter:
+Start with a fiber launch, two mirrors, a half-wave plate, and a fiber coupler.
+`>>` connects components in beam order:
 
 ```python
 from beampath import *
 
-split = (
+setup = (
     fiber_launch()
-    >> beamsplitter("BS1", angle=-45)
+    >> mirror(angle=-45)
+    >> HWP()
+    >> mirror(angle=+45)
+    >> fiber_launch(role="couple")
 )
-
-a = split.straight() >> HWP() >> mirror(angle=-45)
-b = split.reflect() >> LP() >> QWP() >> mirror(angle=+45)
-combined = a.join(b, beamsplitter("BS2", angle=+45))
-
-east = combined.reflect() >> fiber_launch(role="couple")
-south = combined.straight() >> iris()
-split.save("mzi.svg")
+setup.save("hello.svg")
 ```
 
-![Mach–Zehnder interferometer with two arms sharing beamsplitters BS1 and BS2](docs/images/mzi.png)
+![A fiber launch and fiber coupler connected through two mirrors and a half-wave plate](docs/images/hello.png)
 
 ## Linear chains
 
@@ -70,7 +66,27 @@ free-space path.
 
 ## Branching and shared optics
 
-In the MZI above, each `Path` is a mutable cursor in one `Setup`. `path >> optic` and
+A Mach–Zehnder interferometer (MZI) with two arms and a shared recombining
+beamsplitter:
+
+```python
+split = (
+    fiber_launch()
+    >> beamsplitter("BS1", angle=-45)
+)
+
+a = split.straight() >> HWP() >> mirror(angle=-45)
+b = split.reflect() >> LP() >> QWP() >> mirror(angle=+45)
+combined = a.join(b, beamsplitter("BS2", angle=+45))
+
+east = combined.reflect() >> fiber_launch(role="couple")
+south = combined.straight() >> iris()
+split.save("mzi.svg")
+```
+
+![Mach–Zehnder interferometer with two arms sharing beamsplitters BS1 and BS2](docs/images/mzi.png)
+
+Each `Path` is a mutable cursor in one `Setup`. `path >> optic` and
 `path >>= optic` both advance it; `alias = path` aliases that cursor. Selecting
 an output makes a separate cursor. An output can be connected once; using an
 old cursor at an occupied output raises `ConnectionError`.
