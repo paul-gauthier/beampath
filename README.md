@@ -51,6 +51,8 @@ setup = (
 setup.save("setup.svg")
 ```
 
+![A linear chain with fiber launch and coupling, four mirrors, two irises, and polarization optics](docs/images/cage.png)
+
 Chains start building to the east. Use `beam("west") >> fiber_launch(...)` for another direction,
 or `beam(30)` for a numeric heading. Angles are degrees, clockwise positive:
 east is 0, south 90, west 180, and north 270. The initial beam draws no source
