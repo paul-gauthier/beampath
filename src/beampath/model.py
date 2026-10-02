@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path as FilePath
 from typing import TYPE_CHECKING
 
-from .definitions import Chain, ComponentSpec, Port
-from .errors import ConnectionError
+from .definitions import Chain, ComponentSpec, Geometry, Port
+from .errors import ComponentError, ConnectionError
 from .geometry import Point, aligned, finite, heading, point
 
 if TYPE_CHECKING:
@@ -20,9 +20,22 @@ class OpticInstance:
     spec: ComponentSpec
     heading: float | None = None
     at: Point | None = None
+    geometry: Geometry = field(init=False, repr=False)
+
+    def __post_init__(self):
+        try:
+            geometry = (self.spec.geometry if self.heading is None
+                        else self.spec.geometry_for_heading(self.heading))
+        except ComponentError as exc:
+            raise ComponentError(f"{self.id} ({self.spec.display_label}): {exc}") from exc
+        if self.heading is not None and any(p.absolute for p in geometry.ports):
+            geometry = replace(geometry, ports=tuple(
+                replace(p, direction=p.direction - self.heading, absolute=False) if p.absolute else p
+                for p in geometry.ports))
+        object.__setattr__(self, "geometry", geometry)
 
     def port(self, name: str, kind: str | None = None) -> Port:
-        for port in self.spec.geometry.ports:
+        for port in self.geometry.ports:
             if port.name == name and (kind is None or port.kind == kind):
                 return port
         raise ConnectionError(f"{self.id} ({self.spec.display_label}): no {kind or ''} port {name!r}")
@@ -157,6 +170,7 @@ class Setup:
         # connected first; it still refers to the same primary-relative frame.
         headings: dict[str, float] = {}
         todo: list[str] = []
+        nodes = {ident: replace(node, heading=None) for ident, node in self._nodes.items()}
 
         def assign(ident: str, value: float, context: str):
             value %= 360
@@ -164,29 +178,35 @@ class Setup:
                 if not aligned(headings[ident], value):
                     raise ConnectionError(f"{context}: incoming direction disagrees with optic orientation")
             else:
+                nodes[ident] = replace(nodes[ident], heading=value)
                 headings[ident] = value
                 todo.append(ident)
 
         for root in self._roots:
-            offset = self._nodes[root.optic].port(root.input, "input").direction if root.input else 0
+            offset = nodes[root.optic].port(root.input, "input").direction if root.input else 0
             assign(root.optic, root.direction - offset, root.optic)
         adjacency: dict[str, list[Connection]] = {ident: [] for ident in self._nodes}
         for edge in self._connections:
+            template = next(p for p in nodes[edge.source].spec.geometry.ports if p.name == edge.output)
+            if template.absolute:
+                incoming = nodes[edge.target].port(edge.input).direction
+                assign(edge.target, template.direction - incoming, f"{edge.target}.{edge.input}")
+                # An absolute output does not constrain the incoming heading.
+                continue
             adjacency[edge.source].append(edge)
             adjacency[edge.target].append(edge)
         while todo:
             ident = todo.pop(0)
             for edge in adjacency[ident]:
-                outgoing = self._nodes[edge.source].port(edge.output).direction
-                incoming = self._nodes[edge.target].port(edge.input).direction
+                outgoing = nodes[edge.source].port(edge.output).direction
+                incoming = nodes[edge.target].port(edge.input).direction
                 if ident == edge.source:
                     assign(edge.target, headings[ident] + outgoing - incoming,
                            f"{edge.target}.{edge.input}")
                 else:
                     assign(edge.source, headings[ident] + incoming - outgoing,
                            f"{edge.source}.{edge.output}")
-        self._nodes = {ident: replace(node, heading=headings.get(ident))
-                       for ident, node in self._nodes.items()}
+        self._nodes = nodes
 
     def layout(self, *, style: Style | None = None) -> Layout:
         from .layout import layout
@@ -238,7 +258,7 @@ class Path:
         if self._end is None:
             raise ConnectionError("This operation needs a component on the path")
         if self._port is None:
-            outputs = [p for p in self.end.instance.spec.geometry.ports if p.kind == "output"]
+            outputs = [p for p in self.end.instance.geometry.ports if p.kind == "output"]
             if outputs:
                 raise ConnectionError(f"{self._end}: select an output with out(), straight(), or reflect()")
             raise ConnectionError(f"{self._end}: this component ends the beam path")

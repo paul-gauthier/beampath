@@ -164,10 +164,10 @@ def render_svg(layout: Layout) -> str:
     for placed in layout.placements.values():
         node = placed.instance
         art = node.spec.definition.artwork
-        angle = node.heading + node.spec.geometry.artwork_rotation
+        angle = node.heading + node.geometry.artwork_rotation
         transform = (f"translate({number(placed.position[0])} {number(placed.position[1])}) "
                      f"rotate({number(angle)}) scale({number(art.scale)}) ")
-        if node.spec.geometry.reflected:
+        if node.geometry.reflected:
             transform += "scale(-1 1) "
         transform += f"translate({number(-art.center[0])} {number(-art.center[1])})"
         group = element(components, "g", id=node.id, transform=transform,
@@ -194,7 +194,7 @@ def render_svg(layout: Layout) -> str:
                 # Artwork geometry and the glyph's position still transform normally.
                 tx, ty = float(text.get("x", 0)), float(text.get("y", 0))
                 compensation = f"translate({number(tx)} {number(ty)}) "
-                if node.spec.geometry.reflected:
+                if node.geometry.reflected:
                     compensation += "scale(-1 1) "
                 compensation += f"rotate({number(-angle)}) translate({number(-tx)} {number(-ty)})"
                 existing = text.get("transform", "")
@@ -204,7 +204,7 @@ def render_svg(layout: Layout) -> str:
                                   "label": node.spec.display_label, "parameters": _json_value(node.spec.parameters),
                                   "position": placed.position, "heading": node.heading,
                                   "artwork_rotation": angle,
-                                  "reflected": node.spec.geometry.reflected,
+                                  "reflected": node.geometry.reflected,
                                   "transform": transform})
     labels = element(svg, "g", id="component-labels", font_size=number(style.font_size),
                      font_weight="normal", text_anchor="middle", fill="#000000")

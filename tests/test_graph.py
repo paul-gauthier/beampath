@@ -56,6 +56,117 @@ def test_reflection_matches_vector_law(initial, normal):
     assert (math.cos(math.radians(reflected)), math.sin(math.radians(reflected))) == pytest.approx(expected)
 
 
+@pytest.mark.parametrize("initial,target,expected", [
+    ("east", "north", 270), ("north", "east", 0),
+    ("south", "west", 180), ("west", "south", 90),
+    ("east", "west", 180), (31.4, 127.8, 127.8),
+    (350, 10, 10), (10, -10, 350), (90, 720, 0),
+    ("east", "NORTH", 270),
+])
+def test_mirror_outbound_heading(initial, target, expected):
+    path = beam(initial) >> mirror(heading=target) >> iris()
+    assert path.end.instance.heading == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("initial", [0, 90, 180, 270, 31.4])
+@pytest.mark.parametrize("turn,delta", [("left", -90), ("right", 90), ("LEFT", -90)])
+def test_mirror_turn_is_relative_to_incidence(initial, turn, delta):
+    path = beam(initial) >> mirror(turn=turn) >> iris()
+    assert path.end.instance.heading == pytest.approx((initial + delta) % 360)
+
+
+def test_heading_mirror_spec_is_reusable_across_incidence():
+    spec = mirror("North mirror", heading="north")
+    east = beam("east") >> spec
+    south = beam("south") >> spec
+    assert east.end.instance.spec is south.end.instance.spec is spec
+    assert east.end.instance.port("out").direction == 270
+    assert south.end.instance.port("out").direction == 180
+    assert east.end.instance.geometry.artwork_rotation != south.end.instance.geometry.artwork_rotation
+    assert dict(spec.parameters) == {"heading": "north"}
+
+
+def test_heading_mirror_in_repeated_chain():
+    fragment = chain(mirror(heading="north"), mirror(turn="right"))
+    path = beam() >> fragment >> fragment >> iris()
+    assert [node.heading for node in path.setup.optics] == [0, 270, 0, 270, 0]
+
+
+def test_heading_mirror_can_connect_after_its_outbound_path():
+    drawing = Setup()
+    optic = drawing.add(mirror(heading="north"))
+    downstream = optic.out("out") >> iris()
+    assert downstream.end.instance.heading == 270
+    assert optic.instance.heading is None
+    drawing.beam("east").connect(optic.input())
+    assert optic.instance.heading == 0
+    assert drawing.layout().placements[downstream.end.id].port_direction("in") == 270
+
+
+def test_heading_mirrors_on_splitter_branches_and_join():
+    split = iris() >> beamsplitter(angle=-45)
+    a = split.straight() >> mirror(heading="south")
+    b = split.reflect() >> mirror(heading="east")
+    combined = a.join(b, beamsplitter(angle=45))
+    assert combined.end.instance.heading == 90
+    assert len([segment for segment in split.layout().segments if segment.target]) == 5
+
+
+@pytest.mark.parametrize("initial,target", [
+    ("east", "east"), ("north", 270), (37.2, 397.2), (0, 360),
+])
+def test_impossible_mirror_heading_leaves_path_usable(initial, target):
+    path = beam(initial) >> iris()
+    previous = path.end.id
+    before = path.setup.optics, path.setup.connections
+    with pytest.raises(ComponentError, match="optic-002.*heading unchanged"):
+        path >> mirror(heading=target)
+    assert (path.setup.optics, path.setup.connections) == before
+    assert path.end.id == previous
+    path >> mirror(turn="right")
+
+
+def test_impossible_heading_in_chain_is_atomic():
+    path = beam() >> iris()
+    before = path.setup.optics, path.setup.connections
+    with pytest.raises(ComponentError, match="heading unchanged"):
+        path >> chain(mirror(turn="left"), HWP(), mirror(heading="north"))
+    assert (path.setup.optics, path.setup.connections) == before
+    path >> QWP()
+
+
+def test_impossible_heading_connect_is_atomic():
+    drawing = Setup()
+    optic = drawing.add(mirror(heading="east"))
+    path = drawing.beam("east")
+    before = drawing.optics, drawing.connections
+    with pytest.raises(ComponentError, match="heading unchanged"):
+        path.connect(optic.input())
+    assert (drawing.optics, drawing.connections) == before
+    drawing.beam("north").connect(optic.input())
+    assert optic.instance.heading == 270
+    path >> iris()
+
+
+@pytest.mark.parametrize("parameters", [
+    {}, {"angle": 45, "heading": "north"}, {"angle": 45, "turn": "left"},
+    {"heading": 90, "turn": "right"}, {"angle": 45, "heading": 90, "turn": "right"},
+    {"heading": "up"}, {"heading": float("nan")}, {"heading": float("inf")},
+    {"turn": "straight"}, {"turn": 90},
+    {"angle": 90}, {"angle": -90}, {"angle": 270},
+])
+def test_invalid_mirror_orientation(parameters):
+    with pytest.raises(ComponentError):
+        mirror(**parameters)
+    with pytest.raises(ComponentError):
+        component("mirror", **parameters)
+
+
+def test_generic_component_supports_mirror_heading_and_turn():
+    path = beam() >> component("mirror", heading="north") >> component("mirror", turn="right") >> iris()
+    assert path.end.instance.heading == 0
+
+
 def test_reusable_specs_and_chains_make_fresh_instances():
     plate = HWP()
     fragment = chain(LP(), plate, chain(QWP()))

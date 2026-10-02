@@ -17,6 +17,7 @@ class Port:
 
     Input headings point INTO the component, output headings point OUT.
     Positions are in diagram units relative to its placement origin.
+    An absolute output direction uses the drawing's compass frame instead.
     """
 
     name: str
@@ -24,12 +25,15 @@ class Port:
     direction: float = 0
     position: Point = (0, 0)
     required: bool = True
+    absolute: bool = False
 
     def __post_init__(self):
         if not isinstance(self.name, str) or not self.name:
             raise ComponentError("A port must have a nonempty name")
         if self.kind not in {"input", "output"}:
             raise ComponentError(f"Invalid port kind {self.kind!r}")
+        if self.absolute and self.kind != "output":
+            raise ComponentError("Only output ports can have absolute headings")
         object.__setattr__(self, "direction", finite(self.direction, "port direction") % 360)
         object.__setattr__(self, "position", point(self.position, "port position"))
 
@@ -88,12 +92,19 @@ class Artwork:
 
 @dataclass(frozen=True)
 class ComponentDefinition:
+    """A geometry resolver, optionally refined once incidence is known.
+
+    resolve_incidence receives the absolute reference-beam heading and must
+    preserve port names, kinds, and input directions from resolve().
+    """
+
     name: str
     default_label: str
     artwork: Artwork
     resolve: Callable[[Mapping], Geometry]
     default_input: str | None = "in"
     label_anchor: Point | None = None
+    resolve_incidence: Callable[[Mapping, float], Geometry] | None = None
 
     def __post_init__(self):
         if not isinstance(self.name, str) or not self.name:
@@ -102,6 +113,8 @@ class ComponentDefinition:
             raise ComponentError("A definition needs Artwork")
         if not isinstance(self.default_label, str) or not callable(self.resolve):
             raise ComponentError("A definition needs a label and geometry resolver")
+        if self.resolve_incidence is not None and not callable(self.resolve_incidence):
+            raise ComponentError("An incidence resolver must be callable")
         if self.label_anchor is not None:
             object.__setattr__(self, "label_anchor", point(self.label_anchor, "label anchor"))
 
@@ -151,6 +164,26 @@ class ComponentSpec:
     @property
     def display_label(self) -> str:
         return self.definition.default_label if self.label is None else self.label
+
+    def geometry_for_heading(self, heading: float) -> Geometry:
+        """Resolve incidence-dependent geometry without changing this template."""
+        if self.definition.resolve_incidence is None:
+            return self.geometry
+        try:
+            geometry = self.definition.resolve_incidence(self.parameters, heading)
+        except ComponentError:
+            raise
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ComponentError(f"{self.definition.name}: {exc}") from exc
+        if not isinstance(geometry, Geometry):
+            raise ComponentError("An incidence resolver must return Geometry")
+        if {(p.name, p.kind) for p in geometry.ports} != {(p.name, p.kind) for p in self.geometry.ports}:
+            raise ComponentError("An incidence resolver must preserve port names and kinds")
+        if {p.name: p.direction for p in geometry.ports if p.kind == "input"} != {
+            p.name: p.direction for p in self.geometry.ports if p.kind == "input"
+        }:
+            raise ComponentError("An incidence resolver must preserve input directions")
+        return geometry
 
     def __rshift__(self, other):
         from .model import beam

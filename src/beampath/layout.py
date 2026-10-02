@@ -44,9 +44,9 @@ def artwork_point(node: OpticInstance, source_point: Point) -> Point:
     """Transform a source SVG coordinate, relative to its placement origin."""
     art = node.spec.definition.artwork
     x, y = ((source_point[i] - art.center[i]) * art.scale for i in (0, 1))
-    if node.spec.geometry.reflected:
+    if node.geometry.reflected:
         x = -x
-    return rotate((x, y), node.heading + node.spec.geometry.artwork_rotation)
+    return rotate((x, y), node.heading + node.geometry.artwork_rotation)
 
 
 def footprint(node: OpticInstance) -> Bounds:
@@ -199,7 +199,7 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
     for node in nodes.values():
         if node.heading is None:
             raise LayoutError(f"{node.id}: connect the optic to an initial beam")
-        for port in node.spec.geometry.ports:
+        for port in node.geometry.ports:
             if port.kind == "input" and port.required and not setup._input_used(node.id, port.name):
                 raise LayoutError(f"{node.id}.{port.name}: required input is not connected")
 
@@ -249,8 +249,8 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
         incoming.setdefault(edge.target, []).append(edge)
         outgoing.setdefault(edge.source, []).append(edge)
     for node in nodes.values():
-        inputs = [p for p in node.spec.geometry.ports if p.kind == "input"]
-        outputs = [p for p in node.spec.geometry.ports if p.kind == "output"]
+        inputs = [p for p in node.geometry.ports if p.kind == "input"]
+        outputs = [p for p in node.geometry.ports if p.kind == "output"]
         if (len(inputs) == len(outputs) == 1 and aligned(inputs[0].direction, outputs[0].direction)
                 and len(incoming.get(node.id, [])) == len(outgoing.get(node.id, [])) == 1):
             a, b = incoming[node.id][0], outgoing[node.id][0]
@@ -271,7 +271,7 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
                         edge.source, edge.output, edge.target, edge.input)
                 for edge in setup.connections]
     for placed in placements.values():
-        for index, port in enumerate(placed.instance.spec.geometry.ports):
+        for index, port in enumerate(placed.instance.geometry.ports):
             if port.kind == "output" and not setup._output_used(placed.id, port.name):
                 a = placed.port_position(port.name)
                 d = unit(placed.port_direction(port.name))

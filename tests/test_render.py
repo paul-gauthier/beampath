@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from beampath import Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, beam, iris, HWP, QWP
+from beampath import Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, beam, iris, HWP, QWP, mirror
 from beampath.examples import cage_system, mzi
 from beampath.layout import artwork_point
 from beampath.render import artwork_bytes, render_svg, tag
@@ -96,6 +96,26 @@ def test_fiber_role_orientation_and_mirror_backing():
             hatch_a, hatch_b = artwork_point(node, (51.4, 17.2)), artwork_point(node, (47.1, 19.9))
             d = math.cos(math.radians(node.heading)), math.sin(math.radians(node.heading))
             assert sum((hatch_b[i] - hatch_a[i]) * d[i] for i in (0, 1)) > 0
+
+
+@pytest.mark.parametrize("initial,normal,parameters", [
+    (0, 45, {"heading": "north"}), (90, 45, {"heading": "east"}),
+    (180, -45, {"heading": 270}), (31.4, 12.7, {"heading": 236.8}),
+    (270, 45, {"turn": "left"}), (37, -45, {"turn": "right"}),
+])
+def test_mirror_heading_and_turn_render_like_equivalent_normal(initial, normal, parameters):
+    actual = beam(initial) >> mirror(**parameters) >> iris()
+    expected = beam(initial) >> mirror(angle=normal) >> iris()
+    actual_layout, expected_layout = actual.layout(), expected.layout()
+    for ident, placed in actual_layout.placements.items():
+        assert placed.position == pytest.approx(expected_layout.placements[ident].position)
+        assert placed.bounds == pytest.approx(expected_layout.placements[ident].bounds)
+    actual_svg, expected_svg = ET.fromstring(actual.to_svg()), ET.fromstring(expected.to_svg())
+    for ident in actual_layout.placements:
+        selector = f"{tag('g')}[@id='components']/{tag('g')}[@id='{ident}']"
+        assert actual_svg.find(selector).get("transform") == expected_svg.find(selector).get("transform")
+    manifest = json.loads(actual_svg.find(f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text)
+    assert manifest["optics"][0]["parameters"] == parameters
 
 
 def test_text_is_editable_upright_and_labels_escaped():
