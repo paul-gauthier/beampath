@@ -204,12 +204,20 @@ canvas `bounds`.
 Editing the setup afterward does not change the snapshot.
 SVG export has no raster dependency. PNG export retains credits in a PNG text
 chunk and embeds the requested resolution. The optional CairoSVG converter
-requires native Cairo. On macOS with Homebrew, if the loader cannot find it:
+requires native Cairo. On macOS with Homebrew, if the loader cannot find it,
+set the library search path and launch Python directly:
 
 ```sh
 brew install cairo
 export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix cairo)/lib${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"
+.venv/bin/python your_script.py
 ```
+
+Running `./your_script.py` with a `#!/usr/bin/env python` shebang goes through
+the macOS-protected `/usr/bin/env` executable, which strips `DYLD_` environment
+variables before Python starts. Launching the virtual environment's interpreter
+directly preserves the search path. See Apple's
+[runtime protections documentation](https://developer.apple.com/library/archive/documentation/Security/Conceptual/System_Integrity_Protection_Guide/RuntimeProtections/RuntimeProtections.html).
 
 ## Adding components
 
