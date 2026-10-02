@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from beampath import Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, Style, beam, iris, HWP, QWP, mirror
+from beampath import Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, Style, beam, beamsplitter, iris, HWP, QWP, mirror
 from beampath.examples import cage_system, mzi
 from beampath.layout import artwork_point
 from beampath.render import artwork_bytes, render_svg, tag
@@ -44,7 +44,7 @@ def test_each_physical_optic_and_beam_segment_render_once():
     root = ET.fromstring(render_svg(layout))
     groups = root.find(f"{tag('g')}[@id='components']")
     assert len(groups) == len(layout.placements) == 10
-    combined = next(n for n in p.setup.optics if n.spec.label == "BS2")
+    combined = next(n for n in p.setup.optics if n.spec.label == "NPBS2")
     assert len(root.findall(f".//{tag('g')}[@id='{combined.id}']")) == 1
     beams = root.find(f"{tag('g')}[@id='optical-path']")
     assert len(beams.findall(tag("line"))) == 2 * len(layout.segments)
@@ -102,6 +102,23 @@ def test_bundled_primitives_and_provenance_are_retained():
     assert sha256(license_data).hexdigest() == pinned["library"]["license_sha256"]
     for asset in pinned["assets"]:
         assert sha256(resources.files("beampath").joinpath("assets", asset["file"]).read_bytes()).hexdigest() == asset["sha256"]
+
+
+@pytest.mark.parametrize("initial", [0, 90, 180, 270, 31.4])
+@pytest.mark.parametrize("normal", [-45, 45, -32, 12.7])
+def test_npbs_cube_surface_matches_beam_geometry(initial, normal):
+    node = (beam(initial) >> beamsplitter(angle=normal)).end.instance
+    assert node.spec.display_label == "NPBS"
+    assert artwork_point(node, (60, 45)) == pytest.approx((0, 0))
+    a, b = artwork_point(node, (40, 65)), artwork_point(node, (80, 25))
+    assert tuple((a[i] + b[i]) / 2 for i in (0, 1)) == pytest.approx((0, 0))
+    length = math.dist(a, b)
+    tangent = tuple((b[i] - a[i]) / length for i in (0, 1))
+    incoming = (math.cos(math.radians(initial)), math.sin(math.radians(initial)))
+    along_surface = sum(incoming[i] * tangent[i] for i in (0, 1))
+    reflected = tuple(2 * along_surface * tangent[i] - incoming[i] for i in (0, 1))
+    outgoing = math.radians(node.heading + node.port("reflect").direction)
+    assert (math.cos(outgoing), math.sin(outgoing)) == pytest.approx(reflected)
 
 
 def test_fiber_role_orientation_and_mirror_backing():

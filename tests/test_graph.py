@@ -10,10 +10,10 @@ from beampath import (
 
 
 def mzi():
-    split = fiber_launch() >> beamsplitter("BS1", angle=-45)
+    split = fiber_launch() >> beamsplitter("NPBS1", angle=-45)
     a = split.straight() >> HWP() >> mirror(angle=-45)
     b = split.reflect() >> LP() >> QWP() >> mirror(angle=45)
-    combined = a.join(b, beamsplitter("BS2", angle=45))
+    combined = a.join(b, beamsplitter("NPBS2", angle=45))
     return split, a, b, combined
 
 
@@ -24,7 +24,7 @@ def test_mzi_graph_and_mutable_cursors():
     assert a.end.instance.heading == 0
     assert b.end.instance.heading == 90
     assert combined.end.instance.heading == 90
-    assert sum(n.spec.label == "BS2" for n in split.setup.optics) == 1
+    assert sum(n.spec.label == "NPBS2" for n in split.setup.optics) == 1
     assert combined.reflect().setup is split.setup
     with pytest.raises(ConnectionError, match="consumed"):
         a >> iris()

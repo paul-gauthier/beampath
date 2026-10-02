@@ -149,12 +149,12 @@ def test_multiline_label_bounds_cover_longest_line_and_all_rows(direction, font_
 def test_unequal_mzi_closes_shared_optic_by_stretching():
     p = mzi()
     result = p.layout()
-    combined = next(o for o in result.placements.values() if o.instance.spec.label == "BS2")
+    combined = next(o for o in result.placements.values() if o.instance.spec.label == "NPBS2")
     incident = [s for s in result.segments if s.source is not None and s.target == combined.id]
     assert sorted(s.length for s in incident) == pytest.approx([380, 570])
     assert all(s.end == pytest.approx(combined.position) for s in incident)
     assert combined.position == pytest.approx((570, 570))
-    assert len([o for o in result.placements.values() if o.instance.spec.label == "BS2"]) == 1
+    assert len([o for o in result.placements.values() if o.instance.spec.label == "NPBS2"]) == 1
     assert len([s for s in result.segments if s.source == combined.id]) == 2
     assert p.layout() == result
 

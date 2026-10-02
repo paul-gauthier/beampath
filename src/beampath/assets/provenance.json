@@ -75,14 +75,14 @@
       "adaptations": "Waveplate annotation removed."
     },
     {
-      "file": "fs-bs-plate.svg",
-      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/15_nonpolarizing/fs-bs-plate.svg",
-      "sha256": "d255fa1c01b6590afe3eb0539a4c2299216ca1438ef574ea514a4c248ae8f3cd",
+      "file": "fs-npbs-cube.svg",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/15_nonpolarizing/fs-bs-cube.svg",
+      "sha256": "68a99b6993660466880262011541efce9a6451a3f5e897629675d9dfee6c1de9",
       "center": [
-        64.5,
-        40
+        60,
+        45
       ],
-      "center_basis": "Midpoint of upstream plate face (52,12)..(77,68)."
+      "center_basis": "Center of the cube rectangle x=40..80, y=25..65, at the midpoint of its splitting diagonal."
     }
   ]
 }

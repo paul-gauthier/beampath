@@ -38,9 +38,10 @@ def _selector(*, remove_axes=False):
     return keep
 
 
-def _art(filename, upstream_path, center, bounds, scale, *, remove_axes=False):
+def _art(filename, upstream_path, center, bounds, scale, *, remove_axes=False, source_filename=None):
+    source_filename = source_filename or filename
     return Artwork(center, bounds, scale, package_resource=filename,
-                   source_url=f"https://raw.githubusercontent.com/itgall/photonics-component-library/{REVISION}/{upstream_path}/{filename}",
+                   source_url=f"https://raw.githubusercontent.com/itgall/photonics-component-library/{REVISION}/{upstream_path}/{source_filename}",
                    attribution=ATTRIBUTION, license_url=LICENSE_URL,
                    selector=_selector(remove_axes=remove_axes))
 
@@ -112,8 +113,8 @@ def _splitter(parameters):
     reflected = reflection(0, angle)
     if aligned(reflected, 0) or aligned(reflected, 180):
         raise ComponentError("Beamsplitter angle must give four distinct physical ports")
-    # Anchor is the midpoint of the upstream plate face (52,12)..(77,68).
-    source_normal = math.degrees(math.atan2(56, 25)) - 90
+    # The cube's splitting diagonal (40,65)..(80,25) has a 45-degree normal.
+    source_normal = 45
     return Geometry((Port("primary", "input"),
                      Port("secondary", "input", reflected, required=False),
                      Port("straight", "output"), Port("reflect", "output", reflected)),
@@ -143,9 +144,9 @@ for name in ("HWP", "QWP"):
         name, name, _art(f"fs-{name.lower()}.svg", "free-space-optics/flat_2d/svg/17_waveplates",
                         (54, 35), (49, 9, 59, 61), 1.5), _straight))
 register_component(ComponentDefinition(
-    "beamsplitter", "BS",
-    _art("fs-bs-plate.svg", "free-space-optics/flat_2d/svg/15_nonpolarizing",
-         (64.5, 40), (51, 11, 83, 69), 1.6),
+    "beamsplitter", "NPBS",
+    _art("fs-npbs-cube.svg", "free-space-optics/flat_2d/svg/15_nonpolarizing",
+         (60, 45), (39, 24, 81, 66), 1.6, source_filename="fs-bs-cube.svg"),
     _splitter, default_input="primary"))
 
 
@@ -165,6 +166,7 @@ def mirror(label: str | None = None, *, angle: float | None = None,
 
 
 def beamsplitter(label: str | None = None, *, angle: float):
+    """A non-polarizing cube beamsplitter, labeled NPBS by default."""
     return component("beamsplitter", label, angle=angle)
 
 

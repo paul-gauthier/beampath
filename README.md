@@ -92,6 +92,7 @@ quarter-wave plate. Labels default to component names; `label=""` hides one.
 Use `\n` for line breaks, such as `HWP("HWP\nIn Rotation Mount")`;
 each line is center-aligned.
 Waveplates display only their label, with no additional annotations.
+The non-polarizing cube beamsplitter defaults to the label `NPBS`.
 A fiber launch's `role` controls its orientation; `role="couple"` ends the
 free-space path.
 
@@ -104,17 +105,17 @@ beamsplitter:
 ```python
 from beampath.components import *
 
-split = fiber_launch() >> beamsplitter("BS1", angle=-45)
+split = fiber_launch() >> beamsplitter("NPBS1", angle=-45)
 a = split.straight() >> HWP() >> mirror(heading="south")
 b = split.reflect() >> LP() >> QWP() >> mirror(heading="east")
-combined = a.join(b, beamsplitter("BS2", angle=+45))
+combined = a.join(b, beamsplitter("NPBS2", angle=+45))
 combined.reflect() >> fiber_launch(role="couple")
 combined.straight() >> iris()
 split.save("mzi.svg")
 ```
 <!-- README:END mzi -->
 
-![Mach–Zehnder interferometer with two arms sharing beamsplitters BS1 and BS2](examples/images/mzi.png)
+![Mach–Zehnder interferometer with two arms sharing beamsplitters NPBS1 and NPBS2](examples/images/mzi.png)
 
 Runnable example: [mzi.py](examples/mzi.py).
 
@@ -139,19 +140,19 @@ The same MZI can connect a shared instance explicitly, in either input order:
 ```python
 from beampath.components import *
 
-split = fiber_launch() >> beamsplitter("BS1", angle=-45)
+split = fiber_launch() >> beamsplitter("NPBS1", angle=-45)
 a = split.straight() >> HWP() >> mirror(heading="south")
 b = split.reflect() >> LP() >> QWP() >> mirror(heading="east")
-bs2 = split.setup.add(beamsplitter("BS2", angle=+45))
-b.connect(bs2.input("secondary"))
-a.connect(bs2.input("primary"))
-bs2.reflect() >> fiber_launch(role="couple")
-bs2.straight() >> iris()
+npbs2 = split.setup.add(beamsplitter("NPBS2", angle=+45))
+b.connect(npbs2.input("secondary"))
+a.connect(npbs2.input("primary"))
+npbs2.reflect() >> fiber_launch(role="couple")
+npbs2.straight() >> iris()
 split.save("shared_optic.svg")
 ```
 <!-- README:END shared_optic -->
 
-![The MZI with both arms connected explicitly to the inputs of shared beamsplitter BS2](examples/images/shared_optic.png)
+![The MZI with both arms connected explicitly to the inputs of shared beamsplitter NPBS2](examples/images/shared_optic.png)
 
 Runnable example: [shared_optic.py](examples/shared_optic.py).
 

@@ -8,10 +8,10 @@ from beampath.examples._export import run_example
 def build():
     """Split two arms and recombine them with join()."""
     # README:BEGIN
-    split = fiber_launch() >> beamsplitter("BS1", angle=-45)
+    split = fiber_launch() >> beamsplitter("NPBS1", angle=-45)
     a = split.straight() >> HWP() >> mirror(heading="south")
     b = split.reflect() >> LP() >> QWP() >> mirror(heading="east")
-    combined = a.join(b, beamsplitter("BS2", angle=+45))
+    combined = a.join(b, beamsplitter("NPBS2", angle=+45))
     combined.reflect() >> fiber_launch(role="couple")
     combined.straight() >> iris()
     # README:END
