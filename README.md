@@ -28,7 +28,9 @@ setup = (
 setup.save("hello.svg")
 ```
 
-![A fiber launch and fiber coupler connected through two mirrors and a half-wave plate](docs/images/hello.png)
+![A fiber launch and fiber coupler connected through two mirrors and a half-wave plate](examples/images/hello.png)
+
+Runnable example: [hello.py](examples/hello.py).
 
 ## Linear chains
 
@@ -51,7 +53,9 @@ setup = (
 setup.save("setup.svg")
 ```
 
-![A linear chain with fiber launch and coupling, four mirrors, two irises, and polarization optics](docs/images/cage.png)
+![A linear chain with fiber launch and coupling, four mirrors, two irises, and polarization optics](examples/images/cage.png)
+
+Runnable example: [cage.py](examples/cage.py).
 
 Chains start building to the east. Use `beam("west") >> fiber_launch(...)` for another direction,
 or `beam(30)` for a numeric heading. Angles are degrees, clockwise positive:
@@ -59,8 +63,20 @@ east is 0, south 90, west 180, and north 270. The initial beam draws no source
 or leading gap. For a single component, write `beam() >> iris()`.
 
 Mirror and beamsplitter `angle` arguments describe the surface normal relative
-to the incoming beam. They are required: `mirror(angle=-45)` turns east to
-south. `LP`, `HWP`, and `QWP` denote a linear polarizer, half-wave plate, and
+to the incoming beam: `mirror(angle=-45)` turns east to south. A mirror accepts
+exactly one of `angle`, `heading`, or `turn`. `mirror(heading="north")` or
+`mirror(heading=270)` sets the absolute outbound beam heading, using the same
+clockwise degrees as `beam()`. `mirror(turn="left")` and `mirror(turn="right")`
+turn the incoming beam by 90 degrees. Impossible reflections, such as an east
+beam meeting `mirror(heading="east")`, raise `ComponentError` when connected;
+a grazing `angle` raises it when the specification is created. Beamsplitters
+still require `angle`.
+
+```python
+setup = beam("east") >> mirror(heading="north") >> mirror(turn="right") >> iris()
+```
+
+`LP`, `HWP`, and `QWP` denote a linear polarizer, half-wave plate, and
 quarter-wave plate. Labels default to component names; `label=""` hides one.
 Waveplates display only their label, with no additional annotations.
 A fiber launch's `role` controls its orientation; `role="couple"` ends the
@@ -86,7 +102,9 @@ south = combined.straight() >> iris()
 split.save("mzi.svg")
 ```
 
-![Mach–Zehnder interferometer with two arms sharing beamsplitters BS1 and BS2](docs/images/mzi.png)
+![Mach–Zehnder interferometer with two arms sharing beamsplitters BS1 and BS2](examples/images/mzi.png)
+
+Runnable example: [mzi.py](examples/mzi.py).
 
 Each `Path` is a mutable cursor in one `Setup`. `path >> optic` and
 `path >>= optic` both advance it; `alias = path` aliases that cursor. Selecting
@@ -103,16 +121,27 @@ Both incoming beams share the same two output ports and one physical optic.
 to its other input, and consumes both cursors. The returned cursor selects its
 outbound paths. Saving any path saves its whole setup, including all branches.
 
-You can also connect a shared instance explicitly, in either input order:
+The same MZI can connect a shared instance explicitly, in either input order:
 
 ```python
+split = fiber_launch() >> beamsplitter("BS1", angle=-45)
+a = split.straight() >> HWP() >> mirror(angle=-45)
+b = split.reflect() >> LP() >> QWP() >> mirror(angle=+45)
+
 bs2 = split.setup.add(beamsplitter("BS2", angle=+45))
 b.connect(bs2.input("secondary"))
 a.connect(bs2.input("primary"))
-east = bs2.reflect()
+east = bs2.reflect() >> fiber_launch(role="couple")
+south = bs2.straight() >> iris()
+split.save("shared_optic.svg")
 ```
 
-Use this example in place of `join()`. `path.end` retrieves its current
+![The MZI with both arms connected explicitly to the inputs of shared beamsplitter BS2](examples/images/shared_optic.png)
+
+Runnable example: [shared_optic.py](examples/shared_optic.py).
+
+Here, `Setup.add()` creates the shared optic instead of `join()`.
+`path.end` retrieves its current
 `OpticRef`; the reference continues to identify that physical optic after the
 cursor advances. Component specifications are reusable templates: inserting
 the same specification twice creates two optics. Sharing requires an `OpticRef`.
@@ -130,7 +159,12 @@ polarization = chain(LP(), HWP(), QWP())
 path = beam() >> polarization >> polarization  # Six independent optics.
 path.append(iris(), distance=250)
 path.append(mirror(angle=-45), at=(2000, 0))
+path.save("reuse.svg")
 ```
+
+![Two independent copies of a polarization chain followed by an iris and a positioned mirror](examples/images/reuse.png)
+
+Runnable example: [reuse.py](examples/reuse.py).
 
 `distance` fixes the incoming segment's length between its two port anchors;
 it may be below the default pitch if artwork still clears. `at` fixes an
@@ -144,11 +178,21 @@ the same constraints. For multiple initial beams, use `drawing = Setup()` and
 `drawing.beam(direction, origin=(x, y))`; separate `beam()` calls create
 separate setups and cannot be joined.
 
+## Rendering
+
+Use `Style` to control spacing, label size, and beam appearance:
+
 ```python
-layout = path.layout(style=Style(pitch=220, font_size=20))
-svg_text = path.to_svg()
-path.save("setup.png", width=2400, dpi=300)
+path = beam() >> LP() >> HWP() >> QWP()
+style = Style(pitch=220, font_size=20, beam_color="#1f77b4")
+layout = path.layout(style=style)
+svg_text = path.to_svg(style=style)
+path.save("rendering.png", style=style, width=2400, dpi=600)
 ```
+
+![A linear polarizer and two waveplates connected with a blue beam and custom spacing](examples/images/rendering.png)
+
+Runnable example: [rendering.py](examples/rendering.py).
 
 `Layout` is an immutable snapshot with `placements`, `segments`, `labels`, and
 canvas `bounds`.
@@ -183,8 +227,11 @@ register_component(ComponentDefinition(
     name="fork",
     default_label="Fork",
     artwork=Artwork(
-        center=(0, 0), bounds=(-10, -10, 10, 10), path="fork.svg",
-        attribution="Your artwork credit", license_url="Your license URL",
+        center=(0, 0), bounds=(-10, -10, 10, 10),
+        svg='<svg xmlns="http://www.w3.org/2000/svg">'
+            '<rect x="-10" y="-10" width="20" height="20" fill="#d5d8e8"/>'
+            '</svg>',
+        attribution="beampath custom component example artwork",
     ),
     resolve=fork_geometry,
 ))
@@ -193,10 +240,21 @@ fork = beam() >> component("fork")
 fork.out("forward") >> LP()
 fork.out("up") >> HWP()
 fork.out("down") >> QWP()
+fork.save("custom_component.svg")
 ```
+
+![A custom fork component with forward, upward, and downward outputs feeding polarization optics](examples/images/custom_component.png)
+
+Runnable example: [custom_component.py](examples/custom_component.py).
 
 Resolvers are pure functions of immutable parameters and return `Geometry`.
 They may vary port directions, positions, and artwork rotation or reflection.
+An output port with `absolute=True` fixes its direction in the drawing's
+compass frame. An optional `resolve_incidence(parameters, heading)` on the
+definition can refine local geometry and artwork once incidence is known;
+it must preserve port names, kinds, and input directions. Resolved instance
+geometry is available as `optic_ref.instance.geometry`; specifications stay
+reusable even when their artwork depends on incidence.
 Set `default_input` on the definition when its input is named differently;
 mark optional inputs with `required=False`. Source definitions without inputs
 use `default_input=None`. Bounds should conservatively contain retained artwork,
@@ -211,16 +269,21 @@ in custom artwork).
 ```sh
 uv sync --extra dev --extra png
 uv run python -m pytest
-uv run python -m beampath.examples --diagram mzi --png
-uv run python -m beampath.examples --diagram cage --png
+uv run python examples/hello.py --png
+uv run python -m beampath.examples --diagram all --png
 uv build
 ```
 
+Every diagram has its own runnable Python file in [examples/](examples/), with
+README previews in `examples/images/`. Run any file as shown above, or use
+`--diagram hello`, `cage`, `mzi`, `shared_optic`, `reuse`, `rendering`, or
+`custom_component` with the module command. Use `--diagram all` to render all seven.
+
 Generated examples go under `build/examples/`; use `--output-dir` to choose
 another directory. Omit `--png` for SVG only, or set `--width` to choose the
-PNG width (default 2400 pixels). The example command also works after installing
-the package. Tests verify layout, bundled artwork hashes, attribution, PNG
-pixels, and rendering from an installed wheel.
+PNG width (default 2400 pixels). The module command also works after installing
+the package. Tests verify the example scripts, layout, bundled artwork hashes,
+attribution, PNG pixels, and rendering from an installed wheel.
 
 Component artwork, its license, and source provenance live in
 `src/beampath/assets/` and ship with the package.

@@ -15,6 +15,8 @@ def test_built_wheel_resources_work_without_checkout(tmp_path):
         archive.extractall(installation)
         assert "beampath/assets/LICENSE" in archive.namelist()
         assert "beampath/py.typed" in archive.namelist()
+        assert "beampath/examples/hello.py" in archive.namelist()
+        assert "beampath/examples/custom_component.py" in archive.namelist()
     code = """
 import sys
 import runpy
@@ -33,6 +35,12 @@ for name, factory in (("cage", cage_system), ("mzi", mzi)):
     sys.argv = ["beampath.examples", "--diagram", name, "--output-dir", "examples"]
     runpy.run_module("beampath.examples", run_name="__main__")
     assert Path("examples", name + ".svg").read_text() == factory().to_svg()
+sys.argv = ["beampath.examples", "--diagram", "all", "--output-dir", "all-examples"]
+runpy.run_module("beampath.examples", run_name="__main__")
+assert {p.stem for p in Path("all-examples").glob("*.svg")} == {
+    "hello", "cage", "mzi", "shared_optic", "reuse", "rendering", "custom_component",
+}
+assert 'cairosvg' not in sys.modules
 """
     subprocess.run([sys.executable, "-I", "-c", code, str(installation)],
                    cwd=tmp_path, check=True, capture_output=True, text=True)
