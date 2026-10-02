@@ -1,0 +1,167 @@
+from copy import deepcopy
+import builtins
+from hashlib import sha256
+from importlib import resources
+import json
+import math
+import re
+import xml.etree.ElementTree as ET
+
+import pytest
+
+from beampath import Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, beam, iris, HWP
+from beampath.examples import cage_system, mzi
+from beampath.layout import artwork_point
+from beampath.render import artwork_bytes, render_svg, tag
+
+
+def test_each_physical_optic_and_beam_segment_render_once():
+    p = mzi()
+    layout = p.layout()
+    root = ET.fromstring(render_svg(layout))
+    groups = root.find(f"{tag('g')}[@id='components']")
+    assert len(groups) == len(layout.placements) == 10
+    combined = next(n for n in p.setup.optics if n.spec.label == "BS2")
+    assert len(root.findall(f".//{tag('g')}[@id='{combined.id}']")) == 1
+    beams = root.find(f"{tag('g')}[@id='optical-path']")
+    assert len(beams.findall(tag("line"))) == 2 * len(layout.segments)
+    assert list(root).index(beams) < list(root).index(groups)
+
+
+def test_namespaces_and_internal_svg_references():
+    artwork = '<svg xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="clip"><circle r="8"/></clipPath></defs><rect x="-10" y="-10" width="20" height="20" clip-path="url(#clip)"/></svg>'
+    definition = ComponentDefinition("custom", "Custom", Artwork((0, 0), (-10, -10, 10, 10), svg=artwork),
+                                     lambda p: Geometry((Port("in", "input"), Port("out", "output"))))
+    spec = ComponentSpec(definition)
+    root = ET.fromstring((spec >> spec).to_svg())
+    ids = [n.get("id") for n in root.iter() if n.get("id")]
+    assert len(ids) == len(set(ids))
+    assert "optic-001-clip" in ids and "optic-002-clip" in ids
+    for node in root.iter():
+        for value in node.attrib.values():
+            for ref in re.findall(r"url\(#([^)]*)\)", value):
+                assert ref in ids
+
+
+def test_original_primitives_and_provenance_are_retained():
+    p = cage_system()
+    root = ET.fromstring(p.to_svg())
+    manifest = json.loads(root.find(f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text)
+    assert len(manifest["assets"]) == 6
+    assert all("Creative Commons Attribution" in a["attribution"] for a in manifest["assets"])
+    assert all("7e44e14341489b067d7c8e1390af87b9c423103e" in a["source_url"] for a in manifest["assets"])
+    for node in p.setup.optics:
+        art = node.spec.definition.artwork
+        original = ET.fromstring(artwork_bytes(art))
+        selected = [child for child in original if child.tag == tag("defs") or art.selector(child)]
+        imported = list(root.find(f"{tag('g')}[@id='components']/{tag('g')}[@id='{node.id}']"))
+        assert len(selected) == len(imported)
+
+        def compare(a, b):
+            assert a.tag == b.tag and (a.text or "").strip() == (b.text or "").strip()
+            attributes = dict(b.attrib)
+            attributes.pop("id", None)
+            expected = dict(a.attrib)
+            expected.pop("id", None)
+            if a.tag == tag("text"):
+                attributes.pop("transform", None)
+                expected.pop("transform", None)
+            for key, value in attributes.items():
+                attributes[key] = value.replace("#" + node.id + "-", "#")
+            assert expected == attributes
+            assert len(a) == len(b)
+            for ac, bc in zip(a, b):
+                compare(ac, bc)
+        for a, b in zip(selected, imported):
+            compare(a, b)
+    pinned = json.loads(resources.files("beampath").joinpath("assets/provenance.json").read_text())
+    for asset in pinned["assets"]:
+        assert sha256(resources.files("beampath").joinpath("assets", asset["file"]).read_bytes()).hexdigest() == asset["sha256"]
+
+
+def test_fiber_role_orientation_and_mirror_backing():
+    layout = cage_system().layout()
+    nodes = list(layout.placements.values())
+    launch, couple = nodes[0].instance, nodes[-1].instance
+    assert artwork_point(launch, (85, 27))[0] < 0
+    assert artwork_point(couple, (85, 27))[0] > 0
+    for placed in nodes:
+        node = placed.instance
+        if node.spec.definition.name == "mirror":
+            a, b = artwork_point(node, (50, 15)), artwork_point(node, (75, 55))
+            surface = b[0] - a[0], b[1] - a[1]
+            assert abs(surface[0]) == pytest.approx(abs(surface[1]))
+            # A hatch end is deeper into backing than its reflecting-surface start.
+            hatch_a, hatch_b = artwork_point(node, (51.4, 17.2)), artwork_point(node, (47.1, 19.9))
+            d = math.cos(math.radians(node.heading)), math.sin(math.radians(node.heading))
+            assert sum((hatch_b[i] - hatch_a[i]) * d[i] for i in (0, 1)) > 0
+
+
+def test_text_is_editable_upright_and_labels_escaped():
+    p = beam("south") >> HWP('A < B & "C"')
+    root = ET.fromstring(p.to_svg())
+    text = root.find(f"{tag('g')}[@id='component-labels']/{tag('text')}")
+    assert text.text == 'A < B & "C"'
+    assert text.get("transform") is None
+    glyph = next(t for t in root.iter(tag("text")) if t.text == "λ/2")
+    assert "rotate(-90)" in glyph.get("transform")
+    assert not any(n.tag in {tag("image"), tag("foreignObject"), tag("script")} for n in root.iter())
+
+
+def test_default_labels_and_canvas_margins():
+    p = iris() >> HWP()
+    layout = p.layout()
+    assert [label.text for label in layout.labels] == ["Iris", "HWP"]
+    x0, y0, x1, y1 = layout.bounds
+    for box in [o.bounds for o in layout.placements.values()] + [label.bounds for label in layout.labels]:
+        assert box[0] >= x0 + layout.style.margin - 1e-6
+        assert box[1] >= y0 + layout.style.margin - 1e-6
+        assert box[2] <= x1 - layout.style.margin + 1e-6
+        assert box[3] <= y1 - layout.style.margin + 1e-6
+
+
+def test_save_svg_and_invalid_options(tmp_path):
+    p = iris() >> HWP()
+    dest = tmp_path / "setup.svg"
+    assert p.save(dest) == dest
+    assert dest.read_text() == p.to_svg()
+    for options in ({"width": 0}, {"width": 100}, {"dpi": -1}):
+        with pytest.raises(ValueError):
+            p.save(dest, **options)
+    with pytest.raises(ValueError, match=".svg or .png"):
+        p.save(tmp_path / "setup.pdf")
+
+
+def test_missing_png_dependency_has_clear_error(tmp_path, monkeypatch):
+    original_import = builtins.__import__
+
+    def missing(name, *args, **kwargs):
+        if name == "cairosvg":
+            raise ImportError("not installed")
+        return original_import(name, *args, **kwargs)
+    monkeypatch.setattr(builtins, "__import__", missing)
+    with pytest.raises(RuntimeError, match=r"beampath\[png\].*Cairo"):
+        (beam() >> iris()).save(tmp_path / "setup.png")
+    assert not (tmp_path / "setup.png").exists()
+
+
+def test_png_matches_svg_raster_and_retains_credits(tmp_path):
+    try:
+        import cairosvg
+    except (ImportError, OSError):
+        pytest.skip("Optional PNG converter or native Cairo is unavailable")
+    from PIL import Image
+    from io import BytesIO
+    p = mzi()
+    path = tmp_path / "mzi.png"
+    p.save(path, width=1800, dpi=600)
+    actual = Image.open(path)
+    expected = Image.open(BytesIO(cairosvg.svg2png(bytestring=p.to_svg().encode(), output_width=1800, dpi=600)))
+    assert actual.size == expected.size
+    assert actual.tobytes() == expected.tobytes()
+    assert actual.width == 1800
+    assert actual.info["dpi"] == pytest.approx((600, 600), abs=.02)
+    credits = json.loads(actual.info["beampath-attribution"])
+    assert len(credits["assets"]) == 7
+    assert "attribution" in credits["assets"][0]
+    assert actual.convert("RGB").getpixel((0, 0)) == (255, 255, 255)

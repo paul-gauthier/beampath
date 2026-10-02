@@ -1,0 +1,86 @@
+{
+  "library": {
+    "name": "Photonics Component Library",
+    "repository": "https://github.com/itgall/photonics-component-library",
+    "revision": "7e44e14341489b067d7c8e1390af87b9c423103e",
+    "revision_url": "https://github.com/itgall/photonics-component-library/commit/7e44e14341489b067d7c8e1390af87b9c423103e",
+    "style": "flat_2d",
+    "copyright": "Copyright (c) 2025 Photonics Component Library Contributors",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "license_file": "components/LICENSE",
+    "license_sha256": "e0c144956b2e6fc4f72a82f63d49b164b9fa7981fb9511a31912313f97d66c02"
+  },
+  "assets": [
+    {
+      "file": "f-fiber-launch.svg",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/fiber-optics/flat_2d/svg/11_beam_delivery/f-fiber-launch.svg",
+      "sha256": "48869e38a31c99fce1f8ae6bd36b27714aee266d9aecee919ed07f70ddda0229",
+      "center": [
+        46.5,
+        27
+      ],
+      "center_basis": "Intersection of the lens's cubic Bezier curve with the optical axis at y=27 (t=0.5)."
+    },
+    {
+      "file": "fs-flat-mirror.svg",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/14_flat_mirrors/fs-flat-mirror.svg",
+      "sha256": "3936e21371f1e56bb3b6bd74dbf58e3c14a1fddf39665d1d080e58c2eb319db5",
+      "center": [
+        62.5,
+        35
+      ],
+      "center_basis": "Midpoint of the actual reflecting line from (50,15) to (75,55)."
+    },
+    {
+      "file": "fs-iris.svg",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/23_apertures_beam_control/fs-iris.svg",
+      "sha256": "e7fa8c5b6770b4625a927b869ebe85e5b0c470d8afa45c876a7aafbbc1dc1a83",
+      "center": [
+        50,
+        40
+      ],
+      "center_basis": "Concentric iris circles and aperture center."
+    },
+    {
+      "file": "fs-wire-grid-polarizer.svg",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/17_polarizers/fs-wire-grid-polarizer.svg",
+      "sha256": "a0fbdd915a9c2e1297cd8c673b5df4771ffcc4af9919569df623c5dd82785bb7",
+      "center": [
+        49,
+        35
+      ],
+      "center_basis": "Center of the optical plate rectangle x=45..53, y=8..62."
+    },
+    {
+      "file": "fs-hwp.svg",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/17_waveplates/fs-hwp.svg",
+      "sha256": "780f6a4ac23f65a5a90495907ef1e20f96a2e7c5ba1d539e4163a944356c87ba",
+      "center": [
+        54,
+        35
+      ],
+      "center_basis": "Center of the optical plate rectangle x=50..58, y=10..60."
+    },
+    {
+      "file": "fs-qwp.svg",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/17_waveplates/fs-qwp.svg",
+      "sha256": "d7488d5bd47de2e15e64d4ca51959fc134577fe33e2423ea6ccc0d775ad8d85f",
+      "center": [
+        54,
+        35
+      ],
+      "center_basis": "Center of the optical plate rectangle x=50..58, y=10..60."
+    },
+    {
+      "file": "fs-bs-plate.svg",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/15_nonpolarizing/fs-bs-plate.svg",
+      "sha256": "d255fa1c01b6590afe3eb0539a4c2299216ca1438ef574ea514a4c248ae8f3cd",
+      "center": [
+        64.5,
+        40
+      ],
+      "center_basis": "Midpoint of upstream plate face (52,12)..(77,68)."
+    }
+  ]
+}
