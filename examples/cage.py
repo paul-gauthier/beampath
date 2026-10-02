@@ -1,10 +1,13 @@
 """A linear chain of polarization optics with folded fiber connections."""
+# README:BEGIN
 from beampath import HWP, LP, QWP, fiber_launch, iris, mirror
+# README:END
 from beampath.examples._export import run_example
 
 
 def build():
     """Connect a cage-system chain between a fiber launch and coupler."""
+    # README:BEGIN
     setup = (
         fiber_launch()
         >> mirror(turn="right")
@@ -20,6 +23,7 @@ def build():
         >> mirror(turn="right")
         >> fiber_launch(role="couple")
     )
+    # README:END
     return setup
 
 

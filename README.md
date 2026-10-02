@@ -6,8 +6,9 @@ into a physical graph, solve its spacing, and render editable SVG artwork.
 Start with a fiber launch, two mirrors, a half-wave plate, and a fiber coupler.
 `>>` connects components in beam order:
 
+<!-- README:BEGIN hello -->
 ```python
-from beampath import *
+from beampath import HWP, fiber_launch, mirror
 
 setup = (
     fiber_launch()
@@ -18,6 +19,7 @@ setup = (
 )
 setup.save("hello.svg")
 ```
+<!-- README:END hello -->
 
 ![A fiber launch and fiber coupler connected through two mirrors and a half-wave plate](examples/images/hello.png)
 
@@ -25,7 +27,10 @@ Runnable example: [hello.py](examples/hello.py).
 
 ## Linear chains
 
+<!-- README:BEGIN cage -->
 ```python
+from beampath import HWP, LP, QWP, fiber_launch, iris, mirror
+
 setup = (
     fiber_launch()
     >> mirror(turn="right")
@@ -43,6 +48,7 @@ setup = (
 )
 setup.save("setup.svg")
 ```
+<!-- README:END cage -->
 
 ![A linear chain with fiber launch and coupling, four mirrors, two irises, and polarization optics](examples/images/cage.png)
 
@@ -67,10 +73,14 @@ turn the incoming beam by 90 degrees. Impossible reflections, such as an east
 beam meeting `mirror(heading="east")`, raise `ComponentError` when connected;
 a grazing `angle` raises it when the specification is created. 
 
+<!-- README:BEGIN mirror_heading -->
 ```python
+from beampath import beam, iris, mirror
+
 setup = beam("east") >> mirror(heading="north") >> mirror(turn="right") >> iris()
 setup.save("mirror_heading.svg")
 ```
+<!-- README:END mirror_heading -->
 
 ![Two mirrors turn an eastward beam north and then right toward an iris](examples/images/mirror_heading.png)
 
@@ -87,20 +97,19 @@ free-space path.
 A Mach–Zehnder interferometer (MZI) with two arms and a shared recombining
 beamsplitter:
 
+<!-- README:BEGIN mzi -->
 ```python
-split = (
-    fiber_launch()
-    >> beamsplitter("BS1", angle=-45)
-)
+from beampath import HWP, LP, QWP, beamsplitter, fiber_launch, iris, mirror
 
+split = fiber_launch() >> beamsplitter("BS1", angle=-45)
 a = split.straight() >> HWP() >> mirror(heading="south")
 b = split.reflect() >> LP() >> QWP() >> mirror(heading="east")
 combined = a.join(b, beamsplitter("BS2", angle=+45))
-
-east = combined.reflect() >> fiber_launch(role="couple")
-south = combined.straight() >> iris()
+combined.reflect() >> fiber_launch(role="couple")
+combined.straight() >> iris()
 split.save("mzi.svg")
 ```
+<!-- README:END mzi -->
 
 ![Mach–Zehnder interferometer with two arms sharing beamsplitters BS1 and BS2](examples/images/mzi.png)
 
@@ -123,18 +132,21 @@ outbound paths. Saving any path saves its whole setup, including all branches.
 
 The same MZI can connect a shared instance explicitly, in either input order:
 
+<!-- README:BEGIN shared_optic -->
 ```python
+from beampath import HWP, LP, QWP, beamsplitter, fiber_launch, iris, mirror
+
 split = fiber_launch() >> beamsplitter("BS1", angle=-45)
 a = split.straight() >> HWP() >> mirror(heading="south")
 b = split.reflect() >> LP() >> QWP() >> mirror(heading="east")
-
 bs2 = split.setup.add(beamsplitter("BS2", angle=+45))
 b.connect(bs2.input("secondary"))
 a.connect(bs2.input("primary"))
-east = bs2.reflect() >> fiber_launch(role="couple")
-south = bs2.straight() >> iris()
+bs2.reflect() >> fiber_launch(role="couple")
+bs2.straight() >> iris()
 split.save("shared_optic.svg")
 ```
+<!-- README:END shared_optic -->
 
 ![The MZI with both arms connected explicitly to the inputs of shared beamsplitter BS2](examples/images/shared_optic.png)
 
@@ -156,13 +168,17 @@ runs. Beam crossings do not create connections. Initial free-space inputs and
 open outputs get short stubs, controlled by `Style.open_length` (95 diagram
 units by default) and extended as needed for artwork clearance.
 
+<!-- README:BEGIN reuse -->
 ```python
+from beampath import HWP, LP, QWP, beam, chain, iris, mirror
+
 polarization = chain(LP(), HWP(), QWP())
 path = beam() >> polarization >> polarization  # Six independent optics.
 path.append(iris(), distance=250)
 path.append(mirror(turn="right"), at=(2000, 0))
 path.save("reuse.svg")
 ```
+<!-- README:END reuse -->
 
 ![Two independent copies of a polarization chain followed by an iris and a positioned mirror](examples/images/reuse.png)
 
@@ -185,13 +201,19 @@ separate setups and cannot be joined.
 
 Use `Style` to control spacing, label size, and beam appearance:
 
+<!-- README:BEGIN rendering -->
 ```python
+from beampath import HWP, LP, QWP, Style, beam
+
+STYLE = Style(pitch=220, font_size=20, beam_color="#1f77b4")
+
 path = beam() >> LP() >> HWP() >> QWP()
-style = Style(pitch=220, font_size=20, beam_color="#1f77b4")
-layout = path.layout(style=style)
-svg_text = path.to_svg(style=style)
-path.save("rendering.png", style=style, width=2400, dpi=600)
+
+layout = path.layout(style=STYLE)
+svg_text = path.to_svg(style=STYLE)
+path.save("rendering.png", style=STYLE, width=2400, dpi=600)
 ```
+<!-- README:END rendering -->
 
 ![A linear polarizer and two waveplates connected with a blue beam and custom spacing](examples/images/rendering.png)
 
@@ -229,7 +251,13 @@ Port directions and positions are relative to its reference beam frame, with
 positions in diagram units. Artwork coordinates and bounds are in source SVG
 units; the renderer applies its `scale`, reference `center`, and resolved pose.
 
+<!-- README:BEGIN custom_component -->
 ```python
+from beampath import (
+    Artwork, ComponentDefinition, Geometry, HWP, LP, Port, QWP,
+    beam, component, register_component,
+)
+
 def fork_geometry(parameters):
     return Geometry((
         Port("in", "input", 0, (-10, 0)),
@@ -237,6 +265,7 @@ def fork_geometry(parameters):
         Port("up", "output", 270, (0, -10)),
         Port("down", "output", 90, (0, 10)),
     ))
+
 
 register_component(ComponentDefinition(
     name="fork",
@@ -257,6 +286,7 @@ fork.out("up") >> HWP()
 fork.out("down") >> QWP()
 fork.save("custom_component.svg")
 ```
+<!-- README:END custom_component -->
 
 ![A custom fork component with forward, upward, and downward outputs feeding polarization optics](examples/images/custom_component.png)
 
@@ -300,8 +330,21 @@ uv sync --extra dev --extra png
 uv run python -m pytest
 uv run python examples/hello.py --png
 uv run python -m beampath.examples --diagram all --png
+.venv/bin/python scripts/rebuild_readme.py
 uv build
 ```
+
+To refresh the README's code snippets and all eight PNG previews after editing
+an example, run `.venv/bin/python scripts/rebuild_readme.py`. It works from any
+directory when invoked by its path. PNG rendering needs the Cairo setup described
+above; a rendering failure leaves the README and existing previews intact.
+
+Edit the code between `# README:BEGIN` and `# README:END` in each example.
+Multiple regions are combined and dedented, excluding the example's function
+wrapper and command-line code. The helper updates only the blocks between the
+matching `<!-- README:BEGIN name -->` and `<!-- README:END name -->` comments.
+README-only save calls live in `SAVE_CALLS` in the helper; edit surrounding prose
+directly in the README.
 
 Every diagram has its own runnable Python file in [examples/](examples/), with
 README previews in `examples/images/`. Run any file as shown above, or use
