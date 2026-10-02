@@ -57,14 +57,15 @@ with no incoming free-space stub on its fiber side. A fiber coupler used first
 receives an incoming stub. For a single component, write `beam() >> iris()`.
 
 Mirror and beamsplitter `angle` arguments describe the surface normal relative
-to the incoming beam: `mirror(angle=-45)` turns east to south. A mirror accepts
+to the incoming beam: `mirror(angle=-45)` turns east to south. 
+
+A mirror has more flexibility. It accepts
 exactly one of `angle`, `heading`, or `turn`. `mirror(heading="north")` or
 `mirror(heading=270)` sets the absolute outbound beam heading, using the same
 clockwise degrees as `beam()`. `mirror(turn="left")` and `mirror(turn="right")`
 turn the incoming beam by 90 degrees. Impossible reflections, such as an east
 beam meeting `mirror(heading="east")`, raise `ComponentError` when connected;
-a grazing `angle` raises it when the specification is created. Beamsplitters
-still require `angle`.
+a grazing `angle` raises it when the specification is created. 
 
 ```python
 setup = beam("east") >> mirror(heading="north") >> mirror(turn="right") >> iris()
