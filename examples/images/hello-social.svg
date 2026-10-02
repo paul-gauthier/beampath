@@ -1,0 +1,371 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" version="1.1" width="2400" height="1260" viewBox="-393.2 -163.55 1346.85714286 707.1" font-family="Helvetica, Arial, sans-serif" aria-label="Hello optical setup with its Python sample code">
+  <metadata id="provenance">
+    <rdf:RDF>
+      <cc:Work rdf:about="fiber_launch">
+        <dc:description>Component artwork: Photonics Component Library (2025), Photonics Component Library Contributors, maintained by Isaac Gallegos (itgall). https://github.com/itgall/photonics-component-library. Licensed under Creative Commons Attribution 4.0 International (https://creativecommons.org/licenses/by/4.0/). Adaptations: source captions, demonstration beams and annotations removed; primitives uniformly scaled, translated, rotated or reflected; text kept upright; IDs namespaced; diagram beams and labels added. No endorsement is implied.</dc:description>
+        <dc:source rdf:resource="https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/fiber-optics/flat_2d/svg/11_beam_delivery/f-fiber-launch.svg" />
+        <cc:license rdf:resource="https://creativecommons.org/licenses/by/4.0/" />
+      </cc:Work>
+      <cc:Work rdf:about="mirror">
+        <dc:description>Component artwork: Photonics Component Library (2025), Photonics Component Library Contributors, maintained by Isaac Gallegos (itgall). https://github.com/itgall/photonics-component-library. Licensed under Creative Commons Attribution 4.0 International (https://creativecommons.org/licenses/by/4.0/). Adaptations: source captions, demonstration beams and annotations removed; primitives uniformly scaled, translated, rotated or reflected; text kept upright; IDs namespaced; diagram beams and labels added. No endorsement is implied.</dc:description>
+        <dc:source rdf:resource="https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/14_flat_mirrors/fs-flat-mirror.svg" />
+        <cc:license rdf:resource="https://creativecommons.org/licenses/by/4.0/" />
+      </cc:Work>
+      <cc:Work rdf:about="HWP">
+        <dc:description>Component artwork: Photonics Component Library (2025), Photonics Component Library Contributors, maintained by Isaac Gallegos (itgall). https://github.com/itgall/photonics-component-library. Licensed under Creative Commons Attribution 4.0 International (https://creativecommons.org/licenses/by/4.0/). Adaptations: source captions, demonstration beams and annotations removed; primitives uniformly scaled, translated, rotated or reflected; text kept upright; IDs namespaced; diagram beams and labels added. No endorsement is implied.</dc:description>
+        <dc:source rdf:resource="https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/17_waveplates/fs-hwp.svg" />
+        <cc:license rdf:resource="https://creativecommons.org/licenses/by/4.0/" />
+      </cc:Work>
+    </rdf:RDF>
+    <metadata id="asset-attribution-manifest">{
+  "schema_version": 1,
+  "generator": "beampath",
+  "assets": [
+    {
+      "component": "fiber_launch",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/fiber-optics/flat_2d/svg/11_beam_delivery/f-fiber-launch.svg",
+      "sha256": "48869e38a31c99fce1f8ae6bd36b27714aee266d9aecee919ed07f70ddda0229",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": "Component artwork: Photonics Component Library (2025), Photonics Component Library Contributors, maintained by Isaac Gallegos (itgall). https://github.com/itgall/photonics-component-library. Licensed under Creative Commons Attribution 4.0 International (https://creativecommons.org/licenses/by/4.0/). Adaptations: source captions, demonstration beams and annotations removed; primitives uniformly scaled, translated, rotated or reflected; text kept upright; IDs namespaced; diagram beams and labels added. No endorsement is implied.",
+      "source_center": [
+        46.5,
+        27.0
+      ],
+      "scale": 2.4,
+      "adaptations": "Selected source primitives; similarity transforms; upright text; namespaced IDs."
+    },
+    {
+      "component": "mirror",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/14_flat_mirrors/fs-flat-mirror.svg",
+      "sha256": "3936e21371f1e56bb3b6bd74dbf58e3c14a1fddf39665d1d080e58c2eb319db5",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": "Component artwork: Photonics Component Library (2025), Photonics Component Library Contributors, maintained by Isaac Gallegos (itgall). https://github.com/itgall/photonics-component-library. Licensed under Creative Commons Attribution 4.0 International (https://creativecommons.org/licenses/by/4.0/). Adaptations: source captions, demonstration beams and annotations removed; primitives uniformly scaled, translated, rotated or reflected; text kept upright; IDs namespaced; diagram beams and labels added. No endorsement is implied.",
+      "source_center": [
+        62.5,
+        35.0
+      ],
+      "scale": 1.6,
+      "adaptations": "Selected source primitives; similarity transforms; upright text; namespaced IDs."
+    },
+    {
+      "component": "HWP",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/17_waveplates/fs-hwp.svg",
+      "sha256": "3548e382cfc126a1a747befab0bc04a85a37c17b114755a83773635557fe1a8c",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": "Component artwork: Photonics Component Library (2025), Photonics Component Library Contributors, maintained by Isaac Gallegos (itgall). https://github.com/itgall/photonics-component-library. Licensed under Creative Commons Attribution 4.0 International (https://creativecommons.org/licenses/by/4.0/). Adaptations: source captions, demonstration beams and annotations removed; primitives uniformly scaled, translated, rotated or reflected; text kept upright; IDs namespaced; diagram beams and labels added. No endorsement is implied.",
+      "source_center": [
+        54.0,
+        35.0
+      ],
+      "scale": 1.5,
+      "adaptations": "Selected source primitives; similarity transforms; upright text; namespaced IDs."
+    }
+  ],
+  "optics": [
+    {
+      "id": "optic-001",
+      "component": "fiber_launch",
+      "label": "Fiber launch",
+      "parameters": {
+        "role": "launch"
+      },
+      "position": [
+        0.0,
+        0.0
+      ],
+      "heading": 0.0,
+      "artwork_rotation": 0.0,
+      "reflected": true,
+      "transform": "translate(0 0) rotate(0) scale(2.4) scale(-1 1) translate(-46.5 -27)"
+    },
+    {
+      "id": "optic-002",
+      "component": "mirror",
+      "label": "Mirror",
+      "parameters": {
+        "turn": "right"
+      },
+      "position": [
+        190.0,
+        0.0
+      ],
+      "heading": 0.0,
+      "artwork_rotation": -192.99461679191648,
+      "reflected": false,
+      "transform": "translate(190 0) rotate(-192.994616792) scale(1.6) translate(-62.5 -35)"
+    },
+    {
+      "id": "optic-003",
+      "component": "HWP",
+      "label": "HWP",
+      "parameters": {},
+      "position": [
+        190.0,
+        190.0
+      ],
+      "heading": 90.0,
+      "artwork_rotation": 90.0,
+      "reflected": false,
+      "transform": "translate(190 190) rotate(90) scale(1.5) translate(-54 -35)"
+    },
+    {
+      "id": "optic-004",
+      "component": "mirror",
+      "label": "Mirror",
+      "parameters": {
+        "turn": "left"
+      },
+      "position": [
+        190.0,
+        380.0
+      ],
+      "heading": 90.0,
+      "artwork_rotation": -12.994616791916485,
+      "reflected": false,
+      "transform": "translate(190 380) rotate(-12.9946167919) scale(1.6) translate(-62.5 -35)"
+    },
+    {
+      "id": "optic-005",
+      "component": "fiber_launch",
+      "label": "Fiber coupler",
+      "parameters": {
+        "role": "couple"
+      },
+      "position": [
+        380.0,
+        380.0
+      ],
+      "heading": 0.0,
+      "artwork_rotation": 0.0,
+      "reflected": false,
+      "transform": "translate(380 380) rotate(0) scale(2.4) translate(-46.5 -27)"
+    }
+  ],
+  "segments": [
+    {
+      "id": "segment-001",
+      "start": [
+        0.0,
+        0.0
+      ],
+      "end": [
+        190.0,
+        0.0
+      ],
+      "source": "optic-001",
+      "output": "out",
+      "target": "optic-002",
+      "input": "in"
+    },
+    {
+      "id": "segment-002",
+      "start": [
+        190.0,
+        0.0
+      ],
+      "end": [
+        190.0,
+        190.0
+      ],
+      "source": "optic-002",
+      "output": "out",
+      "target": "optic-003",
+      "input": "in"
+    },
+    {
+      "id": "segment-003",
+      "start": [
+        190.0,
+        190.0
+      ],
+      "end": [
+        190.0,
+        380.0
+      ],
+      "source": "optic-003",
+      "output": "out",
+      "target": "optic-004",
+      "input": "in"
+    },
+    {
+      "id": "segment-004",
+      "start": [
+        190.0,
+        380.0
+      ],
+      "end": [
+        380.0,
+        380.0
+      ],
+      "source": "optic-004",
+      "output": "out",
+      "target": "optic-005",
+      "input": "in"
+    }
+  ],
+  "labels": [
+    {
+      "optic": "optic-001",
+      "text": "Fiber launch",
+      "position": [
+        -92.39999999999999,
+        -61.125
+      ]
+    },
+    {
+      "optic": "optic-002",
+      "text": "Mirror",
+      "position": [
+        190.0,
+        -59.00083515218644
+      ]
+    },
+    {
+      "optic": "optic-003",
+      "text": "HWP",
+      "position": [
+        273.06,
+        198.05
+      ]
+    },
+    {
+      "optic": "optic-004",
+      "text": "Mirror",
+      "position": [
+        190.0,
+        455.10083515218645
+      ]
+    },
+    {
+      "optic": "optic-005",
+      "text": "Fiber coupler",
+      "position": [
+        472.4,
+        457.225
+      ]
+    }
+  ],
+  "bounds": [
+    -393.2,
+    -163.55,
+    953.6571428571428,
+    543.55
+  ]
+}</metadata>
+  </metadata>
+  <defs>
+    <marker id="beam-arrow" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+      <polygon points="0,0 6,2 0,4" fill="#CC0000" />
+    </marker>
+  </defs>
+  <rect id="background" x="-393.2" y="-163.55" width="1346.85714286" height="707.1" fill="#FFFFFF" />
+  <g id="optical-path" fill="none" stroke="#CC0000" stroke-width="2.3" stroke-linecap="butt">
+    <line id="segment-001" x1="0" y1="0" x2="190" y2="0" data-source="optic-001" data-output="out" data-target="optic-002" data-input="in" />
+    <line id="segment-001-arrow" x1="83" y1="0" x2="95" y2="0" marker-end="url(#beam-arrow)" />
+    <line id="segment-002" x1="190" y1="0" x2="190" y2="190" data-source="optic-002" data-output="out" data-target="optic-003" data-input="in" />
+    <line id="segment-002-arrow" x1="190" y1="83" x2="190" y2="95" marker-end="url(#beam-arrow)" />
+    <line id="segment-003" x1="190" y1="190" x2="190" y2="380" data-source="optic-003" data-output="out" data-target="optic-004" data-input="in" />
+    <line id="segment-003-arrow" x1="190" y1="273" x2="190" y2="285" marker-end="url(#beam-arrow)" />
+    <line id="segment-004" x1="190" y1="380" x2="380" y2="380" data-source="optic-004" data-output="out" data-target="optic-005" data-input="in" />
+    <line id="segment-004-arrow" x1="273" y1="380" x2="285" y2="380" marker-end="url(#beam-arrow)" />
+  </g>
+  <g id="components">
+    <g id="optic-001" transform="translate(0 0) rotate(0) scale(2.4) scale(-1 1) translate(-46.5 -27)" data-component="fiber_launch" data-optical-center="0 0" data-heading="0">
+      <defs id="optic-001-source-00">
+        <marker id="optic-001-arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+          <polygon points="0 0, 6 2, 0 4" fill="#000000" />
+        </marker>
+      </defs>
+      <path d="M42,12 C48,20 48,34 42,42" fill="none" stroke="#000000" stroke-width="0.75" id="optic-001-source-02" />
+      <rect x="60" y="14" width="50" height="26" rx="2" fill="#D4D8E8" stroke="#000000" stroke-width="0.75" id="optic-001-source-05" />
+      <line x1="110" y1="27" x2="175" y2="27" stroke="#1B1E89" stroke-width="2.5" stroke-linecap="round" id="optic-001-source-11" />
+    </g>
+    <g id="optic-002" transform="translate(190 0) rotate(-192.994616792) scale(1.6) translate(-62.5 -35)" data-component="mirror" data-optical-center="190 0" data-heading="0" font-family="Arial, Helvetica, sans-serif">
+      <defs id="optic-002-source-00">
+        <marker id="optic-002-arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+          <polygon points="0,0 6,2 0,4" fill="#000000" />
+        </marker>
+        <marker id="optic-002-arrowhead-beam" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+          <polygon points="0,0 6,2 0,4" fill="#CC0000" />
+        </marker>
+      </defs>
+      <line x1="50" y1="15" x2="75" y2="55" stroke="#000000" stroke-width="1.5" id="optic-002-source-03" />
+      <line x1="51.4" y1="17.2" x2="47.1" y2="19.9" stroke="#666666" stroke-width="0.3" id="optic-002-source-04" />
+      <line x1="54.2" y1="21.7" x2="49.9" y2="24.3" stroke="#666666" stroke-width="0.3" id="optic-002-source-05" />
+      <line x1="56.9" y1="26.1" x2="52.7" y2="28.8" stroke="#666666" stroke-width="0.3" id="optic-002-source-06" />
+      <line x1="59.7" y1="30.6" x2="55.5" y2="33.2" stroke="#666666" stroke-width="0.3" id="optic-002-source-07" />
+      <line x1="62.5" y1="35.0" x2="58.3" y2="37.6" stroke="#666666" stroke-width="0.3" id="optic-002-source-08" />
+      <line x1="65.3" y1="39.4" x2="61.0" y2="42.1" stroke="#666666" stroke-width="0.3" id="optic-002-source-09" />
+      <line x1="68.1" y1="43.9" x2="63.8" y2="46.5" stroke="#666666" stroke-width="0.3" id="optic-002-source-10" />
+      <line x1="70.8" y1="48.3" x2="66.6" y2="51.0" stroke="#666666" stroke-width="0.3" id="optic-002-source-11" />
+      <line x1="73.6" y1="52.8" x2="69.4" y2="55.4" stroke="#666666" stroke-width="0.3" id="optic-002-source-12" />
+    </g>
+    <g id="optic-003" transform="translate(190 190) rotate(90) scale(1.5) translate(-54 -35)" data-component="HWP" data-optical-center="190 190" data-heading="90" font-family="Arial, Helvetica, sans-serif">
+      <defs id="optic-003-source-00">
+        <marker id="optic-003-arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+          <polygon points="0,0 6,2 0,4" fill="#000000" />
+        </marker>
+        <marker id="optic-003-arrowhead-beam" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+          <polygon points="0,0 6,2 0,4" fill="#CC0000" />
+        </marker>
+      </defs>
+      <rect x="50" y="10" width="8" height="50" rx="1" fill="#C8D8F0" stroke="#000000" stroke-width="0.75" id="optic-003-source-02" />
+      <line x1="54" y1="14" x2="54" y2="56" stroke="#CC0000" stroke-width="0.35" stroke-dasharray="2,2" opacity="0.4" id="optic-003-source-03" />
+    </g>
+    <g id="optic-004" transform="translate(190 380) rotate(-12.9946167919) scale(1.6) translate(-62.5 -35)" data-component="mirror" data-optical-center="190 380" data-heading="90" font-family="Arial, Helvetica, sans-serif">
+      <defs id="optic-004-source-00">
+        <marker id="optic-004-arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+          <polygon points="0,0 6,2 0,4" fill="#000000" />
+        </marker>
+        <marker id="optic-004-arrowhead-beam" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+          <polygon points="0,0 6,2 0,4" fill="#CC0000" />
+        </marker>
+      </defs>
+      <line x1="50" y1="15" x2="75" y2="55" stroke="#000000" stroke-width="1.5" id="optic-004-source-03" />
+      <line x1="51.4" y1="17.2" x2="47.1" y2="19.9" stroke="#666666" stroke-width="0.3" id="optic-004-source-04" />
+      <line x1="54.2" y1="21.7" x2="49.9" y2="24.3" stroke="#666666" stroke-width="0.3" id="optic-004-source-05" />
+      <line x1="56.9" y1="26.1" x2="52.7" y2="28.8" stroke="#666666" stroke-width="0.3" id="optic-004-source-06" />
+      <line x1="59.7" y1="30.6" x2="55.5" y2="33.2" stroke="#666666" stroke-width="0.3" id="optic-004-source-07" />
+      <line x1="62.5" y1="35.0" x2="58.3" y2="37.6" stroke="#666666" stroke-width="0.3" id="optic-004-source-08" />
+      <line x1="65.3" y1="39.4" x2="61.0" y2="42.1" stroke="#666666" stroke-width="0.3" id="optic-004-source-09" />
+      <line x1="68.1" y1="43.9" x2="63.8" y2="46.5" stroke="#666666" stroke-width="0.3" id="optic-004-source-10" />
+      <line x1="70.8" y1="48.3" x2="66.6" y2="51.0" stroke="#666666" stroke-width="0.3" id="optic-004-source-11" />
+      <line x1="73.6" y1="52.8" x2="69.4" y2="55.4" stroke="#666666" stroke-width="0.3" id="optic-004-source-12" />
+    </g>
+    <g id="optic-005" transform="translate(380 380) rotate(0) scale(2.4) translate(-46.5 -27)" data-component="fiber_launch" data-optical-center="380 380" data-heading="0">
+      <defs id="optic-005-source-00">
+        <marker id="optic-005-arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+          <polygon points="0 0, 6 2, 0 4" fill="#000000" />
+        </marker>
+      </defs>
+      <path d="M42,12 C48,20 48,34 42,42" fill="none" stroke="#000000" stroke-width="0.75" id="optic-005-source-02" />
+      <rect x="60" y="14" width="50" height="26" rx="2" fill="#D4D8E8" stroke="#000000" stroke-width="0.75" id="optic-005-source-05" />
+      <line x1="110" y1="27" x2="175" y2="27" stroke="#1B1E89" stroke-width="2.5" stroke-linecap="round" id="optic-005-source-11" />
+    </g>
+  </g>
+  <g id="component-labels" font-size="23" font-weight="normal" text-anchor="middle" fill="#000000">
+    <text id="optic-001-label" x="-92.4" y="-61.125">Fiber launch</text>
+    <text id="optic-002-label" x="190" y="-59.0008351522">Mirror</text>
+    <text id="optic-003-label" x="273.06" y="198.05">HWP</text>
+    <text id="optic-004-label" x="190" y="455.100835152">Mirror</text>
+    <text id="optic-005-label" x="472.4" y="457.225">Fiber coupler</text>
+  </g>
+  <title>beampath — hello</title>
+  <desc>A fiber launch, two mirrors, a half-wave plate, and a fiber coupler, with the Python code that creates the diagram in the upper right.</desc>
+  <g id="sample-code-inset">
+    <rect x="335" y="-125.55" width="580.657142857" height="344" rx="8" fill="#eceef0" />
+    <g id="sample-code" font-size="24" font-family="Menlo, DejaVu Sans Mono, monospace" fill="#24292f">
+      <text x="363" y="-81.55" xml:space="preserve"><tspan fill="#7c3aae">from</tspan><tspan> beampath.components </tspan><tspan fill="#7c3aae">import</tspan><tspan> *</tspan></text>
+      <text x="363" y="-52.55" xml:space="preserve" />
+      <text x="363" y="-23.55" xml:space="preserve"><tspan>setup = (</tspan></text>
+      <text x="363" y="5.45" xml:space="preserve"><tspan>    fiber_launch()</tspan></text>
+      <text x="363" y="34.45" xml:space="preserve"><tspan>    &gt;&gt; mirror(turn=</tspan><tspan fill="#b4232e">"right"</tspan><tspan>)</tspan></text>
+      <text x="363" y="63.45" xml:space="preserve"><tspan>    &gt;&gt; HWP()</tspan></text>
+      <text x="363" y="92.45" xml:space="preserve"><tspan>    &gt;&gt; mirror(turn=</tspan><tspan fill="#b4232e">"left"</tspan><tspan>)</tspan></text>
+      <text x="363" y="121.45" xml:space="preserve"><tspan>    &gt;&gt; fiber_launch(role=</tspan><tspan fill="#b4232e">"couple"</tspan><tspan>)</tspan></text>
+      <text x="363" y="150.45" xml:space="preserve"><tspan>)</tspan></text>
+      <text x="363" y="179.45" xml:space="preserve"><tspan>setup.save(</tspan><tspan fill="#b4232e">"hello.svg"</tspan><tspan>)</tspan></text>
+    </g>
+  </g>
+</svg>
