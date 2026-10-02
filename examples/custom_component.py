@@ -1,9 +1,10 @@
 """Define inline artwork and three named output ports for a custom component."""
 # README:BEGIN
 from beampath import (
-    Artwork, ComponentDefinition, Geometry, HWP, LP, Port, QWP,
+    Artwork, ComponentDefinition, Geometry, Port,
     beam, component, register_component,
 )
+from beampath.components import *
 # README:END
 from beampath.examples import run_example
 

@@ -1,6 +1,6 @@
 """A Mach–Zehnder interferometer with a shared recombining beamsplitter."""
 # README:BEGIN
-from beampath import HWP, LP, QWP, beamsplitter, fiber_launch, iris, mirror
+from beampath.components import *
 # README:END
 from beampath.examples._export import run_example
 

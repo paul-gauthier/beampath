@@ -1,6 +1,6 @@
 """A linear chain of polarization optics with folded fiber connections."""
 # README:BEGIN
-from beampath import HWP, LP, QWP, fiber_launch, iris, mirror
+from beampath.components import *
 # README:END
 from beampath.examples._export import run_example
 

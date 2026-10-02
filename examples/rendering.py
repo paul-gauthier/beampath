@@ -1,6 +1,7 @@
 """Render a polarization chain with custom spacing, labels, and beam color."""
 # README:BEGIN
-from beampath import HWP, LP, QWP, Style, beam
+from beampath import Style, beam
+from beampath.components import *
 # README:END
 from beampath.examples import run_example
 

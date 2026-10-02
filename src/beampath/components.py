@@ -7,6 +7,10 @@ from .definitions import Artwork, ComponentDefinition, Geometry, Port, component
 from .errors import ComponentError
 from .geometry import aligned, finite, heading, reflection
 
+__all__ = [
+    "fiber_launch", "mirror", "beamsplitter", "iris", "LP", "HWP", "QWP",
+]
+
 REVISION = "7e44e14341489b067d7c8e1390af87b9c423103e"
 REPOSITORY = "https://github.com/itgall/photonics-component-library"
 LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/"

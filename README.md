@@ -8,7 +8,7 @@ Start with a fiber launch, two mirrors, a half-wave plate, and a fiber coupler.
 
 <!-- README:BEGIN hello -->
 ```python
-from beampath import HWP, fiber_launch, mirror
+from beampath.components import *
 
 setup = (
     fiber_launch()
@@ -29,7 +29,7 @@ Runnable example: [hello.py](examples/hello.py).
 
 <!-- README:BEGIN cage -->
 ```python
-from beampath import HWP, LP, QWP, fiber_launch, iris, mirror
+from beampath.components import *
 
 setup = (
     fiber_launch()
@@ -75,7 +75,8 @@ a grazing `angle` raises it when the specification is created.
 
 <!-- README:BEGIN mirror_heading -->
 ```python
-from beampath import beam, iris, mirror
+from beampath import beam
+from beampath.components import *
 
 setup = beam("east") >> mirror(heading="north") >> mirror(turn="right") >> iris()
 setup.save("mirror_heading.svg")
@@ -101,7 +102,7 @@ beamsplitter:
 
 <!-- README:BEGIN mzi -->
 ```python
-from beampath import HWP, LP, QWP, beamsplitter, fiber_launch, iris, mirror
+from beampath.components import *
 
 split = fiber_launch() >> beamsplitter("BS1", angle=-45)
 a = split.straight() >> HWP() >> mirror(heading="south")
@@ -136,7 +137,7 @@ The same MZI can connect a shared instance explicitly, in either input order:
 
 <!-- README:BEGIN shared_optic -->
 ```python
-from beampath import HWP, LP, QWP, beamsplitter, fiber_launch, iris, mirror
+from beampath.components import *
 
 split = fiber_launch() >> beamsplitter("BS1", angle=-45)
 a = split.straight() >> HWP() >> mirror(heading="south")
@@ -172,7 +173,8 @@ units by default) and extended as needed for artwork clearance.
 
 <!-- README:BEGIN reuse -->
 ```python
-from beampath import HWP, LP, QWP, beam, chain, iris, mirror
+from beampath import beam, chain
+from beampath.components import *
 
 polarization = chain(LP(), HWP(), QWP())
 path = beam() >> polarization >> polarization  # Six independent optics.
@@ -205,7 +207,8 @@ Use `Style` to control spacing, label size, and beam appearance:
 
 <!-- README:BEGIN rendering -->
 ```python
-from beampath import HWP, LP, QWP, Style, beam
+from beampath import Style, beam
+from beampath.components import *
 
 STYLE = Style(pitch=220, font_size=20, beam_color="#1f77b4")
 
@@ -256,9 +259,10 @@ units; the renderer applies its `scale`, reference `center`, and resolved pose.
 <!-- README:BEGIN custom_component -->
 ```python
 from beampath import (
-    Artwork, ComponentDefinition, Geometry, HWP, LP, Port, QWP,
+    Artwork, ComponentDefinition, Geometry, Port,
     beam, component, register_component,
 )
+from beampath.components import *
 
 def fork_geometry(parameters):
     return Geometry((

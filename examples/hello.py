@@ -1,6 +1,6 @@
 """A fiber path folded by two mirrors, with a half-wave plate."""
 # README:BEGIN
-from beampath import HWP, fiber_launch, mirror
+from beampath.components import *
 # README:END
 from beampath.examples import run_example
 

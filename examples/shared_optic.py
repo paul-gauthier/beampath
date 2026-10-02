@@ -1,6 +1,6 @@
 """The MZI connected through named inputs on a shared physical optic."""
 # README:BEGIN
-from beampath import HWP, LP, QWP, beamsplitter, fiber_launch, iris, mirror
+from beampath.components import *
 # README:END
 from beampath.examples import run_example
 

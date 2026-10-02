@@ -1,6 +1,7 @@
 """Reuse a component chain and constrain its final gaps and position."""
 # README:BEGIN
-from beampath import HWP, LP, QWP, beam, chain, iris, mirror
+from beampath import beam, chain
+from beampath.components import *
 # README:END
 from beampath.examples import run_example
 

@@ -1,6 +1,7 @@
 """Set an absolute mirror heading, then make a relative 90-degree turn."""
 # README:BEGIN
-from beampath import beam, iris, mirror
+from beampath import beam
+from beampath.components import *
 # README:END
 from beampath.examples import run_example
 
