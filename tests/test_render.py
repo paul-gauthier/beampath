@@ -42,7 +42,7 @@ def test_namespaces_and_internal_svg_references():
                 assert ref in ids
 
 
-def test_original_primitives_and_provenance_are_retained():
+def test_bundled_primitives_and_provenance_are_retained():
     p = cage_system()
     root = ET.fromstring(p.to_svg())
     manifest = json.loads(root.find(f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text)
@@ -74,6 +74,8 @@ def test_original_primitives_and_provenance_are_retained():
         for a, b in zip(selected, imported):
             compare(a, b)
     pinned = json.loads(resources.files("beampath").joinpath("assets/provenance.json").read_text())
+    license_data = resources.files("beampath").joinpath("assets", pinned["library"]["license_file"]).read_bytes()
+    assert sha256(license_data).hexdigest() == pinned["library"]["license_sha256"]
     for asset in pinned["assets"]:
         assert sha256(resources.files("beampath").joinpath("assets", asset["file"]).read_bytes()).hexdigest() == asset["sha256"]
 

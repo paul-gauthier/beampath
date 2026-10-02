@@ -16,19 +16,19 @@ Component Library under CC BY 4.0; credits and source hashes travel with exporte
 from beampath import *
 
 setup = (
-    fiber_launch("KT120", role="launch")
-    >> mirror("Corner mirror", angle=-45)
-    >> mirror("Corner mirror", angle=+45)
+    fiber_launch()
+    >> mirror(angle=-45)
+    >> mirror(angle=+45)
     >> iris()
-    >> LP("CRM1PT")
-    >> HWP("K10CR1")
-    >> QWP("DDR25")
-    >> HWP("DDR25")
-    >> LP("CRM1PT")
+    >> LP()
+    >> HWP()
+    >> QWP()
+    >> HWP()
+    >> LP()
     >> iris()
-    >> mirror("Corner mirror", angle=+45)
-    >> mirror("Corner mirror", angle=-45)
-    >> fiber_launch("KT120", role="couple")
+    >> mirror(angle=+45)
+    >> mirror(angle=-45)
+    >> fiber_launch(role="couple")
 )
 setup.save("setup.svg")
 ```
@@ -50,7 +50,7 @@ free-space path.
 
 ```python
 split = (
-    fiber_launch("KT120", role="launch")
+    fiber_launch()
     >> beamsplitter("BS1", angle=-45)
 )
 
@@ -186,16 +186,19 @@ in custom artwork).
 ```sh
 uv sync --extra dev --extra png
 uv run python -m pytest
-uv run python scripts/build_schematic.py
-uv run python scripts/build_schematic.py --diagram mzi --png
-uv run python scripts/verify_schematic.py --diagram mzi --png
+uv run python -m beampath.examples --diagram cage --png
+uv run python -m beampath.examples --diagram mzi --png
 uv build
 ```
 
-Generated examples go under `build/examples/`. The original top-level SVG,
-PNG, ZIP, and `components/` records remain the visual reference and source
-archive. Existing Node build/verification entrypoints delegate to the Python
-tools and require no Node rendering dependencies.
+Generated examples go under `build/examples/`; use `--output-dir` to choose
+another directory. Omit `--png` for SVG only, or set `--width` to choose the
+PNG width (default 2400 pixels). The example command also works after installing
+the package. Tests verify layout, bundled artwork hashes, attribution, PNG
+pixels, and rendering from an installed wheel.
+
+Component artwork, its license, and source provenance live in
+`src/beampath/assets/` and ship with the package.
 
 This version produces schematic diagrams with finite acyclic connections.
 Repeated passes, closed cavities, and optical power or polarization simulation

@@ -8,7 +8,7 @@
     "copyright": "Copyright (c) 2025 Photonics Component Library Contributors",
     "license": "CC BY 4.0",
     "license_url": "https://creativecommons.org/licenses/by/4.0/",
-    "license_file": "components/LICENSE",
+    "license_file": "LICENSE",
     "license_sha256": "e0c144956b2e6fc4f72a82f63d49b164b9fa7981fb9511a31912313f97d66c02"
   },
   "assets": [

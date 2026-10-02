@@ -11,7 +11,7 @@ from beampath import (
 from beampath.examples import cage_system, mzi
 
 
-def test_original_layout_and_labels():
+def test_cage_layout_and_labels():
     p = cage_system()
     result = p.layout()
     grid = [(0, 0), (1, 0), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1),

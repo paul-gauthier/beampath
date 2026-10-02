@@ -10,7 +10,7 @@ from beampath import (
 
 
 def mzi():
-    split = fiber_launch("KT120") >> beamsplitter("BS1", angle=-45)
+    split = fiber_launch() >> beamsplitter("BS1", angle=-45)
     a = split.straight() >> HWP() >> mirror(angle=-45)
     b = split.reflect() >> LP() >> QWP() >> mirror(angle=45)
     combined = a.join(b, beamsplitter("BS2", angle=45))

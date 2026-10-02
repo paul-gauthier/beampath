@@ -17,6 +17,7 @@ def test_built_wheel_resources_work_without_checkout(tmp_path):
         assert "beampath/py.typed" in archive.namelist()
     code = """
 import sys
+import runpy
 from pathlib import Path
 sys.path.insert(0, sys.argv[1])
 import beampath
@@ -28,6 +29,10 @@ for setup in (cage_system(), mzi()):
     assert 'CC BY' in svg or 'Creative Commons Attribution' in svg
     assert 'data-component' in svg
 assert 'cairosvg' not in sys.modules
+for name, factory in (("cage", cage_system), ("mzi", mzi)):
+    sys.argv = ["beampath.examples", "--diagram", name, "--output-dir", "examples"]
+    runpy.run_module("beampath.examples", run_name="__main__")
+    assert Path("examples", name + ".svg").read_text() == factory().to_svg()
 """
     subprocess.run([sys.executable, "-I", "-c", code, str(installation)],
                    cwd=tmp_path, check=True, capture_output=True, text=True)
