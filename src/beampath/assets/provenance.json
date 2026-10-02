@@ -55,22 +55,24 @@
     {
       "file": "fs-hwp.svg",
       "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/17_waveplates/fs-hwp.svg",
-      "sha256": "780f6a4ac23f65a5a90495907ef1e20f96a2e7c5ba1d539e4163a944356c87ba",
+      "sha256": "3548e382cfc126a1a747befab0bc04a85a37c17b114755a83773635557fe1a8c",
       "center": [
         54,
         35
       ],
-      "center_basis": "Center of the optical plate rectangle x=50..58, y=10..60."
+      "center_basis": "Center of the optical plate rectangle x=50..58, y=10..60.",
+      "adaptations": "Waveplate annotation removed."
     },
     {
       "file": "fs-qwp.svg",
       "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/17_waveplates/fs-qwp.svg",
-      "sha256": "d7488d5bd47de2e15e64d4ca51959fc134577fe33e2423ea6ccc0d775ad8d85f",
+      "sha256": "0c26e19a336cd61802910423ab7b5c1f423ec2bb5dac560dc30c420f0d8cb915",
       "center": [
         54,
         35
       ],
-      "center_basis": "Center of the optical plate rectangle x=50..58, y=10..60."
+      "center_basis": "Center of the optical plate rectangle x=50..58, y=10..60.",
+      "adaptations": "Waveplate annotation removed."
     },
     {
       "file": "fs-bs-plate.svg",

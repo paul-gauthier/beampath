@@ -28,10 +28,9 @@ class Style:
     beam_color: str = "#CC0000"
     font_family: str = "Helvetica, Arial, sans-serif"
     background: str = "#FFFFFF"
-    marking_font_size: float = 20
 
     def __post_init__(self):
-        for name in ("pitch", "clearance", "margin", "font_size", "label_gap", "open_length", "beam_width", "marking_font_size"):
+        for name in ("pitch", "clearance", "margin", "font_size", "label_gap", "open_length", "beam_width"):
             value = finite(getattr(self, name), name)
             if value <= 0:
                 raise LayoutError(f"{name} must be positive")
@@ -50,40 +49,15 @@ def artwork_point(node: OpticInstance, source_point: Point) -> Point:
     return rotate((x, y), node.heading + node.spec.geometry.artwork_rotation)
 
 
-def _body_footprint(node: OpticInstance) -> Bounds:
+def footprint(node: OpticInstance) -> Bounds:
     x0, y0, x1, y1 = node.spec.definition.artwork.bounds
     return envelope([artwork_point(node, p) for p in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))])
 
 
 def _text_size(text: str, font_size: float) -> Point:
-    # Conservative metrics shared by captions and intrinsic annotations.
+    # Conservative label metrics.
     widths = {"i": .3, "l": .3, "I": .35, " ": .35, "W": 1, "M": 1}
     return font_size * sum(widths.get(c, .72) for c in text) + 4, font_size * 1.25
-
-
-def _marking(node: OpticInstance, body: Bounds, style: Style) -> Label | None:
-    text = node.spec.definition.marking
-    if text is None:
-        return None
-    width, height = _text_size(text, style.marking_font_size)
-    # Place the upright text beyond the optic along its transverse direction.
-    # Account for the whole text box rather than rotating its baseline anchor.
-    dx, dy = unit(node.heading - 90)
-    body_reach = max(x * dx + y * dy for x in (body[0], body[2]) for y in (body[1], body[3]))
-    text_reach = abs(dx) * width / 2 + abs(dy) * height / 2
-    reach = body_reach + text_reach + style.label_gap
-    cx, cy = reach * dx, reach * dy
-    box = cx - width / 2, cy - height / 2, cx + width / 2, cy + height / 2
-    return Label(node.id, text, (cx, cy + style.marking_font_size * .35), box)
-
-
-def footprint(node: OpticInstance, style: Style | None = None) -> Bounds:
-    body = _body_footprint(node)
-    marking = _marking(node, body, style or Style())
-    if marking is None:
-        return body
-    return envelope([(body[0], body[1]), (body[2], body[3]),
-                     (marking.bounds[0], marking.bounds[1]), (marking.bounds[2], marking.bounds[3])])
 
 
 @dataclass(frozen=True)
@@ -91,7 +65,6 @@ class PlacedOptic:
     instance: OpticInstance
     position: Point
     bounds: Bounds
-    body_bounds: Bounds | None = None
 
     @property
     def id(self):
@@ -134,13 +107,11 @@ class Layout:
     labels: tuple[Label, ...]
     bounds: Bounds
     style: Style
-    markings: tuple[Label, ...] = ()
 
     def __post_init__(self):
         object.__setattr__(self, "placements", MappingProxyType(dict(self.placements)))
         object.__setattr__(self, "segments", tuple(self.segments))
         object.__setattr__(self, "labels", tuple(self.labels))
-        object.__setattr__(self, "markings", tuple(self.markings))
 
 
 def _project(bounds: Bounds, anchor: Point, direction: Point) -> tuple[float, float]:
@@ -236,7 +207,7 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
     xs = {ident: kiwi.Variable(f"{ident}.x") for ident in nodes}
     ys = {ident: kiwi.Variable(f"{ident}.y") for ident in nodes}
     lengths = {edge.id: kiwi.Variable(f"{edge.id}.length") for edge in setup.connections}
-    footprints = {ident: footprint(node, style) for ident, node in nodes.items()}
+    footprints = {ident: footprint(node) for ident, node in nodes.items()}
 
     def required(constraint, context):
         try:
@@ -289,8 +260,7 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
     placements = {}
     for ident, node in nodes.items():
         position = clean(xs[ident].value()), clean(ys[ident].value())
-        placements[ident] = PlacedOptic(node, position, translated(footprints[ident], position),
-                                         translated(_body_footprint(node), position))
+        placements[ident] = PlacedOptic(node, position, translated(footprints[ident], position))
     items = list(placements.values())
     for index, a in enumerate(items):
         for b in items[index + 1:]:
@@ -315,12 +285,6 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
                     segment.start, segment.end, placed.bounds):
                 raise LayoutError(f"{segment.id}: beam crosses unrelated optic {placed.id}")
     labels = _labels(placements, segments, style)
-    markings = []
-    for placed in placements.values():
-        marking = _marking(placed.instance, _body_footprint(placed.instance), style)
-        if marking is not None:
-            markings.append(Label(placed.id, marking.text, add(marking.position, placed.position),
-                                  translated(marking.bounds, placed.position)))
     points = []
     for bounds in [p.bounds for p in placements.values()] + [label.bounds for label in labels]:
         points.extend(((bounds[0], bounds[1]), (bounds[2], bounds[3])))
@@ -328,4 +292,4 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
         points.extend((segment.start, segment.end))
     x0, y0, x1, y1 = envelope(points)
     bounds = x0 - style.margin, y0 - style.margin, x1 + style.margin, y1 + style.margin
-    return Layout(placements, tuple(segments), labels, bounds, style, tuple(markings))
+    return Layout(placements, tuple(segments), labels, bounds, style)

@@ -42,6 +42,7 @@ Mirror and beamsplitter `angle` arguments describe the surface normal relative
 to the incoming beam. They are required: `mirror(angle=-45)` turns east to
 south. `LP`, `HWP`, and `QWP` denote a linear polarizer, half-wave plate, and
 quarter-wave plate. Labels default to component names; `label=""` hides one.
+Waveplates display only their label, with no additional annotations.
 A fiber launch's `role` controls its orientation; `role="couple"` ends the
 free-space path.
 
@@ -125,9 +126,7 @@ path.save("setup.png", width=2400, dpi=300)
 ```
 
 `Layout` is an immutable snapshot with `placements`, `segments`, `labels`, and
-canvas `bounds`. Its `markings` contain upright intrinsic annotations, such as
-waveplate λ/2 and λ/4 notes. These sit clear of the optic and use a readable
-20-unit font by default; adjust it with `Style(marking_font_size=...)`.
+canvas `bounds`.
 Editing the setup afterward does not change the snapshot.
 SVG export has no raster dependency. PNG export retains credits in a PNG text
 chunk and embeds the requested resolution. The optional CairoSVG converter
@@ -172,8 +171,6 @@ fork.out("down") >> QWP()
 ```
 
 Resolvers are pure functions of immutable parameters and return `Geometry`.
-Definitions may supply a `marking` string for an upright intrinsic annotation;
-layout reserves space for it perpendicular to the reference beam direction.
 They may vary port directions, positions, and artwork rotation or reflection.
 Set `default_input` on the definition when its input is named differently;
 mark optional inputs with `required=False`. Source definitions without inputs

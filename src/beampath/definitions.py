@@ -94,7 +94,6 @@ class ComponentDefinition:
     resolve: Callable[[Mapping], Geometry]
     default_input: str | None = "in"
     label_anchor: Point | None = None
-    marking: str | None = None
 
     def __post_init__(self):
         if not isinstance(self.name, str) or not self.name:
@@ -105,8 +104,6 @@ class ComponentDefinition:
             raise ComponentError("A definition needs a label and geometry resolver")
         if self.label_anchor is not None:
             object.__setattr__(self, "label_anchor", point(self.label_anchor, "label anchor"))
-        if self.marking is not None and (not isinstance(self.marking, str) or not self.marking):
-            raise ComponentError("A component marking must be a nonempty string")
 
 
 def _freeze(value):

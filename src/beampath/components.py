@@ -14,17 +14,16 @@ ATTRIBUTION = (
     "Component artwork: Photonics Component Library (2025), Photonics Component Library "
     "Contributors, maintained by Isaac Gallegos (itgall). " + REPOSITORY + ". "
     "Licensed under Creative Commons Attribution 4.0 International (" + LICENSE_URL + "). "
-    "Adaptations: source captions, demonstration beams and reference annotations removed; "
+    "Adaptations: source captions, demonstration beams and annotations removed; "
     "primitives uniformly scaled, translated, rotated or reflected; text kept upright; "
-    "waveplate annotations resized and placed clear of the optics; "
     "IDs namespaced; diagram beams and labels added. No endorsement is implied."
 )
 
 
-def _selector(caption, *, annotations=(), remove_axes=False):
+def _selector(*, remove_axes=False):
     def keep(element):
         tag = element.tag.rsplit("}", 1)[-1]
-        if tag == "text" and element.text in (caption, *annotations):
+        if tag == "text":
             return False
         if tag == "line":
             if element.get("stroke") == "#CC0000" and not element.get("stroke-dasharray"):
@@ -35,11 +34,11 @@ def _selector(caption, *, annotations=(), remove_axes=False):
     return keep
 
 
-def _art(filename, upstream_path, center, bounds, scale, caption, **selection):
+def _art(filename, upstream_path, center, bounds, scale, *, remove_axes=False):
     return Artwork(center, bounds, scale, package_resource=filename,
                    source_url=f"https://raw.githubusercontent.com/itgall/photonics-component-library/{REVISION}/{upstream_path}/{filename}",
                    attribution=ATTRIBUTION, license_url=LICENSE_URL,
-                   selector=_selector(caption, **selection))
+                   selector=_selector(remove_axes=remove_axes))
 
 
 def _parameters(parameters, allowed):
@@ -92,33 +91,28 @@ def _splitter(parameters):
 register_component(ComponentDefinition(
     "fiber_launch", "Fiber launch",
     _art("f-fiber-launch.svg", "fiber-optics/flat_2d/svg/11_beam_delivery",
-         (46.5, 27), (41, 10, 177, 44), 2.4, "Fiber launch",
-         annotations=("stage", "x", "y"), remove_axes=True),
+         (46.5, 27), (41, 10, 177, 44), 2.4, remove_axes=True),
     _fiber, label_anchor=(85, 27)))
 register_component(ComponentDefinition(
     "mirror", "Mirror",
     _art("fs-flat-mirror.svg", "free-space-optics/flat_2d/svg/14_flat_mirrors",
-         (62.5, 35), (46, 14, 76, 56), 1.6, "Flat mirror"), _mirror))
+         (62.5, 35), (46, 14, 76, 56), 1.6), _mirror))
 register_component(ComponentDefinition(
     "iris", "Iris",
     _art("fs-iris.svg", "free-space-optics/flat_2d/svg/23_apertures_beam_control",
-         (50, 40), (24, 14, 76, 66), 1.5, "Iris diaphragm"), _straight))
+         (50, 40), (24, 14, 76, 66), 1.5), _straight))
 register_component(ComponentDefinition(
     "LP", "LP",
     _art("fs-wire-grid-polarizer.svg", "free-space-optics/flat_2d/svg/17_polarizers",
-         (49, 35), (44, 7, 54, 63), 1.5, "Wire-grid polarizer"), _straight))
-for name, filename, caption, marking in (
-    ("HWP", "fs-hwp.svg", "Half-wave plate", "λ/2"),
-    ("QWP", "fs-qwp.svg", "Quarter-wave plate", "λ/4"),
-):
+         (49, 35), (44, 7, 54, 63), 1.5), _straight))
+for name in ("HWP", "QWP"):
     register_component(ComponentDefinition(
-        name, name, _art(filename, "free-space-optics/flat_2d/svg/17_waveplates",
-                        (54, 35), (49, 9, 59, 61), 1.5, caption,
-                        annotations=(marking,)), _straight, marking=marking))
+        name, name, _art(f"fs-{name.lower()}.svg", "free-space-optics/flat_2d/svg/17_waveplates",
+                        (54, 35), (49, 9, 59, 61), 1.5), _straight))
 register_component(ComponentDefinition(
     "beamsplitter", "BS",
     _art("fs-bs-plate.svg", "free-space-optics/flat_2d/svg/15_nonpolarizing",
-         (64.5, 40), (51, 11, 83, 69), 1.6, "Plate BS (50:50)", annotations=("in", "R", "T")),
+         (64.5, 40), (51, 11, 83, 69), 1.6),
     _splitter, default_input="primary"))
 
 

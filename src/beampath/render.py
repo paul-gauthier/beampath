@@ -110,7 +110,7 @@ def render_svg(layout: Layout) -> str:
     metadata = element(svg, "metadata", id="provenance")
     rdf = ET.SubElement(metadata, f"{{{RDF}}}RDF")
     manifest = {"schema_version": 1, "generator": "beampath", "assets": [], "optics": [],
-                "segments": [], "labels": [], "markings": [], "bounds": layout.bounds}
+                "segments": [], "labels": [], "bounds": layout.bounds}
     sources = {}
     for placed in layout.placements.values():
         definition = placed.instance.spec.definition
@@ -125,8 +125,7 @@ def render_svg(layout: Layout) -> str:
                      "sha256": sha256(data).hexdigest(), "license_url": art.license_url,
                      "attribution": art.attribution, "source_center": art.center,
                      "scale": art.scale, "adaptations":
-                     "Selected source primitives; similarity transforms; upright text; namespaced IDs."
-                     + (" Intrinsic marking resized and placed outside the optic." if definition.marking else "")}
+                     "Selected source primitives; similarity transforms; upright text; namespaced IDs."}
             manifest["assets"].append(asset)
             if art.attribution:
                 work = ET.SubElement(rdf, f"{{{CC}}}Work", {f"{{{RDF}}}about": definition.name})
@@ -207,13 +206,6 @@ def render_svg(layout: Layout) -> str:
                                   "artwork_rotation": angle,
                                   "reflected": node.spec.geometry.reflected,
                                   "transform": transform})
-    markings = element(svg, "g", id="component-markings", font_size=number(style.marking_font_size),
-                       font_weight="normal", text_anchor="middle", fill="#000000")
-    for marking in layout.markings:
-        element(markings, "text", id=f"{marking.optic}-marking", x=number(marking.position[0]),
-                y=number(marking.position[1])).text = marking.text
-        manifest["markings"].append({"optic": marking.optic, "text": marking.text,
-                                     "position": marking.position, "font_size": style.marking_font_size})
     labels = element(svg, "g", id="component-labels", font_size=number(style.font_size),
                      font_weight="normal", text_anchor="middle", fill="#000000")
     for label in layout.labels:
