@@ -4,7 +4,10 @@ from importlib import import_module
 
 from ._export import add_export_arguments, export_setup
 
-EXAMPLES = ("hello", "cage", "mzi", "shared_optic", "reuse", "rendering", "custom_component")
+EXAMPLES = (
+    "hello", "cage", "mirror_heading", "mzi", "shared_optic", "reuse", "rendering",
+    "custom_component",
+)
 
 
 def main():

@@ -10,6 +10,7 @@ import pytest
 EXAMPLES = {
     "hello": 5,
     "cage": 13,
+    "mirror_heading": 3,
     "mzi": 10,
     "shared_optic": 10,
     "reuse": 8,

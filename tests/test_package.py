@@ -38,7 +38,7 @@ for name, factory in (("cage", cage_system), ("mzi", mzi)):
 sys.argv = ["beampath.examples", "--diagram", "all", "--output-dir", "all-examples"]
 runpy.run_module("beampath.examples", run_name="__main__")
 assert {p.stem for p in Path("all-examples").glob("*.svg")} == {
-    "hello", "cage", "mzi", "shared_optic", "reuse", "rendering", "custom_component",
+    "hello", "cage", "mirror_heading", "mzi", "shared_optic", "reuse", "rendering", "custom_component",
 }
 assert 'cairosvg' not in sys.modules
 """

@@ -74,7 +74,12 @@ still require `angle`.
 
 ```python
 setup = beam("east") >> mirror(heading="north") >> mirror(turn="right") >> iris()
+setup.save("mirror_heading.svg")
 ```
+
+![Two mirrors turn an eastward beam north and then right toward an iris](examples/images/mirror_heading.png)
+
+Runnable example: [mirror_heading.py](examples/mirror_heading.py).
 
 `LP`, `HWP`, and `QWP` denote a linear polarizer, half-wave plate, and
 quarter-wave plate. Labels default to component names; `label=""` hides one.
@@ -276,8 +281,9 @@ uv build
 
 Every diagram has its own runnable Python file in [examples/](examples/), with
 README previews in `examples/images/`. Run any file as shown above, or use
-`--diagram hello`, `cage`, `mzi`, `shared_optic`, `reuse`, `rendering`, or
-`custom_component` with the module command. Use `--diagram all` to render all seven.
+`--diagram hello`, `cage`, `mirror_heading`, `mzi`, `shared_optic`, `reuse`,
+`rendering`, or `custom_component` with the module command.
+Use `--diagram all` to render all eight.
 
 Generated examples go under `build/examples/`; use `--output-dir` to choose
 another directory. Omit `--png` for SVG only, or set `--width` to choose the
