@@ -4,9 +4,9 @@ A Python DSL for optical setup diagrams. Compose reusable component specificatio
 into a physical graph, solve its spacing, and render editable SVG artwork.
 
 ```sh
-pip install .
+pip install 'beampath @ git+https://github.com/paul-gauthier/beampath.git'
 # PNG export (also requires the native Cairo library):
-pip install '.[png]'
+pip install 'beampath[png] @ git+https://github.com/paul-gauthier/beampath.git'
 ```
 
 Python 3.11 or later is required. Component artwork is credited to the Photonics
