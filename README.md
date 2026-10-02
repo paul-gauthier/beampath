@@ -3,15 +3,6 @@
 A Python DSL for optical setup diagrams. Compose reusable component specifications
 into a physical graph, solve its spacing, and render editable SVG artwork.
 
-```sh
-pip install 'beampath @ git+https://github.com/paul-gauthier/beampath.git'
-# PNG export (also requires the native Cairo library):
-pip install 'beampath[png] @ git+https://github.com/paul-gauthier/beampath.git'
-```
-
-Python 3.11 or later is required. Component artwork is credited to the Photonics
-Component Library under CC BY 4.0; credits and source hashes travel with exported SVGs.
-
 Start with a fiber launch, two mirrors, a half-wave plate, and a fiber coupler.
 `>>` connects components in beam order:
 
@@ -289,6 +280,17 @@ elements from source SVGs. SVG IDs and local references are namespaced per
 instance. Supply intrinsic text as ordinary positioned SVG text; placement
 keeps it upright (pre-transformed or nested rotated text should be normalized
 in custom artwork).
+
+## Install
+
+```sh
+pip install 'beampath @ git+https://github.com/paul-gauthier/beampath.git'
+# PNG export (also requires the native Cairo library):
+pip install 'beampath[png] @ git+https://github.com/paul-gauthier/beampath.git'
+```
+
+Python 3.11 or later is required. Component artwork is credited to the Photonics
+Component Library under CC BY 4.0; credits and source hashes travel with exported SVGs.
 
 ## Development and examples
 
