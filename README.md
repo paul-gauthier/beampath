@@ -12,9 +12,31 @@ pip install '.[png]'
 Python 3.11 or later is required. Component artwork is credited to the Photonics
 Component Library under CC BY 4.0; credits and source hashes travel with exported SVGs.
 
+A Mach–Zehnder interferometer (MZI) with two arms and a shared recombining
+beamsplitter:
+
 ```python
 from beampath import *
 
+split = (
+    fiber_launch()
+    >> beamsplitter("BS1", angle=-45)
+)
+
+a = split.straight() >> HWP() >> mirror(angle=-45)
+b = split.reflect() >> LP() >> QWP() >> mirror(angle=+45)
+combined = a.join(b, beamsplitter("BS2", angle=+45))
+
+east = combined.reflect() >> fiber_launch(role="couple")
+south = combined.straight() >> iris()
+split.save("mzi.svg")
+```
+
+![Mach–Zehnder interferometer with two arms sharing beamsplitters BS1 and BS2](docs/images/mzi.png)
+
+## Linear chains
+
+```python
 setup = (
     fiber_launch()
     >> mirror(angle=-45)
@@ -33,7 +55,7 @@ setup = (
 setup.save("setup.svg")
 ```
 
-Chains start east. Use `beam("west") >> fiber_launch(...)` for another direction,
+Chains start building to the east. Use `beam("west") >> fiber_launch(...)` for another direction,
 or `beam(30)` for a numeric heading. Angles are degrees, clockwise positive:
 east is 0, south 90, west 180, and north 270. The initial beam draws no source
 or leading gap. For a single component, write `beam() >> iris()`.
@@ -48,22 +70,7 @@ free-space path.
 
 ## Branching and shared optics
 
-```python
-split = (
-    fiber_launch()
-    >> beamsplitter("BS1", angle=-45)
-)
-
-a = split.straight() >> HWP() >> mirror(angle=-45)
-b = split.reflect() >> LP() >> QWP() >> mirror(angle=+45)
-combined = a.join(b, beamsplitter("BS2", angle=+45))
-
-east = combined.reflect() >> fiber_launch(role="couple")
-south = combined.straight() >> iris()
-split.save("mzi.svg")
-```
-
-Each `Path` is a mutable cursor in one `Setup`. `path >> optic` and
+In the MZI above, each `Path` is a mutable cursor in one `Setup`. `path >> optic` and
 `path >>= optic` both advance it; `alias = path` aliases that cursor. Selecting
 an output makes a separate cursor. An output can be connected once; using an
 old cursor at an occupied output raises `ConnectionError`.
@@ -186,8 +193,8 @@ in custom artwork).
 ```sh
 uv sync --extra dev --extra png
 uv run python -m pytest
-uv run python -m beampath.examples --diagram cage --png
 uv run python -m beampath.examples --diagram mzi --png
+uv run python -m beampath.examples --diagram cage --png
 uv build
 ```
 
