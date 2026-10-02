@@ -6,8 +6,8 @@ from beampath.examples import run_example
 def build():
     """Connect the secondary input first, then the primary input."""
     split = fiber_launch() >> beamsplitter("BS1", angle=-45)
-    a = split.straight() >> HWP() >> mirror(angle=-45)
-    b = split.reflect() >> LP() >> QWP() >> mirror(angle=+45)
+    a = split.straight() >> HWP() >> mirror(heading="south")
+    b = split.reflect() >> LP() >> QWP() >> mirror(heading="east")
     bs2 = split.setup.add(beamsplitter("BS2", angle=+45))
     b.connect(bs2.input("secondary"))
     a.connect(bs2.input("primary"))

@@ -8,7 +8,7 @@ def build():
     polarization = chain(LP(), HWP(), QWP())
     path = beam() >> polarization >> polarization  # Six independent optics.
     path.append(iris(), distance=250)
-    path.append(mirror(angle=-45), at=(2000, 0))
+    path.append(mirror(turn="right"), at=(2000, 0))
     return path
 
 

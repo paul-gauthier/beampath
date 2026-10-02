@@ -7,9 +7,9 @@ def build():
     """Launch a beam, fold it through a waveplate, and couple it into fiber."""
     setup = (
         fiber_launch()
-        >> mirror(angle=-45)
+        >> mirror(turn="right")
         >> HWP()
-        >> mirror(angle=+45)
+        >> mirror(turn="left")
         >> fiber_launch(role="couple")
     )
     return setup

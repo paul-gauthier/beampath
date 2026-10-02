@@ -7,8 +7,8 @@ def build():
     """Connect a cage-system chain between a fiber launch and coupler."""
     setup = (
         fiber_launch()
-        >> mirror(angle=-45)
-        >> mirror(angle=+45)
+        >> mirror(turn="right")
+        >> mirror(turn="left")
         >> iris()
         >> LP()
         >> HWP()
@@ -16,8 +16,8 @@ def build():
         >> HWP()
         >> LP()
         >> iris()
-        >> mirror(angle=+45)
-        >> mirror(angle=-45)
+        >> mirror(turn="left")
+        >> mirror(turn="right")
         >> fiber_launch(role="couple")
     )
     return setup

@@ -20,9 +20,9 @@ from beampath import *
 
 setup = (
     fiber_launch()
-    >> mirror(angle=-45)
+    >> mirror(turn="right")
     >> HWP()
-    >> mirror(angle=+45)
+    >> mirror(turn="left")
     >> fiber_launch(role="couple")
 )
 setup.save("hello.svg")
@@ -37,8 +37,8 @@ Runnable example: [hello.py](examples/hello.py).
 ```python
 setup = (
     fiber_launch()
-    >> mirror(angle=-45)
-    >> mirror(angle=+45)
+    >> mirror(turn="right")
+    >> mirror(turn="left")
     >> iris()
     >> LP()
     >> HWP()
@@ -46,8 +46,8 @@ setup = (
     >> HWP()
     >> LP()
     >> iris()
-    >> mirror(angle=+45)
-    >> mirror(angle=-45)
+    >> mirror(turn="left")
+    >> mirror(turn="right")
     >> fiber_launch(role="couple")
 )
 setup.save("setup.svg")
@@ -98,8 +98,8 @@ split = (
     >> beamsplitter("BS1", angle=-45)
 )
 
-a = split.straight() >> HWP() >> mirror(angle=-45)
-b = split.reflect() >> LP() >> QWP() >> mirror(angle=+45)
+a = split.straight() >> HWP() >> mirror(heading="south")
+b = split.reflect() >> LP() >> QWP() >> mirror(heading="east")
 combined = a.join(b, beamsplitter("BS2", angle=+45))
 
 east = combined.reflect() >> fiber_launch(role="couple")
@@ -130,8 +130,8 @@ The same MZI can connect a shared instance explicitly, in either input order:
 
 ```python
 split = fiber_launch() >> beamsplitter("BS1", angle=-45)
-a = split.straight() >> HWP() >> mirror(angle=-45)
-b = split.reflect() >> LP() >> QWP() >> mirror(angle=+45)
+a = split.straight() >> HWP() >> mirror(heading="south")
+b = split.reflect() >> LP() >> QWP() >> mirror(heading="east")
 
 bs2 = split.setup.add(beamsplitter("BS2", angle=+45))
 b.connect(bs2.input("secondary"))
@@ -163,7 +163,7 @@ runs. Beam crossings do not create connections. Open outputs get short stubs.
 polarization = chain(LP(), HWP(), QWP())
 path = beam() >> polarization >> polarization  # Six independent optics.
 path.append(iris(), distance=250)
-path.append(mirror(angle=-45), at=(2000, 0))
+path.append(mirror(turn="right"), at=(2000, 0))
 path.save("reuse.svg")
 ```
 
