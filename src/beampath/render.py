@@ -209,8 +209,15 @@ def render_svg(layout: Layout) -> str:
     labels = element(svg, "g", id="component-labels", font_size=number(style.font_size),
                      font_weight="normal", text_anchor="middle", fill="#000000")
     for label in layout.labels:
-        element(labels, "text", id=f"{label.optic}-label", x=number(label.position[0]),
-                y=number(label.position[1])).text = label.text
+        text = element(labels, "text", id=f"{label.optic}-label", x=number(label.position[0]),
+                       y=number(label.position[1]))
+        lines = label.text.split("\n")
+        if len(lines) == 1:
+            text.text = label.text
+        else:
+            for index, line in enumerate(lines):
+                element(text, "tspan", x=number(label.position[0]),
+                        y=number(label.position[1] + index * style.font_size * 1.25)).text = line
         manifest["labels"].append({"optic": label.optic, "text": label.text, "position": label.position})
     element(metadata, "metadata", id="asset-attribution-manifest").text = json.dumps(manifest, ensure_ascii=False, indent=2)
     ET.indent(svg, space="  ")

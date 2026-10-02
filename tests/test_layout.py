@@ -122,6 +122,30 @@ def test_cage_layout_and_labels():
     assert all(s.length == pytest.approx(190) for s in result.segments)
 
 
+@pytest.mark.parametrize("direction", [0, 90, 37])
+@pytest.mark.parametrize("font_size", [23, 40])
+@pytest.mark.parametrize("text", ["HWP\nIn Rotation Mount", "\nHWP\n\nIn Rotation Mount\n"])
+def test_multiline_label_bounds_cover_longest_line_and_all_rows(direction, font_size, text):
+    style = Style(font_size=font_size)
+    result = (beam(direction) >> HWP(text)).layout(style=style)
+    label, = result.labels
+    lines = text.split("\n")
+    single_lines = [(beam(direction) >> HWP(line)).layout(style=style).labels[0]
+                    for line in lines if line]
+    x0, y0, x1, y1 = label.bounds
+    assert label.text == text
+    assert x1 - x0 == pytest.approx(max(line.bounds[2] - line.bounds[0] for line in single_lines))
+    assert y1 - y0 == pytest.approx(len(lines) * (single_lines[0].bounds[3] - single_lines[0].bounds[1]))
+    assert all(not segment_intersects(s.start, s.end, label.bounds) for s in result.segments)
+    for placed in result.placements.values():
+        a0, b0, a1, b1 = placed.bounds
+        assert x1 <= a0 - style.label_gap or x0 >= a1 + style.label_gap or (
+            y1 <= b0 - style.label_gap or y0 >= b1 + style.label_gap)
+    bx0, by0, bx1, by1 = result.bounds
+    assert x0 >= bx0 + style.margin and x1 <= bx1 - style.margin
+    assert y0 >= by0 + style.margin and y1 <= by1 - style.margin
+
+
 def test_unequal_mzi_closes_shared_optic_by_stretching():
     p = mzi()
     result = p.layout()

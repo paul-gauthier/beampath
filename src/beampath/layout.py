@@ -57,7 +57,9 @@ def footprint(node: OpticInstance) -> Bounds:
 def _text_size(text: str, font_size: float) -> Point:
     # Conservative label metrics.
     widths = {"i": .3, "l": .3, "I": .35, " ": .35, "W": 1, "M": 1}
-    return font_size * sum(widths.get(c, .72) for c in text) + 4, font_size * 1.25
+    lines = text.split("\n")
+    width = max(sum(widths.get(c, .72) for c in line) for line in lines)
+    return font_size * width + 4, font_size * 1.25 * len(lines)
 
 
 @dataclass(frozen=True)
@@ -96,6 +98,8 @@ class Segment:
 
 @dataclass(frozen=True)
 class Label:
+    """An upright text block, positioned at its first line's centered baseline."""
+
     optic: str
     text: str
     position: Point
@@ -184,7 +188,8 @@ def _labels(placements: Mapping[str, PlacedOptic], segments: list[Segment], styl
                 continue
             if any(segment_intersects(s.start, s.end, box) for s in segments):
                 continue
-            result.append(Label(placed.id, text, (cx, cy + style.font_size * .35), box))
+            baseline = cy + style.font_size * .35 - (height - style.font_size * 1.25) / 2
+            result.append(Label(placed.id, text, (cx, baseline), box))
             break
         else:
             raise LayoutError(f"{placed.id} ({text}): no clear position for its label")

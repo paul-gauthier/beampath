@@ -88,6 +88,8 @@ Runnable example: [mirror_heading.py](examples/mirror_heading.py).
 
 `LP`, `HWP`, and `QWP` denote a linear polarizer, half-wave plate, and
 quarter-wave plate. Labels default to component names; `label=""` hides one.
+Use `\n` for line breaks, such as `HWP("HWP\nIn Rotation Mount")`;
+each line is center-aligned.
 Waveplates display only their label, with no additional annotations.
 A fiber launch's `role` controls its orientation; `role="couple"` ends the
 free-space path.

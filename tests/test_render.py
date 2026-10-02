@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from beampath import Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, beam, iris, HWP, QWP, mirror
+from beampath import Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, Style, beam, iris, HWP, QWP, mirror
 from beampath.examples import cage_system, mzi
 from beampath.layout import artwork_point
 from beampath.render import artwork_bytes, render_svg, tag
@@ -149,6 +149,32 @@ def test_text_is_editable_upright_and_labels_escaped():
     assert text.text == 'A < B & "C"'
     assert text.get("transform") is None
     assert not any(n.tag in {tag("image"), tag("foreignObject"), tag("script")} for n in root.iter())
+
+
+@pytest.mark.parametrize("direction", [0, 90, 37])
+@pytest.mark.parametrize("content", [
+    "HWP\nIn Rotation Mount", 'A < B\n& "C"', "\nHWP\n\nIn Rotation Mount\n",
+])
+def test_multiline_labels_render_as_centered_editable_lines(direction, content):
+    style = Style(font_size=36)
+    layout = (beam(direction) >> HWP(content)).layout(style=style)
+    label, = layout.labels
+    root = ET.fromstring(render_svg(layout))
+    group = root.find(f"{tag('g')}[@id='component-labels']")
+    assert group.get("text-anchor") == "middle"
+    text, = group.findall(tag("text"))
+    assert text.get("transform") is None
+    lines = text.findall(tag("tspan"))
+    assert [line.text or "" for line in lines] == content.split("\n")
+    assert all(float(line.get("x")) == pytest.approx(label.position[0]) for line in lines)
+    baselines = [float(line.get("y")) for line in lines]
+    assert all(b - a == pytest.approx(style.font_size * 1.25)
+               for a, b in zip(baselines, baselines[1:]))
+    assert (baselines[0] + baselines[-1]) / 2 == pytest.approx(
+        (label.bounds[1] + label.bounds[3]) / 2 + style.font_size * .35)
+    manifest = json.loads(root.find(
+        f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text)
+    assert manifest["labels"][0]["text"] == content
 
 
 @pytest.mark.parametrize("factory,default_label", [(HWP, "HWP"), (QWP, "QWP")])
