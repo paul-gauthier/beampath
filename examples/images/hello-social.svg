@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" version="1.1" width="2400" height="1260" viewBox="-393.2 -163.55 1346.85714286 707.1" font-family="Helvetica, Arial, sans-serif" aria-label="Hello optical setup with its Python sample code">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" version="1.1" width="2640" height="1260" viewBox="-393.2 -163.55 1481.54285714 707.1" font-family="Helvetica, Arial, sans-serif" aria-label="Hello optical setup with its Python sample code">
   <metadata id="provenance">
     <rdf:RDF>
       <cc:Work rdf:about="fiber_launch">
@@ -249,7 +249,7 @@
   "bounds": [
     -393.2,
     -163.55,
-    953.6571428571428,
+    1088.3428571428572,
     543.55
   ]
 }</metadata>
@@ -259,7 +259,7 @@
       <polygon points="0,0 6,2 0,4" fill="#CC0000" />
     </marker>
   </defs>
-  <rect id="background" x="-393.2" y="-163.55" width="1346.85714286" height="707.1" fill="#FFFFFF" />
+  <rect id="background" x="-393.2" y="-163.55" width="1481.54285714" height="707.1" fill="#FFFFFF" />
   <g id="optical-path" fill="none" stroke="#CC0000" stroke-width="2.3" stroke-linecap="butt">
     <line id="segment-001" x1="0" y1="0" x2="190" y2="0" data-source="optic-001" data-output="out" data-target="optic-002" data-input="in" />
     <line id="segment-001-arrow" x1="83" y1="0" x2="95" y2="0" marker-end="url(#beam-arrow)" />
@@ -354,18 +354,18 @@
   <title>beampath — hello</title>
   <desc>A fiber launch, two mirrors, a half-wave plate, and a fiber coupler, with the Python code that creates the diagram in the upper right.</desc>
   <g id="sample-code-inset">
-    <rect x="335" y="-125.55" width="580.657142857" height="344" rx="8" fill="#eceef0" />
+    <rect x="470" y="-125.55" width="580.342857143" height="344" rx="8" fill="#eceef0" />
     <g id="sample-code" font-size="24" font-family="Menlo, DejaVu Sans Mono, monospace" fill="#24292f">
-      <text x="363" y="-81.55" xml:space="preserve"><tspan fill="#7c3aae">from</tspan><tspan> beampath.components </tspan><tspan fill="#7c3aae">import</tspan><tspan> *</tspan></text>
-      <text x="363" y="-52.55" xml:space="preserve" />
-      <text x="363" y="-23.55" xml:space="preserve"><tspan>setup = (</tspan></text>
-      <text x="363" y="5.45" xml:space="preserve"><tspan>    fiber_launch()</tspan></text>
-      <text x="363" y="34.45" xml:space="preserve"><tspan>    &gt;&gt; mirror(turn=</tspan><tspan fill="#b4232e">"right"</tspan><tspan>)</tspan></text>
-      <text x="363" y="63.45" xml:space="preserve"><tspan>    &gt;&gt; HWP()</tspan></text>
-      <text x="363" y="92.45" xml:space="preserve"><tspan>    &gt;&gt; mirror(turn=</tspan><tspan fill="#b4232e">"left"</tspan><tspan>)</tspan></text>
-      <text x="363" y="121.45" xml:space="preserve"><tspan>    &gt;&gt; fiber_launch(role=</tspan><tspan fill="#b4232e">"couple"</tspan><tspan>)</tspan></text>
-      <text x="363" y="150.45" xml:space="preserve"><tspan>)</tspan></text>
-      <text x="363" y="179.45" xml:space="preserve"><tspan>setup.save(</tspan><tspan fill="#b4232e">"hello.svg"</tspan><tspan>)</tspan></text>
+      <text x="498" y="-81.55" xml:space="preserve"><tspan fill="#7c3aae">from</tspan><tspan> beampath.components </tspan><tspan fill="#7c3aae">import</tspan><tspan> *</tspan></text>
+      <text x="498" y="-52.55" xml:space="preserve" />
+      <text x="498" y="-23.55" xml:space="preserve"><tspan>setup = (</tspan></text>
+      <text x="498" y="5.45" xml:space="preserve"><tspan>    fiber_launch()</tspan></text>
+      <text x="498" y="34.45" xml:space="preserve"><tspan>    &gt;&gt; mirror(turn=</tspan><tspan fill="#b4232e">"right"</tspan><tspan>)</tspan></text>
+      <text x="498" y="63.45" xml:space="preserve"><tspan>    &gt;&gt; HWP()</tspan></text>
+      <text x="498" y="92.45" xml:space="preserve"><tspan>    &gt;&gt; mirror(turn=</tspan><tspan fill="#b4232e">"left"</tspan><tspan>)</tspan></text>
+      <text x="498" y="121.45" xml:space="preserve"><tspan>    &gt;&gt; fiber_launch(role=</tspan><tspan fill="#b4232e">"couple"</tspan><tspan>)</tspan></text>
+      <text x="498" y="150.45" xml:space="preserve"><tspan>)</tspan></text>
+      <text x="498" y="179.45" xml:space="preserve"><tspan>setup.save(</tspan><tspan fill="#b4232e">"hello.svg"</tspan><tspan>)</tspan></text>
     </g>
   </g>
 </svg>

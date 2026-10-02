@@ -16,7 +16,7 @@ from beampath.render import _png_metadata, element, number, tag
 
 
 PROJECT = Path(__file__).resolve().parents[1]
-WIDTH, HEIGHT = 2400, 1260
+WIDTH, HEIGHT = 2640, 1260
 
 
 def build_social_svg():
@@ -46,7 +46,7 @@ def build_social_svg():
         "with the Python code that creates the diagram in the upper right."
     )
 
-    panel_x, panel_y = 335, y + 38
+    panel_x, panel_y = 470, y + 38
     panel_width, panel_height = x + width - panel_x - 38, 344
     inset = element(root, "g", id="sample-code-inset")
     element(inset, "rect", x=number(panel_x), y=number(panel_y),
