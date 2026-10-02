@@ -125,7 +125,10 @@ path.save("setup.png", width=2400, dpi=300)
 ```
 
 `Layout` is an immutable snapshot with `placements`, `segments`, `labels`, and
-canvas `bounds`. Editing the setup afterward does not change the snapshot.
+canvas `bounds`. Its `markings` contain upright intrinsic annotations, such as
+waveplate λ/2 and λ/4 notes. These sit clear of the optic and use a readable
+20-unit font by default; adjust it with `Style(marking_font_size=...)`.
+Editing the setup afterward does not change the snapshot.
 SVG export has no raster dependency. PNG export retains credits in a PNG text
 chunk and embeds the requested resolution. The optional CairoSVG converter
 requires native Cairo. On macOS with Homebrew, if the loader cannot find it:
@@ -169,6 +172,8 @@ fork.out("down") >> QWP()
 ```
 
 Resolvers are pure functions of immutable parameters and return `Geometry`.
+Definitions may supply a `marking` string for an upright intrinsic annotation;
+layout reserves space for it perpendicular to the reference beam direction.
 They may vary port directions, positions, and artwork rotation or reflection.
 Set `default_input` on the definition when its input is named differently;
 mark optional inputs with `required=False`. Source definitions without inputs

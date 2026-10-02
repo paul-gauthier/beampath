@@ -9,9 +9,10 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from beampath import Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, beam, iris, HWP
+from beampath import Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, Style, beam, iris, HWP, QWP
 from beampath.examples import cage_system, mzi
 from beampath.layout import artwork_point
+from beampath.geometry import overlap
 from beampath.render import artwork_bytes, render_svg, tag
 
 
@@ -104,8 +105,39 @@ def test_text_is_editable_upright_and_labels_escaped():
     assert text.text == 'A < B & "C"'
     assert text.get("transform") is None
     glyph = next(t for t in root.iter(tag("text")) if t.text == "λ/2")
-    assert "rotate(-90)" in glyph.get("transform")
+    assert glyph.get("transform") is None
+    assert root.find(f"{tag('g')}[@id='component-markings']").get("font-size") == "20"
     assert not any(n.tag in {tag("image"), tag("foreignObject"), tag("script")} for n in root.iter())
+
+
+@pytest.mark.parametrize("factory,text", [(HWP, "λ/2"), (QWP, "λ/4")])
+@pytest.mark.parametrize("direction", [0, 90, 180, 270, 37, 127])
+def test_waveplate_markings_are_readable_and_clear_in_every_orientation(factory, text, direction):
+    p = beam(direction) >> factory()
+    layout = p.layout()
+    assert len(layout.markings) == 1
+    marking = layout.markings[0]
+    placed = layout.placements[p.end.id]
+    assert marking.text == text
+    assert not overlap(marking.bounds, placed.body_bounds)
+    assert not overlap(marking.bounds, layout.labels[0].bounds)
+    assert placed.bounds[0] <= marking.bounds[0] and placed.bounds[2] >= marking.bounds[2]
+    assert placed.bounds[1] <= marking.bounds[1] and placed.bounds[3] >= marking.bounds[3]
+    root = ET.fromstring(p.to_svg())
+    glyphs = [t for t in root.iter(tag("text")) if t.text == text]
+    assert len(glyphs) == 1
+    assert glyphs[0].get("transform") is None
+    assert layout.style.marking_font_size >= .8 * layout.style.font_size
+
+
+def test_marking_size_participates_in_layout_and_rendering():
+    p = beam("south") >> QWP()
+    normal = p.layout()
+    enlarged = p.layout(style=Style(marking_font_size=32))
+    assert enlarged.markings[0].bounds[2] > normal.markings[0].bounds[2]
+    assert enlarged.bounds[2] > normal.bounds[2]
+    root = ET.fromstring(render_svg(enlarged))
+    assert root.find(f"{tag('g')}[@id='component-markings']").get("font-size") == "32"
 
 
 def test_default_labels_and_canvas_margins():

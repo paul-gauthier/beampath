@@ -16,6 +16,7 @@ ATTRIBUTION = (
     "Licensed under Creative Commons Attribution 4.0 International (" + LICENSE_URL + "). "
     "Adaptations: source captions, demonstration beams and reference annotations removed; "
     "primitives uniformly scaled, translated, rotated or reflected; text kept upright; "
+    "waveplate annotations resized and placed clear of the optics; "
     "IDs namespaced; diagram beams and labels added. No endorsement is implied."
 )
 
@@ -112,7 +113,8 @@ for name, filename, caption, marking in (
 ):
     register_component(ComponentDefinition(
         name, name, _art(filename, "free-space-optics/flat_2d/svg/17_waveplates",
-                        (54, 35), (47, 1, 61, 61), 1.5, caption), _straight))
+                        (54, 35), (49, 9, 59, 61), 1.5, caption,
+                        annotations=(marking,)), _straight, marking=marking))
 register_component(ComponentDefinition(
     "beamsplitter", "BS",
     _art("fs-bs-plate.svg", "free-space-optics/flat_2d/svg/15_nonpolarizing",
