@@ -1,6 +1,7 @@
 """Deterministic orthogonal fiber routing; no routing vertices enter the graph."""
 from __future__ import annotations
 
+from dataclasses import replace
 import heapq
 import math
 
@@ -132,6 +133,73 @@ def route_connection(edge, placements, style, labels=()):
         raise LayoutError(f"{edge.id} ({edge.source}.{edge.output} → {edge.target}.{edge.input}): {exc}") from exc
     return FiberRoute(edge.id, simplify((start, *points, end)),
                       edge.source, edge.output, edge.target, edge.input)
+
+
+def center_route(route, placements, style, labels=()):
+    """Center movable runs in their clear corridors, keeping length and bends.
+
+    A run can slide without changing length only when its two perpendicular
+    neighbors travel in the same direction. Their ends and the nearest obstacle
+    on either side bound the safe interval. Visit longer runs first in a single
+    deterministic pass; this is a local refinement, not another route search.
+    """
+    if len(route.points) < 4 or route.source is None or route.target is None:
+        return route
+    clearance = max(style.clearance, style.fiber_width)
+    obstacles = [(p.id, inflate(p.bounds, clearance)) for p in placements.values()]
+    obstacles += [(None, inflate(label.bounds, clearance)) for label in labels]
+    _, first = connector_lead(placements[route.source], route.output, clearance)
+    _, last = connector_lead(placements[route.target], route.input, clearance)
+    points = list(route.points)
+    order = sorted(range(1, len(points) - 2),
+                   key=lambda i: (-math.dist(points[i], points[i + 1]), i))
+    for i in order:
+        a, b, c, d = points[i - 1:i + 3]
+        if abs(b[1] - c[1]) < EPSILON:
+            along, across = 0, 1
+        elif abs(b[0] - c[0]) < EPSILON:
+            along, across = 1, 0
+        else:
+            continue
+        if (abs(a[along] - b[along]) > EPSILON
+                or abs(c[along] - d[along]) > EPSILON
+                or (b[across] - a[across]) * (d[across] - c[across]) <= 0):
+            continue
+        # Preserve the straight connector escape distances as well as tangents.
+        before = first if i == 1 else a
+        after = last if i == len(points) - 3 else d
+        low, high = sorted((before[across], after[across]))
+        left, right = sorted((b[along], c[along]))
+        position = b[across]
+        for _, box in obstacles:
+            if box[along] >= right - EPSILON or box[along + 2] <= left + EPSILON:
+                continue
+            if box[across + 2] <= position + EPSILON:
+                low = max(low, box[across + 2])
+            elif box[across] >= position - EPSILON:
+                high = min(high, box[across])
+            else:
+                # Labels placed after routing may already be closer than the
+                # preferred clearance. Do not move through their padded bounds.
+                low = high
+                break
+        if high - low <= EPSILON:
+            continue
+        middle = (low + high) / 2
+        candidate = points.copy()
+        for index in (i, i + 1):
+            moved = list(candidate[index])
+            moved[across] = middle
+            candidate[index] = tuple(moved)
+        # The neighboring legs change length too. Check all changed geometry;
+        # only the endpoint legs may pass through their own connector artwork.
+        if any(segment_intersects(candidate[j], candidate[j + 1], box)
+               for j in range(i - 1, i + 2) for owner, box in obstacles
+               if not (j == 0 and owner == route.source
+                       or j == len(points) - 2 and owner == route.target)):
+            continue
+        points = candidate
+    return replace(route, points=tuple(points))
 
 
 def rounded_path(route, radius, obstacles, width):
