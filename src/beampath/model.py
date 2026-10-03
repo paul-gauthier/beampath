@@ -49,6 +49,7 @@ class Connection:
     target: str
     input: str
     distance: float | None = None
+    medium: str = "free_space"
 
 
 @dataclass(frozen=True)
@@ -139,8 +140,14 @@ class Setup:
 
     def _connect(self, source: str, output: str, target: str, input_name: str,
                  distance: float | None):
-        self._nodes[source].port(output, "output")
-        self._nodes[target].port(input_name, "input")
+        outgoing = self._nodes[source].port(output, "output")
+        incoming = self._nodes[target].port(input_name, "input")
+        if outgoing.medium != incoming.medium:
+            raise ConnectionError(f"{source}.{output} ({outgoing.medium}) cannot connect to "
+                                  f"{target}.{input_name} ({incoming.medium})")
+        if outgoing.medium == "fiber" and distance is not None:
+            raise ConnectionError("distance= is only supported for free-space connections; "
+                                  "use at= to position fiber components")
         if self._output_used(source, output):
             raise ConnectionError(f"{source}.{output}: output is already connected")
         if self._input_used(target, input_name):
@@ -154,7 +161,7 @@ class Setup:
                 reachable.add(node)
                 todo.extend(c.target for c in self._connections if c.source == node)
         self._connections.append(Connection(f"segment-{len(self._connections) + 1:03d}",
-                                            source, output, target, input_name, distance))
+                                            source, output, target, input_name, distance, outgoing.medium))
         self._resolve_headings()
 
     def _bind_root(self, optic: str, input_name: str | None, direction: float, origin: Point):
@@ -182,11 +189,25 @@ class Setup:
                 headings[ident] = value
                 todo.append(ident)
 
+        for node in nodes.values():
+            if node.geometry.heading is not None:
+                assign(node.id, node.geometry.heading, node.id)
         for root in self._roots:
-            offset = nodes[root.optic].port(root.input, "input").direction if root.input else 0
-            assign(root.optic, root.direction - offset, root.optic)
+            node = nodes[root.optic]
+            if not any(p.medium == "free_space" for p in node.geometry.ports):
+                continue
+            port = node.port(root.input, "input") if root.input else None
+            if port is not None and port.medium == "fiber":
+                # Legacy beam(direction) >> fiber_launch() seeds the launch,
+                # while an explicit launch heading overrides the shorthand default.
+                if node.geometry.heading is None:
+                    assign(root.optic, root.direction, root.optic)
+            else:
+                assign(root.optic, root.direction - (port.direction if port else 0), root.optic)
         adjacency: dict[str, list[Connection]] = {ident: [] for ident in self._nodes}
         for edge in self._connections:
+            if edge.medium == "fiber":
+                continue
             template = next(p for p in nodes[edge.source].spec.geometry.ports if p.name == edge.output)
             if template.absolute:
                 incoming = nodes[edge.target].port(edge.input).direction
@@ -195,17 +216,23 @@ class Setup:
                 continue
             adjacency[edge.source].append(edge)
             adjacency[edge.target].append(edge)
-        while todo:
-            ident = todo.pop(0)
-            for edge in adjacency[ident]:
-                outgoing = nodes[edge.source].port(edge.output).direction
-                incoming = nodes[edge.target].port(edge.input).direction
-                if ident == edge.source:
-                    assign(edge.target, headings[ident] + outgoing - incoming,
-                           f"{edge.target}.{edge.input}")
-                else:
-                    assign(edge.source, headings[ident] + incoming - outgoing,
-                           f"{edge.source}.{edge.output}")
+        def propagate():
+            while todo:
+                ident = todo.pop(0)
+                for edge in adjacency[ident]:
+                    outgoing = nodes[edge.source].port(edge.output).direction
+                    incoming = nodes[edge.target].port(edge.input).direction
+                    if ident == edge.source:
+                        assign(edge.target, headings[ident] + outgoing - incoming,
+                               f"{edge.target}.{edge.input}")
+                    else:
+                        assign(edge.source, headings[ident] + incoming - outgoing,
+                               f"{edge.source}.{edge.output}")
+        propagate()
+        for ident, node in nodes.items():
+            if ident not in headings and node.geometry.default_heading is not None:
+                assign(ident, node.geometry.default_heading, ident)
+                propagate()
         self._nodes = nodes
 
     def layout(self, *, style: Style | None = None) -> Layout:

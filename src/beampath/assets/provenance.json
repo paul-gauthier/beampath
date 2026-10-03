@@ -116,6 +116,26 @@
         35
       ],
       "center_basis": "Center of the optical plate rectangle x=48..58, y=10..60."
+    },
+    {
+      "file": "f-laser.svg",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/fiber-optics/flat_2d/svg/05_laser_sources/f-laser.svg",
+      "sha256": "1d4015c52b06e66849cc23db2d6f0738ac3cb1c0694c369af6cb54c9e0c78de5",
+      "center": [
+        65,
+        32
+      ],
+      "center_basis": "Center of the laser housing on its output axis."
+    },
+    {
+      "file": "f-inline-power-meter.svg",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/fiber-optics/flat_2d/svg/11_inline_components/f-inline-power-meter.svg",
+      "sha256": "57a4146cc61ef75f796951b328e74d889bbb298ded6b40f4ba1d51274e37a51f",
+      "center": [
+        85,
+        27
+      ],
+      "center_basis": "Fiber tap on the horizontal through line."
     }
   ]
 }

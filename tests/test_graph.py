@@ -279,7 +279,7 @@ def test_ownership_and_terminal_errors():
     with pytest.raises(ConnectionError, match="different setups"):
         a.connect(b.end.input())
     a >> fiber_launch(role="couple")
-    with pytest.raises(ConnectionError, match="ends the beam"):
+    with pytest.raises(ConnectionError, match="fiber.*free_space"):
         a >> iris()
 
 

@@ -19,15 +19,21 @@ class Port:
     Positions are in diagram units relative to its placement origin.
     An absolute output direction uses the drawing's compass frame instead.
     draw_lead_in controls the incoming stub when an input starts a beam.
+    Fiber ports have direction=None: exit_direction is only an outward drawing
+    tangent for the cable router, relative to the component's layout rotation.
+    draw_open controls unconnected output stubs (artwork may include a pigtail).
     """
 
     name: str
     kind: Literal["input", "output"]
-    direction: float = 0
+    direction: float | None = 0
     position: Point = (0, 0)
     required: bool = True
     absolute: bool = False
     draw_lead_in: bool = True
+    medium: Literal["free_space", "fiber"] = "free_space"
+    exit_direction: float | None = None
+    draw_open: bool = True
 
     def __post_init__(self):
         if not isinstance(self.name, str) or not self.name:
@@ -38,17 +44,38 @@ class Port:
             raise ComponentError("Only output ports can have absolute headings")
         if not isinstance(self.draw_lead_in, bool):
             raise ComponentError("draw_lead_in must be a boolean")
-        object.__setattr__(self, "direction", finite(self.direction, "port direction") % 360)
+        if self.medium not in {"free_space", "fiber"}:
+            raise ComponentError("Port medium must be 'free_space' or 'fiber'")
+        if not isinstance(self.draw_open, bool):
+            raise ComponentError("draw_open must be a boolean")
+        if self.medium == "fiber":
+            if self.absolute:
+                raise ComponentError("Fiber ports cannot have absolute optical headings")
+            object.__setattr__(self, "direction", None)
+            exit_direction = self.exit_direction
+            if exit_direction is None:
+                exit_direction = 180 if self.kind == "input" else 0
+            object.__setattr__(self, "exit_direction", finite(exit_direction, "fiber exit direction") % 360)
+        else:
+            object.__setattr__(self, "direction", finite(self.direction, "port direction") % 360)
+            if self.exit_direction is not None:
+                raise ComponentError("exit_direction is a drawing hint for fiber ports only")
         object.__setattr__(self, "position", point(self.position, "port position"))
 
 
 @dataclass(frozen=True)
 class Geometry:
-    """Resolved local ports and artwork pose, relative to primary incidence."""
+    """Local ports and artwork pose, relative to primary incidence.
+
+    heading constrains a free-space frame; default_heading seeds an otherwise
+    unconstrained frame after explicit constraints have propagated.
+    """
 
     ports: tuple[Port, ...]
     artwork_rotation: float = 0
     reflected: bool = False
+    heading: float | None = None
+    default_heading: float | None = None
 
     def __post_init__(self):
         object.__setattr__(self, "ports", tuple(self.ports))
@@ -58,6 +85,11 @@ class Geometry:
         if len(names) != len(set(names)):
             raise ComponentError("Port names must be unique within an optic")
         object.__setattr__(self, "artwork_rotation", finite(self.artwork_rotation, "artwork rotation"))
+        for name in ("heading", "default_heading"):
+            if getattr(self, name) is not None:
+                if not any(p.medium == "free_space" for p in self.ports):
+                    raise ComponentError("Only free-space geometry can constrain an optical heading")
+                object.__setattr__(self, name, finite(getattr(self, name), name) % 360)
 
 
 @dataclass(frozen=True)
@@ -181,8 +213,10 @@ class ComponentSpec:
             raise ComponentError(f"{self.definition.name}: {exc}") from exc
         if not isinstance(geometry, Geometry):
             raise ComponentError("An incidence resolver must return Geometry")
-        if {(p.name, p.kind) for p in geometry.ports} != {(p.name, p.kind) for p in self.geometry.ports}:
-            raise ComponentError("An incidence resolver must preserve port names and kinds")
+        if {(p.name, p.kind, p.medium) for p in geometry.ports} != {
+            (p.name, p.kind, p.medium) for p in self.geometry.ports
+        }:
+            raise ComponentError("An incidence resolver must preserve port names, kinds, and media")
         if {p.name: p.direction for p in geometry.ports if p.kind == "input"} != {
             p.name: p.direction for p in self.geometry.ports if p.kind == "input"
         }:

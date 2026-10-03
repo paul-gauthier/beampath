@@ -9,7 +9,7 @@ from .geometry import aligned, finite, heading, reflection
 
 __all__ = [
     "fiber_launch", "mirror", "beamsplitter", "iris", "LP", "HWP", "QWP", "noise_eater",
-    "nd_filter", "bandpass_filter",
+    "nd_filter", "bandpass_filter", "fiber_laser", "inline_power_meter",
 ]
 
 REVISION = "7e44e14341489b067d7c8e1390af87b9c423103e"
@@ -59,14 +59,30 @@ def _straight(parameters):
 
 
 def _fiber(parameters):
-    _parameters(parameters, ("role",))
+    _parameters(parameters, ("role", "heading"))
     role = parameters.get("role", "launch")
     if role not in {"launch", "couple"}:
         raise ComponentError("fiber_launch role must be 'launch' or 'couple'")
-    ports = (Port("in", "input", draw_lead_in=role == "couple"),)
     if role == "launch":
-        ports += (Port("out", "output"),)
-    return Geometry(ports, reflected=role == "launch")
+        ports = (Port("in", "input", position=(-308.4, 0), medium="fiber", draw_lead_in=False),
+                 Port("out", "output"))
+    else:
+        ports = (Port("in", "input"),
+                 Port("out", "output", position=(308.4, 0), medium="fiber", draw_open=False))
+    return Geometry(ports, reflected=role == "launch",
+                    heading=heading(parameters["heading"]) if "heading" in parameters else None,
+                    default_heading=0 if role == "launch" else None)
+
+
+def _fiber_source(parameters):
+    _parameters(parameters, ())
+    return Geometry((Port("out", "output", position=(195, 0), medium="fiber"),))
+
+
+def _fiber_meter(parameters):
+    _parameters(parameters, ())
+    return Geometry((Port("in", "input", position=(-120, 0), medium="fiber"),
+                     Port("out", "output", position=(120, 0), medium="fiber")))
 
 
 def _mirror(parameters):
@@ -128,6 +144,14 @@ register_component(ComponentDefinition(
          (46.5, 27), (41, 10, 177, 44), 2.4, remove_axes=True),
     _fiber, label_anchor=(85, 27)))
 register_component(ComponentDefinition(
+    "fiber_laser", "Fiber laser",
+    _art("f-laser.svg", "fiber-optics/flat_2d/svg/05_laser_sources",
+         (65, 32), (14, 11, 196, 53), 1.5), _fiber_source, default_input=None))
+register_component(ComponentDefinition(
+    "inline_power_meter", "Inline power meter",
+    _art("f-inline-power-meter.svg", "fiber-optics/flat_2d/svg/11_inline_components",
+         (85, 27), (4, 25, 166, 53), 1.5), _fiber_meter))
+register_component(ComponentDefinition(
     "mirror", "Mirror",
     _art("fs-flat-mirror.svg", "free-space-optics/flat_2d/svg/14_flat_mirrors",
          (62.5, 35), (46, 14, 76, 56), 1.6), _mirror,
@@ -166,10 +190,24 @@ register_component(ComponentDefinition(
     _straight))
 
 
-def fiber_launch(label: str | None = None, *, role: str = "launch"):
+def fiber_launch(label: str | None = None, *, role: str = "launch",
+                 heading: str | float | None = None):
     if label is None and role == "couple":
         label = "Fiber coupler"
-    return component("fiber_launch", label, role=role)
+    parameters = {"role": role}
+    if heading is not None:
+        parameters["heading"] = heading
+    return component("fiber_launch", label, **parameters)
+
+
+def fiber_laser(label: str | None = None):
+    """A source with a fiber output and no optical heading."""
+    return component("fiber_laser", label)
+
+
+def inline_power_meter(label: str | None = None):
+    """A power monitor through which the fiber path continues."""
+    return component("inline_power_meter", label)
 
 
 def mirror(label: str | None = None, *, angle: float | None = None,

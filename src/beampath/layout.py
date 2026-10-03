@@ -28,30 +28,38 @@ class Style:
     beam_color: str = "#CC0000"
     font_family: str = "Helvetica, Arial, sans-serif"
     background: str = "#FFFFFF"
+    fiber_color: str = "#1B1E89"
+    fiber_width: float = 3.75
+    fiber_radius: float = 10
 
     def __post_init__(self):
-        for name in ("pitch", "clearance", "margin", "font_size", "label_gap", "open_length", "beam_width"):
+        for name in ("pitch", "clearance", "margin", "font_size", "label_gap", "open_length", "beam_width", "fiber_width"):
             value = finite(getattr(self, name), name)
             if value <= 0:
                 raise LayoutError(f"{name} must be positive")
             object.__setattr__(self, name, value)
-        for name in ("beam_color", "font_family", "background"):
+        radius = finite(self.fiber_radius, "fiber_radius")
+        if radius < 0:
+            raise LayoutError("fiber_radius must be nonnegative")
+        object.__setattr__(self, "fiber_radius", radius)
+        for name in ("beam_color", "font_family", "background", "fiber_color"):
             if not isinstance(getattr(self, name), str):
                 raise LayoutError(f"{name} must be a string")
 
 
-def artwork_point(node: OpticInstance, source_point: Point) -> Point:
+def artwork_point(node: OpticInstance, source_point: Point, rotation: float | None = None) -> Point:
     """Transform a source SVG coordinate, relative to its placement origin."""
     art = node.spec.definition.artwork
     x, y = ((source_point[i] - art.center[i]) * art.scale for i in (0, 1))
     if node.geometry.reflected:
         x = -x
-    return rotate((x, y), node.heading + node.geometry.artwork_rotation)
+    pose = (node.heading or 0) if rotation is None else rotation
+    return rotate((x, y), pose + node.geometry.artwork_rotation)
 
 
-def footprint(node: OpticInstance) -> Bounds:
+def footprint(node: OpticInstance, rotation: float | None = None) -> Bounds:
     x0, y0, x1, y1 = node.spec.definition.artwork.bounds
-    return envelope([artwork_point(node, p) for p in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))])
+    return envelope([artwork_point(node, p, rotation) for p in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))])
 
 
 def _text_size(text: str, font_size: float) -> Point:
@@ -67,16 +75,29 @@ class PlacedOptic:
     instance: OpticInstance
     position: Point
     bounds: Bounds
+    rotation: float | None = None
+
+    def __post_init__(self):
+        if self.rotation is None:
+            object.__setattr__(self, "rotation", self.instance.heading or 0)
 
     @property
     def id(self):
         return self.instance.id
 
     def port_position(self, name: str) -> Point:
-        return add(self.position, rotate(self.instance.port(name).position, self.instance.heading))
+        return add(self.position, rotate(self.instance.port(name).position, self.rotation))
 
-    def port_direction(self, name: str) -> float:
-        return (self.instance.heading + self.instance.port(name).direction) % 360
+    def port_direction(self, name: str) -> float | None:
+        direction = self.instance.port(name).direction
+        return None if direction is None else (self.rotation + direction) % 360
+
+    def port_exit_direction(self, name: str) -> float:
+        """Outward drawing tangent, independent of a fiber's optical heading."""
+        port = self.instance.port(name)
+        direction = (port.exit_direction if port.medium == "fiber" else
+                     port.direction + (180 if port.kind == "input" else 0))
+        return (self.rotation + direction) % 360
 
 
 @dataclass(frozen=True)
@@ -97,6 +118,40 @@ class Segment:
 
 
 @dataclass(frozen=True)
+class FiberRoute:
+    """One semantic connection with any number of layout-only bends."""
+
+    id: str
+    points: tuple[Point, ...]
+    source: str | None
+    output: str | None
+    target: str | None = None
+    input: str | None = None
+
+    def __post_init__(self):
+        object.__setattr__(self, "points", tuple(tuple(p) for p in self.points))
+        if len(self.points) < 2:
+            raise LayoutError("A fiber route needs at least two points")
+
+    @property
+    def start(self):
+        return self.points[0]
+
+    @property
+    def end(self):
+        return self.points[-1]
+
+    @property
+    def legs(self):
+        return tuple(Segment(f"{self.id}-{i}", a, b, self.source, self.output, self.target, self.input)
+                     for i, (a, b) in enumerate(zip(self.points, self.points[1:])))
+
+    @property
+    def length(self):
+        return sum(leg.length for leg in self.legs)
+
+
+@dataclass(frozen=True)
 class Label:
     """An upright text block, positioned at its first line's centered baseline."""
 
@@ -113,11 +168,13 @@ class Layout:
     labels: tuple[Label, ...]
     bounds: Bounds
     style: Style
+    fibers: tuple[FiberRoute, ...] = ()
 
     def __post_init__(self):
         object.__setattr__(self, "placements", MappingProxyType(dict(self.placements)))
         object.__setattr__(self, "segments", tuple(self.segments))
         object.__setattr__(self, "labels", tuple(self.labels))
+        object.__setattr__(self, "fibers", tuple(self.fibers))
 
 
 def _project(bounds: Bounds, anchor: Point, direction: Point) -> tuple[float, float]:
@@ -158,7 +215,7 @@ def _labels(placements: Mapping[str, PlacedOptic], segments: list[Segment], styl
         # installation or raster backend. Actual labels remain editable text.
         width, height = _text_size(text, style.font_size)
         art_anchor = placed.instance.spec.definition.label_anchor
-        anchor = (add(placed.position, artwork_point(placed.instance, art_anchor))
+        anchor = (add(placed.position, artwork_point(placed.instance, art_anchor, placed.rotation))
                   if art_anchor is not None else placed.position)
         x0, y0, x1, y1 = placed.bounds
         candidates = {
@@ -171,7 +228,7 @@ def _labels(placements: Mapping[str, PlacedOptic], segments: list[Segment], styl
             "bottom_left": (x0 - style.label_gap - width / 2, y1 + style.label_gap + height / 2),
             "bottom_right": (x1 + style.label_gap + width / 2, y1 + style.label_gap + height / 2),
         }
-        h = placed.instance.heading % 180
+        h = placed.rotation % 180
         if 45 < h < 135:
             preferred = "left" if placed.position[0] < middle[0] else "right"
         else:
@@ -203,6 +260,11 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
     nodes = {n.id: n for n in setup.optics}
     if not nodes:
         raise LayoutError("The setup has no components")
+    if any(e.medium == "fiber" for e in setup.connections) or any(
+        all(p.medium == "fiber" for p in n.geometry.ports) for n in nodes.values()
+    ):
+        from .fiber_layout import mixed_layout
+        return mixed_layout(setup, style)
     for node in nodes.values():
         if node.heading is None:
             raise LayoutError(f"{node.id}: connect the optic to an initial beam")
@@ -210,10 +272,17 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
             if port.kind == "input" and port.required and not setup._input_used(node.id, port.name):
                 raise LayoutError(f"{node.id}.{port.name}: required input is not connected")
 
+    placements = _solve_beams(nodes, setup.connections,
+                              {r.optic: r.origin for r in setup._roots}, style)
+    return _finish_free_space(setup, placements, style)
+
+
+def _solve_beams(nodes, connections, anchors, style):
+    """Continuous spacing for one or more already oriented free-space sections."""
     solver = kiwi.Solver()
     xs = {ident: kiwi.Variable(f"{ident}.x") for ident in nodes}
     ys = {ident: kiwi.Variable(f"{ident}.y") for ident in nodes}
-    lengths = {edge.id: kiwi.Variable(f"{edge.id}.length") for edge in setup.connections}
+    lengths = {edge.id: kiwi.Variable(f"{edge.id}.length") for edge in connections}
     footprints = {ident: footprint(node) for ident, node in nodes.items()}
 
     def required(constraint, context):
@@ -222,15 +291,15 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
         except kiwi.UnsatisfiableConstraint as exc:
             raise LayoutError(f"{context}: incompatible placement constraints") from exc
 
-    for root in setup._roots:
-        required(xs[root.optic] == root.origin[0], root.optic)
-        required(ys[root.optic] == root.origin[1], root.optic)
+    for ident, origin in anchors.items():
+        required(xs[ident] == origin[0], ident)
+        required(ys[ident] == origin[1], ident)
     for node in nodes.values():
         if node.at is not None:
             required(xs[node.id] == node.at[0], node.id)
             required(ys[node.id] == node.at[1], node.id)
 
-    for edge in setup.connections:
+    for edge in connections:
         source, target = nodes[edge.source], nodes[edge.target]
         out, inp = source.port(edge.output), target.port(edge.input)
         d = unit(source.heading + out.direction)
@@ -252,13 +321,15 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
     # Prefer equal gaps along maximal straight runs, without making equality a
     # hard requirement when explicit pins or varying glyph clearances conflict.
     incoming, outgoing = {}, {}
-    for edge in setup.connections:
+    for edge in connections:
         incoming.setdefault(edge.target, []).append(edge)
         outgoing.setdefault(edge.source, []).append(edge)
     for node in nodes.values():
         inputs = [p for p in node.geometry.ports if p.kind == "input"]
         outputs = [p for p in node.geometry.ports if p.kind == "output"]
-        if (len(inputs) == len(outputs) == 1 and aligned(inputs[0].direction, outputs[0].direction)
+        if (len(inputs) == len(outputs) == 1
+                and inputs[0].medium == outputs[0].medium == "free_space"
+                and aligned(inputs[0].direction, outputs[0].direction)
                 and len(incoming.get(node.id, [])) == len(outgoing.get(node.id, [])) == 1):
             a, b = incoming[node.id][0], outgoing[node.id][0]
             solver.addConstraint((lengths[a.id] == lengths[b.id]) | kiwi.strength.medium)
@@ -268,6 +339,16 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
     for ident, node in nodes.items():
         position = clean(xs[ident].value()), clean(ys[ident].value())
         placements[ident] = PlacedOptic(node, position, translated(footprints[ident], position))
+    return placements
+
+
+def _finish_free_space(setup, placements, style):
+    segments = _beam_segments(setup, placements, style)
+    labels = _labels(placements, segments, style)
+    return _assemble_layout(placements, segments, labels, style)
+
+
+def _beam_segments(setup, placements, style):
     items = list(placements.values())
     for index, a in enumerate(items):
         for b in items[index + 1:]:
@@ -276,10 +357,11 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
     segments = [Segment(edge.id, placements[edge.source].port_position(edge.output),
                         placements[edge.target].port_position(edge.input),
                         edge.source, edge.output, edge.target, edge.input)
-                for edge in setup.connections]
+                for edge in setup.connections if edge.medium == "free_space"]
     for placed in placements.values():
         for index, port in enumerate(placed.instance.geometry.ports):
-            if port.kind == "output" and not setup._output_used(placed.id, port.name):
+            if (port.kind == "output" and port.medium == "free_space" and port.draw_open
+                    and not setup._output_used(placed.id, port.name)):
                 a = placed.port_position(port.name)
                 d = unit(placed.port_direction(port.name))
                 reach = _project(placed.bounds, a, d)[1]
@@ -290,7 +372,8 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
         if root.input is None:
             continue
         placed = placements[root.optic]
-        if not placed.instance.port(root.input, "input").draw_lead_in:
+        port = placed.instance.port(root.input, "input")
+        if not port.draw_lead_in or port.medium == "fiber":
             continue
         b = placed.port_position(root.input)
         d = unit(placed.port_direction(root.input))
@@ -304,12 +387,17 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
             if placed.id not in {segment.source, segment.target} and segment_intersects(
                     segment.start, segment.end, placed.bounds):
                 raise LayoutError(f"{segment.id}: beam crosses unrelated optic {placed.id}")
-    labels = _labels(placements, segments, style)
+    return segments
+
+
+def _assemble_layout(placements, segments, labels, style, fibers=()):
     points = []
     for bounds in [p.bounds for p in placements.values()] + [label.bounds for label in labels]:
         points.extend(((bounds[0], bounds[1]), (bounds[2], bounds[3])))
     for segment in segments:
         points.extend((segment.start, segment.end))
+    for route in fibers:
+        points.extend(route.points)
     x0, y0, x1, y1 = envelope(points)
     bounds = x0 - style.margin, y0 - style.margin, x1 + style.margin, y1 + style.margin
-    return Layout(placements, tuple(segments), labels, bounds, style)
+    return Layout(placements, tuple(segments), labels, bounds, style, tuple(fibers))

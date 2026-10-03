@@ -160,11 +160,26 @@ def render_svg(layout: Layout) -> str:
                                      "source": segment.source, "output": segment.output,
                                      "target": segment.target, "input": segment.input})
 
+    if layout.fibers:
+        from .routing import rounded_path
+        fibers = element(svg, "g", id="fiber-path", fill="none", stroke=style.fiber_color,
+                         stroke_width=number(style.fiber_width), stroke_linecap="round")
+        obstacles = [p.bounds for p in layout.placements.values()] + [label.bounds for label in layout.labels]
+        manifest["fibers"] = []
+        for route in layout.fibers:
+            element(fibers, "path", id=route.id,
+                    d=rounded_path(route, style.fiber_radius, obstacles, style.fiber_width),
+                    data_source=route.source or "", data_output=route.output or "",
+                    data_target=route.target or "", data_input=route.input or "")
+            manifest["fibers"].append({"id": route.id, "points": route.points,
+                                       "source": route.source, "output": route.output,
+                                       "target": route.target, "input": route.input})
+
     components = element(svg, "g", id="components")
     for placed in layout.placements.values():
         node = placed.instance
         art = node.spec.definition.artwork
-        angle = node.heading + node.geometry.artwork_rotation
+        angle = placed.rotation + node.geometry.artwork_rotation
         transform = (f"translate({number(placed.position[0])} {number(placed.position[1])}) "
                      f"rotate({number(angle)}) scale({number(art.scale)}) ")
         if node.geometry.reflected:
@@ -173,7 +188,7 @@ def render_svg(layout: Layout) -> str:
         group = element(components, "g", id=node.id, transform=transform,
                         data_component=node.spec.definition.name,
                         data_optical_center=" ".join(number(v) for v in placed.position),
-                        data_heading=number(node.heading))
+                                    data_heading="" if node.heading is None else number(node.heading))
         source = deepcopy(sources[node.spec.definition.name])
         for attribute in ("font-family", "fill", "stroke", "stroke-width"):
             if attribute in source.attrib:
