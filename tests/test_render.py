@@ -108,9 +108,9 @@ def test_bundled_primitives_and_provenance_are_retained():
 
 
 @pytest.mark.parametrize("initial", [0, 90, 180, 270, 31.4])
-@pytest.mark.parametrize("normal", [-45, 45, -32, 12.7])
-def test_npbs_cube_surface_matches_beam_geometry(initial, normal):
-    node = (beam(initial) >> beamsplitter(angle=normal)).end.instance
+@pytest.mark.parametrize("turn", ["left", "right"])
+def test_npbs_cube_surface_matches_beam_geometry(initial, turn):
+    node = (beam(initial) >> beamsplitter(turn=turn)).end.instance
     assert node.spec.display_label == "NPBS"
     assert artwork_point(node, (60, 45)) == pytest.approx((0, 0))
     a, b = artwork_point(node, (40, 65)), artwork_point(node, (80, 25))

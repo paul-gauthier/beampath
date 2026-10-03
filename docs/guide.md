@@ -30,7 +30,9 @@ Labels default to component names. Pass a label as the first argument, such as
 
 ## Branching and shared optics
 
-Select a beamsplitter's `.straight()` or `.reflect()` output to start each arm.
+Use `beamsplitter(turn="left")` (the default) or `turn="right"` to choose the
+side of its 90° reflected branch, relative to the primary incoming beam.
+Select its `.straight()` or `.reflect()` output to start each arm.
 Join the arms at one physical optic with `.join()`. This Mach–Zehnder
 interferometer shares the recombining beamsplitter between both paths:
 
@@ -38,10 +40,10 @@ interferometer shares the recombining beamsplitter between both paths:
 ```python
 from beampath.components import *
 
-split = fiber_launch() >> beamsplitter("NPBS1", angle=-45)
+split = fiber_launch() >> beamsplitter("NPBS1", turn="right")
 a = split.straight() >> HWP() >> mirror(heading="south")
 b = split.reflect() >> LP() >> QWP() >> mirror(heading="east")
-combined = a.join(b, beamsplitter("NPBS2", angle=+45))
+combined = a.join(b, beamsplitter("NPBS2", turn="left"))
 combined.reflect() >> fiber_coupler()
 combined.straight() >> iris()
 split.save("mzi.svg")

@@ -156,17 +156,17 @@ def _mirror_incidence(parameters, incoming):
 
 
 def _splitter(parameters):
-    _parameters(parameters, ("angle",))
-    angle = finite(parameters["angle"], "beamsplitter angle")
-    reflected = reflection(0, angle)
-    if aligned(reflected, 0) or aligned(reflected, 180):
-        raise ComponentError("Beamsplitter angle must give four distinct physical ports")
-    # The cube's splitting diagonal (40,65)..(80,25) has a 45-degree normal.
-    source_normal = 45
+    _parameters(parameters, ("turn",))
+    turn = parameters.get("turn", "left")
+    if not isinstance(turn, str) or turn.lower() not in {"left", "right"}:
+        raise ComponentError("Beamsplitter turn must be 'left' or 'right'")
+    left = turn.lower() == "left"
+    reflected = 270 if left else 90
+    # The source cube reflects left; rotate it a quarter-turn to reflect right.
     return Geometry((Port("primary", "input"),
                      Port("secondary", "input", reflected, required=False),
                      Port("straight", "output"), Port("reflect", "output", reflected)),
-                    artwork_rotation=angle - source_normal)
+                    artwork_rotation=0 if left else -90)
 
 
 _FIBER_TRANSITION_ARTWORK = _art(
@@ -298,9 +298,13 @@ def mirror(label: str | None = None, *, angle: float | None = None,
     return component("mirror", label, **parameters)
 
 
-def beamsplitter(label: str | None = None, *, angle: float):
-    """A non-polarizing cube beamsplitter, labeled NPBS by default."""
-    return component("beamsplitter", label, angle=angle)
+def beamsplitter(label: str | None = None, *, turn: str = "left"):
+    """A non-polarizing cube beamsplitter, labeled NPBS by default.
+
+    turn selects a 90° reflection left (default) or right relative to the
+    primary incoming beam. Select outputs with straight() and reflect().
+    """
+    return component("beamsplitter", label, turn=turn)
 
 
 def iris(label: str | None = None):

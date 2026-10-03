@@ -10,10 +10,10 @@ from beampath import (
 
 
 def mzi():
-    split = fiber_launch() >> beamsplitter("NPBS1", angle=-45)
+    split = fiber_launch() >> beamsplitter("NPBS1", turn="right")
     a = split.straight() >> HWP() >> mirror(angle=-45)
     b = split.reflect() >> LP() >> QWP() >> mirror(angle=45)
-    combined = a.join(b, beamsplitter("NPBS2", angle=45))
+    combined = a.join(b, beamsplitter("NPBS2", turn="left"))
     return split, a, b, combined
 
 
@@ -41,6 +41,30 @@ def test_source_default_and_mutation():
     assert all(n.heading == 0 for n in p.setup.optics)
     west = beam("west") >> iris()
     assert west.end.instance.heading == 180
+
+
+@pytest.mark.parametrize("factory", [
+    beamsplitter, lambda **parameters: component("beamsplitter", **parameters),
+], ids=["factory", "generic"])
+@pytest.mark.parametrize("initial", [0, 90, 180, 270, 31.4])
+@pytest.mark.parametrize("parameters,delta", [
+    ({}, -90), ({"turn": "left"}, -90), ({"turn": "right"}, 90),
+    ({"turn": "LEFT"}, -90), ({"turn": "RIGHT"}, 90),
+])
+def test_beamsplitter_outputs_follow_primary_incidence(factory, initial, parameters, delta):
+    split = beam(initial) >> factory(**parameters)
+    straight = split.straight() >> iris()
+    reflected = split.reflect() >> iris()
+    assert straight.end.instance.heading == pytest.approx(initial)
+    assert reflected.end.instance.heading == pytest.approx((initial + delta) % 360)
+
+
+@pytest.mark.parametrize("turn", ["straight", "north", "", None, 90, True, [], {}])
+def test_invalid_beamsplitter_turn(turn):
+    with pytest.raises(ComponentError, match="Beamsplitter turn must be 'left' or 'right'"):
+        beamsplitter(turn=turn)
+    with pytest.raises(ComponentError, match="Beamsplitter turn must be 'left' or 'right'"):
+        component("beamsplitter", turn=turn)
 
 
 @pytest.mark.parametrize("initial", [0, 90, 180, 270, 31.4])
@@ -104,10 +128,10 @@ def test_heading_mirror_can_connect_after_its_outbound_path():
 
 
 def test_heading_mirrors_on_splitter_branches_and_join():
-    split = iris() >> beamsplitter(angle=-45)
+    split = iris() >> beamsplitter(turn="right")
     a = split.straight() >> mirror(heading="south")
     b = split.reflect() >> mirror(heading="east")
-    combined = a.join(b, beamsplitter(angle=45))
+    combined = a.join(b, beamsplitter(turn="left"))
     assert combined.end.instance.heading == 90
     assert len([segment for segment in split.layout().segments
                 if segment.source is not None and segment.target is not None]) == 5
@@ -184,12 +208,12 @@ def test_reusable_specs_and_chains_make_fresh_instances():
 
 
 def test_nested_split_and_output_selection():
-    p = iris() >> beamsplitter(angle=-45)
+    p = iris() >> beamsplitter(turn="right")
     before = p.setup.optics, p.setup.connections
     with pytest.raises(ConnectionError, match="select an output"):
         p >> iris()
     assert (p.setup.optics, p.setup.connections) == before
-    q = p.reflect() >> beamsplitter(angle=45)
+    q = p.reflect() >> beamsplitter(turn="left")
     assert q.end.instance.heading == 90
     assert q.reflect().end.id == q.end.id
     p.straight() >> iris()
@@ -198,10 +222,10 @@ def test_nested_split_and_output_selection():
 
 
 def test_explicit_sharing_secondary_first():
-    split = iris() >> beamsplitter(angle=-45)
+    split = iris() >> beamsplitter(turn="right")
     a = split.straight() >> mirror(angle=-45)
     b = split.reflect() >> mirror(angle=45)
-    shared = split.setup.add(beamsplitter("shared", angle=45))
+    shared = split.setup.add(beamsplitter("shared", turn="left"))
     b.connect(shared.input("secondary"))
     a.connect(shared.input("primary"))
     assert shared.instance.heading == 90
@@ -211,7 +235,7 @@ def test_explicit_sharing_secondary_first():
 
 def test_two_nominal_inputs_can_start_at_one_splitter():
     drawing = Setup()
-    shared = drawing.add(beamsplitter(angle=-45), at=(200, 300))
+    shared = drawing.add(beamsplitter(turn="right"), at=(200, 300))
     drawing.beam("east").connect(shared.input("primary"))
     drawing.beam("south").connect(shared.input("secondary"))
     assert shared.instance.heading == 0
@@ -231,18 +255,18 @@ def test_failed_chain_is_atomic():
     previous = p.end.id
     before = p.setup.optics, p.setup.connections
     with pytest.raises(ConnectionError, match="select an output"):
-        p >> chain(HWP(), beamsplitter(angle=-45), LP())
+        p >> chain(HWP(), beamsplitter(turn="right"), LP())
     assert (p.setup.optics, p.setup.connections) == before
     assert p.end.id == previous
     p >> QWP()
 
 
 def test_failed_join_is_atomic_and_inputs_remain_usable():
-    split = iris() >> beamsplitter(angle=-45)
+    split = iris() >> beamsplitter(turn="right")
     a, b = split.straight(), split.reflect()
     before = split.setup.optics, split.setup.connections
     with pytest.raises(ConnectionError, match="direction disagrees"):
-        a.join(b, beamsplitter(angle=45))
+        a.join(b, beamsplitter(turn="left"))
     assert (split.setup.optics, split.setup.connections) == before
     a >> LP()
     b >> QWP()
@@ -261,7 +285,7 @@ def test_stale_cursor_and_occupied_input():
 
 
 def test_cycle_rejection_is_atomic():
-    p = iris() >> beamsplitter(angle=-45)
+    p = iris() >> beamsplitter(turn="right")
     splitter = p.end
     q = p.reflect() >> mirror(angle=45)
     before = p.setup.optics, p.setup.connections
@@ -275,7 +299,7 @@ def test_ownership_and_terminal_errors():
     a = beam() >> iris()
     b = beam() >> iris()
     with pytest.raises(ConnectionError, match="same setup"):
-        a.join(b, beamsplitter(angle=-45))
+        a.join(b, beamsplitter(turn="right"))
     with pytest.raises(ConnectionError, match="different setups"):
         a.connect(b.end.input())
     a >> fiber_coupler()
@@ -285,7 +309,6 @@ def test_ownership_and_terminal_errors():
 
 @pytest.mark.parametrize("factory", [
     lambda: beam("up"), lambda: mirror(angle=float("nan")),
-    lambda: beamsplitter(angle=0), lambda: beamsplitter(angle=90),
     lambda: component("fiber_launch", role="couple"),
     lambda: component("fiber_coupler", role="launch"), lambda: component("LP", unexpected=1),
     lambda: chain(), lambda: chain(Setup()),

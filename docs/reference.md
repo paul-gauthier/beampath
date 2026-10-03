@@ -18,7 +18,7 @@ Import components from `beampath.components`; they are also exported from
 | `fiber_launch()` | Fiber launch | Fiber in → free space out; optional `heading`, defaults east for an unconstrained section |
 | `fiber_coupler()` | Fiber coupler | Free space in → fiber out; follows incidence, optional `heading` constrains the section |
 | `mirror()` | Mirror | Free space in/out; requires exactly one of `angle`, `heading`, or `turn` |
-| `beamsplitter()` | NPBS | Free space inputs `primary` and optional `secondary`; outputs `straight` and `reflect`; requires `angle` |
+| `beamsplitter()` | NPBS | Free space inputs `primary` and optional `secondary`; outputs `straight` and `reflect`; `turn="left"` (default) or `"right"` |
 | `iris()` | Iris | Straight-through free space |
 | `LP()` | LP | Linear polarizer; straight-through free space |
 | `HWP()` | HWP | Half-wave plate; straight-through free space |
@@ -81,12 +81,14 @@ north = 270. Compass names and numeric headings work with `beam()` and the
 
 - `mirror(heading="north")` sets the absolute outbound heading.
 - `mirror(turn="left")` or `mirror(turn="right")` turns 90° relative to incidence.
-- Mirror and beamsplitter `angle` specifies a surface normal relative to the
+- `beamsplitter(turn="left")` (the default) or `beamsplitter(turn="right")`
+  reflects one branch 90° relative to the primary incoming beam; the other
+  continues straight. The cube faces stay aligned with the beam paths.
+- Mirror `angle` specifies a surface normal relative to the
   incoming beam. For example, `mirror(angle=-45)` turns east to south.
 
 A mirror cannot leave the beam heading unchanged. An impossible absolute
 heading fails when connected; a grazing `angle` fails when the spec is created.
-A beamsplitter must have four distinct physical ports.
 
 Fiber has no optical heading. Each new free-space section defaults east unless
 constrained explicitly, for example by `fiber_launch(heading="north")` or

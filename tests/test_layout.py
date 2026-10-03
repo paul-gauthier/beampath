@@ -92,7 +92,7 @@ def test_custom_sources_can_omit_input_stub(ports, default_input):
 
 
 def test_splitter_only_draws_input_stubs_for_bound_roots():
-    result = (beam() >> beamsplitter(angle=-45)).layout()
+    result = (beam() >> beamsplitter(turn="right")).layout()
     lead, = [s for s in result.segments if s.source is None]
     assert lead.input == "primary"
 
@@ -246,9 +246,9 @@ def test_registration_three_outputs_and_displaced_ports():
 
 
 def test_nested_split_layout():
-    p = iris() >> beamsplitter(angle=-45)
+    p = iris() >> beamsplitter(turn="right")
     p.straight() >> HWP()
-    q = p.reflect() >> beamsplitter(angle=45)
+    q = p.reflect() >> beamsplitter(turn="left")
     q.straight() >> LP()
     q.reflect() >> QWP()
     assert len(p.layout().placements) == 6
