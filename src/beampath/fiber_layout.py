@@ -5,12 +5,12 @@ from dataclasses import replace
 import math
 
 from .errors import LayoutError
-from .geometry import add, overlap, translated, unit
+from .geometry import add, aligned, overlap, translated, unit
 from .layout import (
     FiberRoute, PlacedOptic, Segment, _assemble_layout, _beam_segments,
-    _labels, _root_origins, _solve_beams, footprint, segment_intersects,
+    _labels, _project, _root_origins, _solve_beams, footprint, segment_intersects,
 )
-from .routing import connector_lead, route_connection
+from .routing import connector_lead, inflate, route_connection
 
 
 def _validate(setup):
@@ -174,10 +174,25 @@ def _place(setup, style):
             branches = [e for e in fiber_edges if e.source == edge.source]
             lane = branches.index(edge)
             lane = ((lane + 1) // 2) * (1 if lane % 2 else -1) if lane else 0
-            delta = add(source.port_position(edge.output), (style.pitch * direction[0],
-                                                            style.pitch * direction[1]))
+            target_component = block[edge.target]
+            origin = source.port_position(edge.output)
+            target = target_component.port_position(edge.input)
+            # Pitch is between component reference points, as for the usual
+            # free-space optics. Ports at housing edges shorten the cable gap.
+            offset = sum((target[i] - target_component.position[i]
+                          - origin[i] + source.position[i]) * direction[i] for i in (0, 1))
+            clearance = (_project(source.bounds, origin, direction)[1]
+                         - _project(target_component.bounds, target, direction)[0] + style.clearance)
+            if not aligned(source.port_exit_direction(edge.output) + 180,
+                           target_component.port_exit_direction(edge.input)):
+                # Turning connections need space for both connector escape
+                # corridors, including the larger projection at oblique exits.
+                margin = max(style.clearance, style.fiber_width)
+                clearance = (_project(inflate(source.bounds, margin), origin, direction)[1]
+                             - _project(inflate(target_component.bounds, margin), target, direction)[0])
+            gap = max(1, style.pitch + offset, clearance)
+            delta = add(origin, (gap * direction[0], gap * direction[1]))
             delta = add(delta, (-direction[1] * lane * style.pitch, direction[0] * lane * style.pitch))
-            target = block[edge.target].port_position(edge.input)
             delta = delta[0] - target[0], delta[1] - target[1]
         else:
             right = max((p.bounds[2] for p in placed.values()), default=0)
@@ -229,18 +244,22 @@ def _orient_fiber_components(placements, edges, beam_edges, style):
 
 def _open_fibers(setup, placements, style):
     routes = []
-    roots = {(r.optic, r.input) for r in setup._roots}
+    connected_inputs = {(edge.target, edge.input) for edge in setup.connections}
     for p in placements.values():
         for index, port in enumerate(p.instance.geometry.ports):
             if port.medium != "fiber":
                 continue
             output = port.kind == "output" and port.draw_open and not setup._output_used(p.id, port.name)
-            incoming = port.kind == "input" and port.draw_lead_in and (p.id, port.name) in roots
+            incoming = (port.kind == "input" and port.draw_lead_in
+                        and (p.id, port.name) not in connected_inputs)
             if not (output or incoming):
                 continue
-            a, b = connector_lead(p, port.name, max(style.open_length, style.clearance))
+            a, nearest = connector_lead(p, port.name, style.clearance)
+            direction = unit(p.port_exit_direction(port.name))
+            length = max(style.open_length, math.dist(a, nearest))
+            b = add(a, (length * direction[0], length * direction[1]))
             if any(segment_intersects(a, b, other.bounds) for other in placements.values() if other.id != p.id):
-                a, b = connector_lead(p, port.name, style.clearance)
+                b = nearest
                 if any(segment_intersects(a, b, other.bounds) for other in placements.values() if other.id != p.id):
                     raise LayoutError(f"{p.id}.{port.name}: open fiber lead crosses unrelated artwork")
             if output:

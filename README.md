@@ -207,6 +207,12 @@ Runnable example: [mixed_fiber.py](examples/mixed_fiber.py).
 Fiber components and connections have no optical heading. Layout chooses their
 positions and drawing rotations, preferring straight runs. Inline components
 can lie on horizontal or vertical runs; bends occur outside their artwork.
+Fiber attaches directly at each device's connector or tap. The assets contain
+no cable tails: unconnected fiber ports receive layout-generated stubs, and
+connecting a port replaces its stub with routed fiber from that same attachment.
+Open inputs have `source=None`; open outputs have `target=None`. These are open
+connection endpoints, with no additional components in the semantic graph.
+The laser has no input port and therefore gets no incoming stub.
 Each new free-space section defaults east; `fiber_launch(heading="north")`
 or a numeric heading overrides it. An explicit heading elsewhere in the same
 free-space section also constrains the section. Fiber never transmits that
@@ -260,11 +266,14 @@ is `None` for fiber-only components. `Style.fiber_color`, `fiber_width`, and
 ## Spacing and reuse
 
 The graph fixes beam headings; Kiwi solves positions and gap lengths.
-Automatic gaps are at least 190 diagram units, or the artwork clearance if
-larger. They stretch to close joins, with equal gaps preferred along straight
-runs. Beam crossings do not create connections. Initial free-space inputs and
-open outputs get short stubs, controlled by `Style.open_length` (95 diagram
-units by default) and extended as needed for artwork clearance.
+Automatic free-space gaps are at least 190 diagram units, or the artwork
+clearance if larger. They stretch to close joins, with equal gaps preferred along
+straight runs. Fiber placement uses the same preferred 190-unit component pitch,
+enlarging it for artwork or turn clearance; housing-edge ports do not add their
+offsets to this spacing. Beam crossings do not create connections.
+Initial free-space inputs, unconnected fiber inputs, and open outputs get short
+stubs, controlled by `Style.open_length` (95 diagram units by default) and
+extended as needed for artwork clearance.
 
 <!-- README:BEGIN reuse -->
 ```python
@@ -356,8 +365,9 @@ Custom fiber ports use `Port("in", "input", medium="fiber")` and
 Set `position` to the artwork's cable attachment in diagram units and optionally
 set `exit_direction` to its outward drawing tangent (defaults: input west,
 output east). Layout rotates the attachment and tangent together with the
-component. `draw_open=False` suppresses an output stub when the artwork already
-includes a terminating pigtail. Existing ports default to `medium="free_space"`.
+component. `draw_open=False` suppresses an output stub and `draw_lead_in=False`
+suppresses an input stub. Builtin fiber components generate both through layout.
+Existing ports default to `medium="free_space"`.
 
 <!-- README:BEGIN custom_component -->
 ```python

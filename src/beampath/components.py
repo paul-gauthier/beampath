@@ -68,11 +68,11 @@ def _fiber(parameters):
     if role not in {"launch", "couple"}:
         raise ComponentError("fiber_launch role must be 'launch' or 'couple'")
     if role == "launch":
-        ports = (Port("in", "input", position=(-308.4, 0), medium="fiber", draw_lead_in=False),
+        ports = (Port("in", "input", position=(-152.4, 0), medium="fiber"),
                  Port("out", "output"))
     else:
         ports = (Port("in", "input"),
-                 Port("out", "output", position=(308.4, 0), medium="fiber", draw_open=False))
+                 Port("out", "output", position=(152.4, 0), medium="fiber"))
     return Geometry(ports, reflected=role == "launch",
                     heading=heading(parameters["heading"]) if "heading" in parameters else None,
                     default_heading=0 if role == "launch" else None)
@@ -80,13 +80,13 @@ def _fiber(parameters):
 
 def _fiber_source(parameters):
     _parameters(parameters, ())
-    return Geometry((Port("out", "output", position=(195, 0), medium="fiber"),))
+    return Geometry((Port("out", "output", position=(75, 0), medium="fiber"),))
 
 
 def _fiber_meter(parameters):
     _parameters(parameters, ())
-    return Geometry((Port("in", "input", position=(-120, 0), medium="fiber"),
-                     Port("out", "output", position=(120, 0), medium="fiber")))
+    return Geometry((Port("in", "input", medium="fiber"),
+                     Port("out", "output", medium="fiber")))
 
 
 def _mirror(parameters):
@@ -145,17 +145,21 @@ def _splitter(parameters):
 register_component(ComponentDefinition(
     "fiber_launch", "Fiber launch",
     _art("f-fiber-launch.svg", "fiber-optics/flat_2d/svg/11_beam_delivery",
-         (46.5, 27), (41, 10, 177, 44), 2.4, remove_axes=True),
+         (46.5, 27), (41, 10, 111, 44), 2.4, remove_axes=True,
+         adaptations="Embedded fiber tail removed; fiber connects at the housing."),
     _fiber, label_anchor=(85, 27)))
 register_component(ComponentDefinition(
     "fiber_laser", "Fiber laser",
     _art("f-laser.svg", "fiber-optics/flat_2d/svg/05_laser_sources",
-         (65, 32), (14, 11, 196, 53), 1.5), _fiber_source, default_input=None))
+         (65, 32), (14, 11, 116, 53), 1.5,
+         adaptations="Embedded fiber tail removed; fiber connects at the housing."),
+    _fiber_source, default_input=None))
 register_component(ComponentDefinition(
     "inline_power_meter", "Inline power meter",
     _art("f-inline-power-meter.svg", "fiber-optics/flat_2d/svg/11_inline_components",
-         (85, 27), (4, 25, 166, 53), 1.5,
-         adaptations="Inline power-meter display changed to 1.23 mW and kept aligned with its housing."),
+         (85, 27), (69, 25, 101, 53), 1.5,
+         adaptations="Inline power-meter display changed to 1.23 mW and kept aligned with its housing. "
+                     "Embedded fiber line removed; both fiber ports attach at the tap."),
     _fiber_meter))
 register_component(ComponentDefinition(
     "mirror", "Mirror",

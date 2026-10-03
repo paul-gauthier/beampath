@@ -9,7 +9,7 @@ from beampath import (
     Label, LayoutError, Port, Setup, Style, beam, fiber_laser, fiber_launch,
     inline_power_meter, iris,
 )
-from beampath.layout import segment_intersects
+from beampath.layout import artwork_point, segment_intersects
 from beampath.render import tag
 from beampath.routing import rounded_path, route_connection
 
@@ -215,10 +215,10 @@ def test_fiber_style_and_root_stub():
     group = svg.find(f"{tag('g')}[@id='fiber-path']")
     assert group.get("stroke") == "#112233"
     assert group.get("stroke-width") == "6"
-    # Embedded PCL fiber leads use the same stroke as generated cable paths.
+    # Fiber lives only in layout; the asset contains the instrument itself.
     components = svg.find(f"{tag('g')}[@id='components']")
-    leads = [n for n in components.iter() if n.get("stroke") == "#112233"]
-    assert leads and all(float(n.get("stroke-width")) * 1.5 == 6 for n in leads)
+    assert not any(n.get("stroke") in {"#112233", "#1B1E89"} for n in components.iter())
+    assert all(route.length == style.open_length for route in result.fibers)
 
 
 def test_crossing_fibers_do_not_create_junctions():
@@ -240,7 +240,8 @@ def test_crossing_fibers_do_not_create_junctions():
 
 
 def test_router_can_detour_around_reserved_label_bounds():
-    path = fiber_laser("") >> inline_power_meter("")
+    path = beam().append(fiber_laser(""))
+    path.append(inline_power_meter(""), at=(600, 0))
     layout = path.layout()
     label = Label("note", "Reserved label", (300, 0), (270, -20, 330, 20))
     route = route_connection(path.setup.connections[0], layout.placements, layout.style, [label])
@@ -282,3 +283,87 @@ def test_pinned_fiber_device_can_rotate_to_clear_artwork():
     assert result.placements["optic-002"].rotation in (90, 270)
     assert result.placements["optic-002"].position == (150, 0)
     assert_routes_clear(result)
+
+
+@pytest.mark.parametrize("factory,incoming,outgoing", [
+    (fiber_laser, 0, 1), (inline_power_meter, 1, 1),
+    (fiber_launch, 1, 0), (lambda: fiber_launch(role="couple"), 0, 1),
+])
+def test_standalone_fiber_ports_have_null_ended_stubs(factory, incoming, outgoing):
+    path = beam().append(factory())
+    before = path.setup.optics, path.setup.connections
+    layout = path.layout()
+    assert len(layout.placements) == 1
+    assert len([r for r in layout.fibers if r.source is None]) == incoming
+    assert len([r for r in layout.fibers if r.target is None]) == outgoing
+    assert all(r.length == pytest.approx(layout.style.open_length) for r in layout.fibers)
+    assert (path.setup.optics, path.setup.connections) == before
+    assert before[1] == ()
+    assert_routes_clear(layout)
+
+
+def test_connected_fiber_replaces_open_stub_without_adding_components():
+    path = beam().append(inline_power_meter("Input power"))
+    before = path.layout()
+    before_end = path.end.id
+    open_output, = [r for r in before.fibers if r.target is None]
+    path >> fiber_launch() >> HWP() >> fiber_launch(role="couple") >> inline_power_meter("Output power")
+    after = path.layout()
+    connected, = [r for r in after.fibers if r.source == before_end]
+    assert connected.target == "optic-002"
+    assert connected.start == open_output.start
+    assert len(after.placements) == len(path.setup.optics) == 5
+    assert len(path.setup.connections) == 4
+    assert len([r for r in after.fibers if r.source is None]) == 1
+    assert len([r for r in after.fibers if r.target is None]) == 1
+    assert_routes_clear(after)
+
+
+@pytest.mark.parametrize("spec,attachments", [
+    (fiber_laser(""), {"out": (115, 32)}),
+    (inline_power_meter(""), {"in": (85, 27), "out": (85, 27)}),
+    (fiber_launch("", heading=31.7), {"in": (110, 27)}),
+    (fiber_launch("", role="couple", heading=31.7), {"out": (110, 27)}),
+])
+def test_fiber_docks_at_asset_attachment_without_embedded_cable(spec, attachments):
+    path = beam(31.7).append(spec)
+    layout = path.layout()
+    placed = layout.placements[path.end.id]
+    for name, asset_point in attachments.items():
+        offset = artwork_point(placed.instance, asset_point, placed.rotation)
+        expected = tuple(placed.position[i] + offset[i] for i in (0, 1))
+        assert placed.port_position(name) == pytest.approx(expected)
+    svg = ET.fromstring(path.to_svg())
+    components = svg.find(f"{tag('g')}[@id='components']")
+    assert not any(node.get("stroke") == layout.style.fiber_color for node in components.iter())
+    assert_routes_clear(layout)
+
+
+def test_fiber_component_pitch_excludes_connector_offsets():
+    path = mixed()
+    default = path.layout()
+    positions = [p.position[0] for p in default.placements.values()]
+    assert positions[1] - positions[0] == default.style.pitch
+    assert all(default.style.pitch <= b - a + 1e-8 <= default.style.pitch + default.style.clearance
+               for a, b in zip(positions, positions[1:]))
+    # A larger preferred pitch needs no enlargement for these glyphs.
+    roomy = path.layout(style=Style(pitch=300))
+    positions = [p.position[0] for p in roomy.placements.values()]
+    assert [b - a for a, b in zip(positions, positions[1:])] == pytest.approx([300] * 5)
+    assert_routes_clear(default)
+    assert_routes_clear(roomy)
+
+
+def test_unused_optional_fiber_input_has_an_open_stub():
+    device = fiber_component("optional-input", [
+        Port("in", "input", medium="fiber", position=(-20, -10)),
+        Port("spare", "input", medium="fiber", position=(-20, 10), required=False),
+        Port("out", "output", medium="fiber", position=(20, 0)),
+    ])
+    path = fiber_laser("") >> device
+    before = path.setup.optics, path.setup.connections
+    layout = path.layout()
+    spare, = [r for r in layout.fibers if r.input == "spare"]
+    assert spare.source is None and spare.output is None
+    assert spare.target == path.end.id
+    assert (path.setup.optics, path.setup.connections) == before

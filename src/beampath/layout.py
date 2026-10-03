@@ -261,9 +261,7 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
     if not nodes:
         raise LayoutError("The setup has no components")
     anchors = _root_origins(setup)
-    if any(e.medium == "fiber" for e in setup.connections) or any(
-        all(p.medium == "fiber" for p in n.geometry.ports) for n in nodes.values()
-    ):
+    if any(p.medium == "fiber" for n in nodes.values() for p in n.geometry.ports):
         from .fiber_layout import mixed_layout
         return mixed_layout(setup, style)
     for node in nodes.values():

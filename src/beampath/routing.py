@@ -110,6 +110,15 @@ def route_connection(edge, placements, style, labels=()):
     end, last = connector_lead(target, edge.input, clearance)
     obstacles = [(p.id, p.bounds) for p in placements.values()]
     obstacles += [(f"label-{label.optic}", label.bounds) for label in labels]
+    # A clear straight connection needs no detour or escape corridor. Endpoint
+    # clearance boxes may overlap when compactly placed devices face each other.
+    direction = math.degrees(math.atan2(end[1] - start[1], end[0] - start[0])) % 360
+    if (math.dist(start, end) > EPSILON
+            and aligned(direction, source.port_exit_direction(edge.output))
+            and aligned(direction + 180, target.port_exit_direction(edge.input))
+            and not any(segment_intersects(start, end, inflate(box, clearance))
+                        for ident, box in obstacles if ident not in {source.id, target.id})):
+        return FiberRoute(edge.id, (start, end), edge.source, edge.output, edge.target, edge.input)
     try:
         for a, b, owner in ((start, first, source.id), (end, last, target.id)):
             for ident, box in obstacles:
