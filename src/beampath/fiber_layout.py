@@ -181,10 +181,9 @@ def _place(setup, style):
             target_component = block[edge.target]
             origin = source.port_position(edge.output)
             target = target_component.port_position(edge.input)
-            # Pitch is between component reference points, as for the usual
-            # free-space optics. Ports at housing edges shorten the cable gap.
-            offset = sum((target[i] - target_component.position[i]
-                          - origin[i] + source.position[i]) * direction[i] for i in (0, 1))
+            # Like free-space edges, pitch measures the gap between ports.
+            # Housing-edge attachments must leave a visible run of cable;
+            # measuring center-to-center lets large housings consume the gap.
             clearance = (_project(source.bounds, origin, direction)[1]
                          - _project(target_component.bounds, target, direction)[0] + style.clearance)
             if not aligned(source.port_exit_direction(edge.output) + 180,
@@ -194,7 +193,7 @@ def _place(setup, style):
                 margin = max(style.clearance, style.fiber_width)
                 clearance = (_project(inflate(source.bounds, margin), origin, direction)[1]
                              - _project(inflate(target_component.bounds, margin), target, direction)[0])
-            gap = max(1, style.pitch + offset, clearance)
+            gap = max(style.pitch, clearance)
             delta = add(origin, (gap * direction[0], gap * direction[1]))
             delta = add(delta, (-direction[1] * lane * style.pitch, direction[0] * lane * style.pitch))
             delta = delta[0] - target[0], delta[1] - target[1]

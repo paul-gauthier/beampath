@@ -291,11 +291,14 @@ is `None` for fiber-only components. `Style.fiber_color`, `fiber_width`, and
 ## Spacing and reuse
 
 The graph fixes beam headings; Kiwi solves positions and gap lengths.
-Automatic free-space gaps are at least 190 diagram units, or the artwork
-clearance if larger. They stretch to close joins, with equal gaps preferred along
-straight runs. Fiber placement uses the same preferred 190-unit component pitch,
-enlarging it for artwork or turn clearance; housing-edge ports do not add their
-offsets to this spacing. Beam crossings do not create connections.
+Automatic free-space gaps are at least `Style.pitch` (190 diagram units), or the
+artwork clearance if larger. They stretch to close joins, with equal gaps
+preferred along straight runs. Automatic fiber placement uses the same minimum
+gap between attachment points, enlarging it for artwork or turn clearance.
+Housing offsets add to component-center spacing so a visible cable run remains;
+explicitly pinned fiber components keep their requested positions.
+Labels are positioned after components, choosing a clear side or corner. Labels
+do not currently expand component spacing. Beam crossings do not create connections.
 Initial free-space inputs, unconnected fiber inputs, and open outputs get short
 stubs, controlled by `Style.open_length` (95 diagram units by default) and
 extended as needed for artwork clearance.

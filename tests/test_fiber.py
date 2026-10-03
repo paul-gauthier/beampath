@@ -425,19 +425,19 @@ def test_fiber_docks_at_asset_attachment_without_embedded_cable(spec, attachment
     assert_routes_clear(layout)
 
 
-def test_fiber_component_pitch_excludes_connector_offsets():
+@pytest.mark.parametrize("pitch", [190, 300])
+def test_fiber_and_free_space_pitch_measures_the_gap_between_ports(pitch):
     path = mixed()
-    default = path.layout()
-    positions = [p.position[0] for p in default.placements.values()]
-    assert positions[1] - positions[0] == default.style.pitch
-    assert all(default.style.pitch <= b - a + 1e-8 <= default.style.pitch + default.style.clearance
-               for a, b in zip(positions, positions[1:]))
-    # A larger preferred pitch needs no enlargement for these glyphs.
-    roomy = path.layout(style=Style(pitch=300))
-    positions = [p.position[0] for p in roomy.placements.values()]
-    assert [b - a for a, b in zip(positions, positions[1:])] == pytest.approx([300] * 5)
-    assert_routes_clear(default)
-    assert_routes_clear(roomy)
+    layout = path.layout(style=Style(pitch=pitch))
+    fibers = [r for r in layout.fibers if r.source and r.target]
+    assert len(fibers) == 3
+    assert [r.length for r in fibers] == pytest.approx([pitch] * 3)
+    assert [s.length for s in layout.segments] == pytest.approx([pitch] * 2)
+    # Attachment offsets enlarge center spacing, never consume the cable gap.
+    laser, meter, launch = list(layout.placements.values())[:3]
+    assert meter.position[0] - laser.position[0] == pytest.approx(pitch + 75)
+    assert launch.position[0] - meter.position[0] == pytest.approx(pitch + 152.4)
+    assert_routes_clear(layout)
 
 
 def test_unused_optional_fiber_input_has_an_open_stub():
