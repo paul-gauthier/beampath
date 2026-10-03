@@ -71,7 +71,4 @@ overlaps produce an error identifying a nearby component or port.
 
 Component artwork includes adaptations from the
 [Photonics Component Library](https://github.com/itgall/photonics-component-library),
-licensed under CC BY 4.0, and original beampath schematics for the noise eater
-and fiber splitter. Credits and source hashes travel with SVG, PNG, and PDF
-exports. Bundled [license](src/beampath/assets/LICENSE) and
-[provenance](src/beampath/assets/provenance.json) record the artwork sources.
+licensed under [CC BY 4.0](src/beampath/assets/LICENSE).
