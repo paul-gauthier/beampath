@@ -179,7 +179,7 @@ register_component(ComponentDefinition(
 register_component(ComponentDefinition(
     "inline_power_meter", "Inline power meter",
     _art("f-inline-power-meter.svg", "fiber-optics/flat_2d/svg/11_inline_components",
-         (85, 27), (69, 25, 101, 53), 1.5,
+         (85, 27), (69, 25, 101, 53), 2.75,  # Match the standalone meter housing width.
          adaptations="Inline power-meter display changed to 1.23 mW and kept aligned with its housing. "
                      "Embedded fiber line removed; both fiber ports attach at the tap."),
     _fiber_meter))
