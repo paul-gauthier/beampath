@@ -171,7 +171,11 @@ def _place(setup, style):
             edge = incoming[0]
             source = placed[edge.source]
             direction = unit(source.port_exit_direction(edge.output))
-            branches = [e for e in fiber_edges if e.source == edge.source]
+            # Separate parallel exits into lanes; perpendicular exits already
+            # lead to distinct sides of the source and can run straight out.
+            branches = [e for e in fiber_edges if e.source == edge.source
+                        and aligned(source.port_exit_direction(e.output),
+                                    source.port_exit_direction(edge.output))]
             lane = branches.index(edge)
             lane = ((lane + 1) // 2) * (1 if lane % 2 else -1) if lane else 0
             target_component = block[edge.target]

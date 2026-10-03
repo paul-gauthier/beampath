@@ -27,9 +27,10 @@ from beampath.examples import cage_system, mzi
 from beampath import nd_filter, bandpass_filter
 from beampath.examples.mixed_fiber import build as mixed_fiber
 from beampath.examples.fiber_bends import build as fiber_bends
+from beampath.examples.fiber_splitter import build as fiber_splitter
 assert Path(beampath.__file__).is_relative_to(Path(sys.argv[1]))
 assert 'cairosvg' not in sys.modules
-for setup in (cage_system(), mzi(), nd_filter() >> bandpass_filter(), mixed_fiber(), fiber_bends()):
+for setup in (cage_system(), mzi(), nd_filter() >> bandpass_filter(), mixed_fiber(), fiber_bends(), fiber_splitter()):
     svg = setup.to_svg()
     assert 'CC BY' in svg or 'Creative Commons Attribution' in svg
     assert 'data-component' in svg
@@ -42,7 +43,7 @@ sys.argv = ["beampath.examples", "--diagram", "all", "--output-dir", "all-exampl
 runpy.run_module("beampath.examples", run_name="__main__")
 assert {p.stem for p in Path("all-examples").glob("*.svg")} == {
     "hello", "cage", "mirror_heading", "mzi", "shared_optic", "reuse", "rendering", "custom_component",
-    "mixed_fiber", "fiber_bends",
+    "mixed_fiber", "fiber_bends", "fiber_splitter",
 }
 assert 'cairosvg' not in sys.modules
 """

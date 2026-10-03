@@ -9,7 +9,7 @@ from .geometry import aligned, finite, heading, reflection
 
 __all__ = [
     "fiber_launch", "mirror", "beamsplitter", "iris", "LP", "HWP", "QWP", "noise_eater",
-    "nd_filter", "bandpass_filter", "fiber_laser", "inline_power_meter",
+    "nd_filter", "bandpass_filter", "fiber_laser", "inline_power_meter", "fiber_splitter",
 ]
 
 REVISION = "7e44e14341489b067d7c8e1390af87b9c423103e"
@@ -89,6 +89,20 @@ def _fiber_meter(parameters):
                      Port("out", "output", medium="fiber")))
 
 
+def _fiber_splitter(parameters):
+    _parameters(parameters, ("turn",))
+    turn = parameters.get("turn", "left")
+    if not isinstance(turn, str) or turn.lower() not in {"left", "right"}:
+        raise ComponentError("fiber_splitter turn must be 'left' or 'right'")
+    left = turn.lower() == "left"
+    return Geometry((
+        Port("in", "input", position=(-37.5, 0), medium="fiber"),
+        Port("straight", "output", position=(37.5, 0), medium="fiber"),
+        Port("turn", "output", position=(0, -30 if left else 30),
+             medium="fiber", exit_direction=270 if left else 90),
+    ))
+
+
 def _mirror(parameters):
     _parameters(parameters, ("angle", "heading", "turn"))
     if len(parameters) != 1:
@@ -162,6 +176,14 @@ register_component(ComponentDefinition(
                      "Embedded fiber line removed; both fiber ports attach at the tap."),
     _fiber_meter))
 register_component(ComponentDefinition(
+    "fiber_splitter", "Fiber splitter",
+    _art("f-monitor-splitter.svg", "fiber-optics/flat_2d/svg/03_couplers_splitters",
+         (75, 40), (49, 19, 101, 61), 1.5,
+         adaptations="Monitor-splitter housing retained; fixed ratio, captions and embedded fiber "
+                     "leads removed. Fiber docks at the left, right and top or bottom housing edges "
+                     "to form a straight-through path and a perpendicular branch."),
+    _fiber_splitter))
+register_component(ComponentDefinition(
     "mirror", "Mirror",
     _art("fs-flat-mirror.svg", "free-space-optics/flat_2d/svg/14_flat_mirrors",
          (62.5, 35), (46, 14, 76, 56), 1.6), _mirror,
@@ -218,6 +240,16 @@ def fiber_laser(label: str | None = None):
 def inline_power_meter(label: str | None = None):
     """A power monitor through which the fiber path continues."""
     return component("inline_power_meter", label)
+
+
+def fiber_splitter(label: str | None = None, *, turn: str = "left"):
+    """A 1x2 fiber junction with straight and perpendicular outputs.
+
+    turn selects the side of the housing relative to its drawing pose.
+    Select outputs with straight() and turn(), or out("straight"/"turn").
+    A split ratio can be included in the label; optical power is not simulated.
+    """
+    return component("fiber_splitter", label, turn=turn)
 
 
 def mirror(label: str | None = None, *, angle: float | None = None,

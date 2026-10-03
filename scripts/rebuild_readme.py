@@ -20,6 +20,7 @@ SAVE_CALLS = {
     "custom_component": 'fork.save("custom_component.svg")',
     "mixed_fiber": 'setup.save("mixed_fiber.svg")',
     "fiber_bends": 'setup.save("fiber_bends.svg")',
+    "fiber_splitter": 'split.save("fiber_splitter.svg")',
 }
 README_MARKER = re.compile(r"<!-- README:(BEGIN|END) ([a-z][a-z0-9_]*) -->")
 

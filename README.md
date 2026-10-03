@@ -255,6 +255,31 @@ Branching and joining use the same `out()`, `connect()`, and `join()` operations
 as other components. Crossing lines never imply a connection, and closed paths
 remain unsupported.
 
+`fiber_splitter()` adds one fiber input and two outputs: a straight-through
+connection and a perpendicular branch. Use `.straight()` and `.turn()` (also
+available as `.out("straight")` and `.out("turn")`) to select them. `turn="left"`
+is the default; `turn="right"` puts the branch on the opposite side of the housing.
+These directions describe the connector arrangement in the component's drawing
+pose; fiber carries no optical heading. Include a ratio in the label when useful,
+such as `"90:10 splitter"`; the diagram does not calculate optical power.
+The housing is adapted from PCL's monitor splitter, with connections drawn by
+layout at the left, right and top or bottom edges.
+
+<!-- README:BEGIN fiber_splitter -->
+```python
+from beampath.components import *
+
+split = fiber_laser("Input laser") >> fiber_splitter("90:10 splitter", turn="left")
+split.straight() >> fiber_launch("Main output")
+split.turn() >> inline_power_meter("Power monitor")
+split.save("fiber_splitter.svg")
+```
+<!-- README:END fiber_splitter -->
+
+![A fiber splitter with a straight main output and a perpendicular monitor branch](examples/images/fiber_splitter.png)
+
+Runnable example: [fiber_splitter.py](examples/fiber_splitter.py).
+
 `layout.fibers` contains one immutable `FiberRoute` per connection or open stub,
 with `points`, `legs`, `length`, and source/target port references. Bend points
 exist only in layout; `setup.connections` retains the original semantic edges.
@@ -469,8 +494,8 @@ directly in the README.
 Every diagram has its own runnable Python file in [examples/](examples/), with
 README previews in `examples/images/`. Run any file as shown above, or use
 `--diagram hello`, `cage`, `mirror_heading`, `mzi`, `shared_optic`, `reuse`,
-`rendering`, or `custom_component` with the module command.
-Use `--diagram all` to render all eight.
+`rendering`, `custom_component`, `mixed_fiber`, `fiber_bends`, or `fiber_splitter`
+with the module command. Use `--diagram all` to render every example.
 
 Generated examples go under `build/examples/`; use `--output-dir` to choose
 another directory. Omit `--png` for SVG only, or set `--width` to choose the

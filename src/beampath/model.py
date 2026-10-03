@@ -91,6 +91,9 @@ class OpticRef:
     def straight(self) -> Path:
         return self.out("straight")
 
+    def turn(self) -> Path:
+        return self.out("turn")
+
     def reflect(self) -> Path:
         return self.out("reflect")
 
@@ -287,7 +290,7 @@ class Path:
         if self._port is None:
             outputs = [p for p in self.end.instance.geometry.ports if p.kind == "output"]
             if outputs:
-                raise ConnectionError(f"{self._end}: select an output with out(), straight(), or reflect()")
+                raise ConnectionError(f"{self._end}: select an output with out(), straight(), turn(), or reflect()")
             raise ConnectionError(f"{self._end}: this component ends the beam path")
         if self.setup._output_used(self._end, self._port):
             raise ConnectionError(f"{self._end}.{self._port}: output is already connected")
@@ -340,6 +343,9 @@ class Path:
 
     def straight(self) -> Path:
         return self.out("straight")
+
+    def turn(self) -> Path:
+        return self.out("turn")
 
     def reflect(self) -> Path:
         return self.out("reflect")
