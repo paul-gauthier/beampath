@@ -9,6 +9,7 @@ from .geometry import aligned, finite, heading, reflection
 
 __all__ = [
     "fiber_launch", "mirror", "beamsplitter", "iris", "LP", "HWP", "QWP", "noise_eater",
+    "nd_filter", "bandpass_filter",
 ]
 
 REVISION = "7e44e14341489b067d7c8e1390af87b9c423103e"
@@ -144,6 +145,14 @@ for name in ("HWP", "QWP"):
         name, name, _art(f"fs-{name.lower()}.svg", "free-space-optics/flat_2d/svg/17_waveplates",
                         (54, 35), (49, 9, 59, 61), 1.5), _straight))
 register_component(ComponentDefinition(
+    "nd_filter", "ND filter",
+    _art("fs-nd-filter.svg", "free-space-optics/flat_2d/svg/18_nd_filters",
+         (53, 35), (47, 9, 59, 61), 1.5), _straight))
+register_component(ComponentDefinition(
+    "bandpass_filter", "Bandpass filter",
+    _art("fs-bandpass-filter.svg", "free-space-optics/flat_2d/svg/18_interference_filters",
+         (53, 35), (47, 9, 59, 61), 1.5), _straight))
+register_component(ComponentDefinition(
     "beamsplitter", "NPBS",
     _art("fs-npbs-cube.svg", "free-space-optics/flat_2d/svg/15_nonpolarizing",
          (60, 45), (39, 24, 81, 66), 1.6, source_filename="fs-bs-cube.svg"),
@@ -191,6 +200,16 @@ def HWP(label: str | None = None):
 
 def QWP(label: str | None = None):
     return component("QWP", label)
+
+
+def nd_filter(label: str | None = None):
+    """A straight-through free-space neutral-density filter."""
+    return component("nd_filter", label)
+
+
+def bandpass_filter(label: str | None = None):
+    """A straight-through free-space bandpass filter."""
+    return component("bandpass_filter", label)
 
 
 def noise_eater(label: str | None = None):

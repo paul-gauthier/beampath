@@ -24,9 +24,10 @@ from pathlib import Path
 sys.path.insert(0, sys.argv[1])
 import beampath
 from beampath.examples import cage_system, mzi
+from beampath import nd_filter, bandpass_filter
 assert Path(beampath.__file__).is_relative_to(Path(sys.argv[1]))
 assert 'cairosvg' not in sys.modules
-for setup in (cage_system(), mzi()):
+for setup in (cage_system(), mzi(), nd_filter() >> bandpass_filter()):
     svg = setup.to_svg()
     assert 'CC BY' in svg or 'Creative Commons Attribution' in svg
     assert 'data-component' in svg

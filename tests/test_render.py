@@ -8,7 +8,10 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from beampath import Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, Style, beam, beamsplitter, iris, HWP, QWP, mirror
+from beampath import (
+    Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, Style, beam,
+    bandpass_filter, beamsplitter, iris, HWP, QWP, mirror, nd_filter,
+)
 from beampath.examples import cage_system, mzi
 from beampath.layout import artwork_point
 from beampath.render import artwork_bytes, render_svg, tag
@@ -202,6 +205,25 @@ def test_waveplates_display_only_their_label(factory, default_label, direction, 
     root = ET.fromstring(p.to_svg())
     expected = default_label if label is None else label
     assert [t.text for t in root.iter(tag("text"))] == ([expected] if expected else [])
+
+
+@pytest.mark.parametrize("direction", [0, 90, 37])
+def test_filters_render_without_demo_beams_and_retain_artwork_credits(direction):
+    path = beam(direction) >> nd_filter() >> bandpass_filter("980 nm")
+    root = ET.fromstring(path.to_svg())
+    assert [t.text for t in root.iter(tag("text"))] == ["ND filter", "980 nm"]
+    groups = root.find(f"{tag('g')}[@id='components']")
+    assert [g.get("data-component") for g in groups] == ["nd_filter", "bandpass_filter"]
+    assert not groups.findall(f".//{tag('line')}")
+    plates = groups.findall(f".//{tag('rect')}")
+    assert [plate.get("fill") for plate in plates] == ["#808080", "#D0C8E0"]
+    assert groups[1].find(tag("path")).get("stroke") == "#0066CC"
+    manifest = json.loads(root.find(
+        f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text)
+    assert len(manifest["assets"]) == 2
+    assert all("Creative Commons Attribution" in a["attribution"] for a in manifest["assets"])
+    assert all("7e44e14341489b067d7c8e1390af87b9c423103e" in a["source_url"]
+               for a in manifest["assets"])
 
 
 def test_default_labels_and_canvas_margins():

@@ -96,6 +96,26 @@
       ],
       "center_basis": "Center of the schematic housing, x=41..67, y=10..110.",
       "design_basis": "Tall green housing from the user-supplied Laser Clean-up diagram; no control leads or demonstration beams."
+    },
+    {
+      "file": "fs-nd-filter.svg",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/18_nd_filters/fs-nd-filter.svg",
+      "sha256": "1ab4349bd5a5e0e833c13416db336f1c3f99d22ad47eb55556ff9a183106d12f",
+      "center": [
+        53,
+        35
+      ],
+      "center_basis": "Center of the optical plate rectangle x=48..58, y=10..60."
+    },
+    {
+      "file": "fs-bandpass-filter.svg",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/18_interference_filters/fs-bandpass-filter.svg",
+      "sha256": "25f54ea43fa25fb7a8b9131cf4dd2a41ab6bfb20d372c27a3062ac22171b4fdd",
+      "center": [
+        53,
+        35
+      ],
+      "center_basis": "Center of the optical plate rectangle x=48..58, y=10..60."
     }
   ]
 }

@@ -92,6 +92,17 @@ quarter-wave plate. Labels default to component names; `label=""` hides one.
 Use `\n` for line breaks, such as `HWP("HWP\nIn Rotation Mount")`;
 each line is center-aligned.
 Waveplates display only their label, with no additional annotations.
+`nd_filter()` and `bandpass_filter()` add straight-through free-space filters,
+using PCL artwork. Their default labels are `ND filter` and `Bandpass filter`;
+pass a custom label such as `nd_filter("ND 2.0")` or `bandpass_filter("980 nm")`.
+
+```python
+from beampath.components import *
+
+setup = fiber_launch() >> nd_filter() >> bandpass_filter() >> fiber_launch(role="couple")
+setup.save("filters.svg")
+```
+
 The non-polarizing cube beamsplitter defaults to the label `NPBS`.
 `noise_eater()` adds a straight-through noise eater, drawn as a tall green
 housing with no control leads. Its original schematic artwork represents a
