@@ -1,16 +1,16 @@
 """Set an absolute mirror heading, then make a relative 90-degree turn."""
-# README:BEGIN
+# DOCS:BEGIN
 from beampath import beam
 from beampath.components import *
-# README:END
+# DOCS:END
 from beampath.examples import run_example
 
 
 def build():
     """Turn an eastward beam north, then right toward an iris."""
-    # README:BEGIN
+    # DOCS:BEGIN
     setup = beam("east") >> mirror(heading="north") >> mirror(turn="right") >> iris()
-    # README:END
+    # DOCS:END
     return setup
 
 

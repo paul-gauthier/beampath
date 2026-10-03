@@ -1,16 +1,16 @@
 """A straight-through fiber output with a perpendicular power-monitor branch."""
-# README:BEGIN
+# DOCS:BEGIN
 from beampath.components import *
-# README:END
+# DOCS:END
 from beampath.examples import run_example
 
 
 def build():
-    # README:BEGIN
+    # DOCS:BEGIN
     split = fiber_laser("Input laser") >> fiber_splitter("90:10 splitter", turn="left")
     split.straight() >> fiber_launch("Main output")
     split.turn() >> fiber_power_meter("Power monitor")
-    # README:END
+    # DOCS:END
     return split
 
 

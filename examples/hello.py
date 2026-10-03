@@ -1,13 +1,13 @@
 """A fiber path folded by two mirrors, with a half-wave plate."""
-# README:BEGIN
+# DOCS:BEGIN
 from beampath.components import *
-# README:END
+# DOCS:END
 from beampath.examples import run_example
 
 
 def build():
     """Launch a beam, fold it through a waveplate, and couple it into fiber."""
-    # README:BEGIN
+    # DOCS:BEGIN
     setup = (
         fiber_launch()
         >> mirror(turn="right")
@@ -15,7 +15,7 @@ def build():
         >> mirror(turn="left")
         >> fiber_coupler()
     )
-    # README:END
+    # DOCS:END
     return setup
 
 

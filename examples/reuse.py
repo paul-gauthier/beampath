@@ -1,19 +1,19 @@
 """Reuse a component chain and constrain its final gaps and position."""
-# README:BEGIN
+# DOCS:BEGIN
 from beampath import beam, chain
 from beampath.components import *
-# README:END
+# DOCS:END
 from beampath.examples import run_example
 
 
 def build():
     """Insert two independent copies of a polarization chain."""
-    # README:BEGIN
+    # DOCS:BEGIN
     polarization = chain(LP(), HWP(), QWP())
     path = beam() >> polarization >> polarization  # Six independent optics.
     path.append(iris(), distance=250)
     path.append(mirror(turn="right"), at=(2000, 0))
-    # README:END
+    # DOCS:END
     return path
 
 

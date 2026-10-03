@@ -23,7 +23,7 @@ def build_social_svg():
     """Preserve the original optics and add editable, highlighted SVG text."""
     readme = (PROJECT / "README.md").read_text(encoding="utf-8")
     code = re.search(
-        r"<!-- README:BEGIN hello -->\n```python\n(.*?)\n```",
+        r"<!-- DOCS:BEGIN hello -->\n```python\n(.*?)\n```",
         readme, re.DOTALL,
     ).group(1)
     root = ET.fromstring(build().to_svg())

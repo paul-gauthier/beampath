@@ -1,12 +1,12 @@
 """Pin a fiber monitor above a beam section and let the cable router connect it."""
-# README:BEGIN
+# DOCS:BEGIN
 from beampath.components import *
-# README:END
+# DOCS:END
 from beampath.examples import run_example
 
 
 def build():
-    # README:BEGIN
+    # DOCS:BEGIN
     setup = (
         fiber_laser("Tunable laser")
         >> inline_power_meter("Input power")
@@ -15,7 +15,7 @@ def build():
         >> fiber_coupler()
     )
     setup.append(inline_power_meter("Output power"), at=(1900, -400))
-    # README:END
+    # DOCS:END
     return setup
 
 

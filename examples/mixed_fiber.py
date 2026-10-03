@@ -1,12 +1,12 @@
 """A laser and inline power monitors surrounding a free-space waveplate."""
-# README:BEGIN
+# DOCS:BEGIN
 from beampath.components import *
-# README:END
+# DOCS:END
 from beampath.examples import run_example
 
 
 def build():
-    # README:BEGIN
+    # DOCS:BEGIN
     setup = (
         fiber_laser("Tunable laser")
         >> inline_power_meter("Input power")
@@ -15,7 +15,7 @@ def build():
         >> fiber_coupler()
         >> inline_power_meter("Output power")
     )
-    # README:END
+    # DOCS:END
     return setup
 
 
