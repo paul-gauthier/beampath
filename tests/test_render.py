@@ -305,6 +305,6 @@ def test_png_matches_svg_raster_and_retains_credits(tmp_path):
     assert actual.width == 1800
     assert actual.info["dpi"] == pytest.approx((600, 600), abs=.02)
     credits = json.loads(actual.info["beampath-attribution"])
-    assert len(credits["assets"]) == 7
+    assert len(credits["assets"]) == 8
     assert "attribution" in credits["assets"][0]
     assert actual.convert("RGB").getpixel((0, 0)) == (255, 255, 255)
