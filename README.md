@@ -270,12 +270,13 @@ remain unsupported.
 `fiber_splitter()` adds one fiber input and two outputs: a straight-through
 connection and a perpendicular branch. Use `.straight()` and `.turn()` (also
 available as `.out("straight")` and `.out("turn")`) to select them. `turn="left"`
-is the default; `turn="right"` puts the branch on the opposite side of the housing.
+is the default; `turn="right"` puts the branch on the opposite side of the through fiber.
 These directions describe the connector arrangement in the component's drawing
 pose; fiber carries no optical heading. Include a ratio in the label when useful,
 such as `"90:10 splitter"`; the diagram does not calculate optical power.
-The housing is adapted from PCL's monitor splitter, with connections drawn by
-layout at the left, right and top or bottom edges.
+Its original schematic artwork is a continuous straight fiber with a curved
+exit peeling away from it, like a freeway exit, and ending at 90 degrees.
+The symbol uses the same fiber color and width as the surrounding routed cables.
 
 <!-- README:BEGIN fiber_splitter -->
 ```python
@@ -283,12 +284,12 @@ from beampath.components import *
 
 split = fiber_laser("Input laser") >> fiber_splitter("90:10 splitter", turn="left")
 split.straight() >> fiber_launch("Main output")
-split.turn() >> inline_power_meter("Power monitor")
+split.turn() >> fiber_power_meter("Power monitor")
 split.save("fiber_splitter.svg")
 ```
 <!-- README:END fiber_splitter -->
 
-![A fiber splitter with a straight main output and a perpendicular monitor branch](examples/images/fiber_splitter.png)
+![A continuous fiber with a curved exit leading to a perpendicular monitor branch](examples/images/fiber_splitter.png)
 
 Runnable example: [fiber_splitter.py](examples/fiber_splitter.py).
 

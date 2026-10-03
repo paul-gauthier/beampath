@@ -152,7 +152,7 @@ def test_fiber_splitter_has_straight_and_perpendicular_runs(turn, sign, branch_f
     assert len(straight.points) == len(turned.points) == 2
     assert straight.start[1] == straight.end[1] == junction.position[1]
     assert straight.end[0] > straight.start[0]
-    assert turned.start[0] == turned.end[0] == junction.position[0]
+    assert turned.start[0] == turned.end[0] == junction.port_position("turn")[0]
     assert sign * (turned.end[1] - turned.start[1]) > 0
     assert branch.end.instance.heading is None
     assert main.end.instance.heading == 0
@@ -172,12 +172,12 @@ def test_fiber_splitter_rotates_docks_without_setting_optical_headings(turn, sig
     ref = split.end
     split.straight().append(inline_power_meter(""), at=tuple(500 * v for v in axis))
     split.turn().append(inline_power_meter(""),
-                        at=tuple(250 * (axis[i] + side[i]) for i in (0, 1)))
+                        at=tuple(280 * axis[i] + 250 * side[i] for i in (0, 1)))
     layout = split.layout()
     junction = layout.placements[ref.id]
     assert junction.rotation == rotation
     assert all(node.heading is None for node in split.setup.optics)
-    docks = {"in": (50, 40), "straight": (100, 40), "turn": (75, 20 if sign < 0 else 60)}
+    docks = {"in": (20, 60), "straight": (120, 60), "turn": (90, 10)}
     for name, dock in docks.items():
         offset = artwork_point(junction.instance, dock, junction.rotation)
         assert junction.port_position(name) == pytest.approx(
@@ -186,7 +186,7 @@ def test_fiber_splitter_rotates_docks_without_setting_optical_headings(turn, sig
     assert_routes_clear(layout)
 
 
-def test_fiber_splitter_unused_output_is_a_perpendicular_stub_and_artwork_is_cable_free():
+def test_fiber_splitter_curve_matches_routed_fiber_style_and_unused_output():
     split = fiber_laser("") >> fiber_splitter("90:10 splitter")
     ref = split.end
     split.straight() >> fiber_launch("")
@@ -196,14 +196,18 @@ def test_fiber_splitter_unused_output_is_a_perpendicular_stub_and_artwork_is_cab
     assert stub.length == pytest.approx(layout.style.open_length)
     assert stub.start[0] == stub.end[0] and stub.end[1] < stub.start[1]
     root = ET.fromstring(split.to_svg(style=layout.style))
-    housing = root.find(f"{tag('g')}[@id='components']/{tag('g')}[@id='{ref.id}']")
-    assert len(housing.findall(tag("rect"))) == 1
-    assert not housing.findall(tag("line")) and not housing.findall(tag("path"))
-    assert not housing.findall(tag("text"))
+    symbol = root.find(f"{tag('g')}[@id='components']/{tag('g')}[@id='{ref.id}']")
+    assert not symbol.findall(tag("rect")) and not symbol.findall(tag("text"))
+    through, = symbol.findall(tag("line"))
+    curve, = symbol.findall(tag("path"))
+    assert " C" in curve.get("d")
+    for primitive in (through, curve):
+        assert primitive.get("stroke") == layout.style.fiber_color
+        assert float(primitive.get("stroke-width")) * ref.instance.spec.definition.artwork.scale == layout.style.fiber_width
     manifest = json.loads(root.find(f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text)
     asset, = [a for a in manifest["assets"] if a["component"] == "fiber_splitter"]
-    assert "03_couplers_splitters/f-monitor-splitter.svg" in asset["source_url"]
-    assert "perpendicular branch" in asset["attribution"]
+    assert asset["source_url"] == ""
+    assert "Original beampath schematic artwork" in asset["attribution"]
     assert_routes_clear(layout)
 
 

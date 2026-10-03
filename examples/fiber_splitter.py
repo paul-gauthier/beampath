@@ -9,7 +9,7 @@ def build():
     # README:BEGIN
     split = fiber_laser("Input laser") >> fiber_splitter("90:10 splitter", turn="left")
     split.straight() >> fiber_launch("Main output")
-    split.turn() >> inline_power_meter("Power monitor")
+    split.turn() >> fiber_power_meter("Power monitor")
     # README:END
     return split
 

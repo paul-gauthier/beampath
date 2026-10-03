@@ -101,12 +101,14 @@ def _fiber_splitter(parameters):
     if not isinstance(turn, str) or turn.lower() not in {"left", "right"}:
         raise ComponentError("fiber_splitter turn must be 'left' or 'right'")
     left = turn.lower() == "left"
+    # Reflecting x followed by a 180-degree artwork rotation reflects y,
+    # so the right-turn curve keeps the through path running left to right.
     return Geometry((
-        Port("in", "input", position=(-37.5, 0), medium="fiber"),
-        Port("straight", "output", position=(37.5, 0), medium="fiber"),
-        Port("turn", "output", position=(0, -30 if left else 30),
+        Port("in", "input", position=(-75, 0), medium="fiber"),
+        Port("straight", "output", position=(75, 0), medium="fiber"),
+        Port("turn", "output", position=(30, -75 if left else 75),
              medium="fiber", exit_direction=270 if left else 90),
-    ))
+    ), artwork_rotation=0 if left else 180, reflected=not left)
 
 
 def _mirror(parameters):
@@ -190,11 +192,11 @@ register_component(ComponentDefinition(
     _fiber_sink))
 register_component(ComponentDefinition(
     "fiber_splitter", "Fiber splitter",
-    _art("f-monitor-splitter.svg", "fiber-optics/flat_2d/svg/03_couplers_splitters",
-         (75, 40), (49, 19, 101, 61), 1.5,
-         adaptations="Monitor-splitter housing retained; fixed ratio, captions and embedded fiber "
-                     "leads removed. Fiber docks at the left, right and top or bottom housing edges "
-                     "to form a straight-through path and a perpendicular branch."),
+    Artwork((70, 60), (18, 8, 122, 62), 1.5,
+            package_resource="f-fiber-splitter.svg",
+            attribution="Original beampath schematic artwork for a 1x2 fiber splitter: "
+                        "a continuous through fiber with a curved exit ending perpendicular to it, "
+                        "based on the user's freeway-exit description."),
     _fiber_splitter))
 register_component(ComponentDefinition(
     "mirror", "Mirror",
@@ -261,9 +263,9 @@ def fiber_power_meter(label: str | None = None):
 
 
 def fiber_splitter(label: str | None = None, *, turn: str = "left"):
-    """A 1x2 fiber junction with straight and perpendicular outputs.
+    """A continuous fiber with a curved branch ending at a perpendicular output.
 
-    turn selects the side of the housing relative to its drawing pose.
+    turn selects the side of the branch relative to its drawing pose.
     Select outputs with straight() and turn(), or out("straight"/"turn").
     A split ratio can be included in the label; optical power is not simulated.
     """
