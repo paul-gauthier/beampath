@@ -10,6 +10,7 @@ from .geometry import aligned, finite, heading, reflection
 __all__ = [
     "fiber_launch", "mirror", "beamsplitter", "iris", "LP", "HWP", "QWP", "noise_eater",
     "nd_filter", "bandpass_filter", "fiber_laser", "inline_power_meter", "fiber_splitter",
+    "fiber_power_meter",
 ]
 
 REVISION = "7e44e14341489b067d7c8e1390af87b9c423103e"
@@ -87,6 +88,11 @@ def _fiber_meter(parameters):
     _parameters(parameters, ())
     return Geometry((Port("in", "input", medium="fiber"),
                      Port("out", "output", medium="fiber")))
+
+
+def _fiber_sink(parameters):
+    _parameters(parameters, ())
+    return Geometry((Port("in", "input", position=(-41.25, 0), medium="fiber"),))
 
 
 def _fiber_splitter(parameters):
@@ -176,6 +182,13 @@ register_component(ComponentDefinition(
                      "Embedded fiber line removed; both fiber ports attach at the tap."),
     _fiber_meter))
 register_component(ComponentDefinition(
+    "fiber_power_meter", "Fiber power meter",
+    _art("f-power-meter.svg", "fiber-optics/flat_2d/svg/10_test_equipment",
+         (57.5, 27), (29, 7, 86, 47), 1.5,
+         adaptations="Display readout retained aligned with its housing. "
+                     "Embedded fiber line removed; fiber connects at the housing input."),
+    _fiber_sink))
+register_component(ComponentDefinition(
     "fiber_splitter", "Fiber splitter",
     _art("f-monitor-splitter.svg", "fiber-optics/flat_2d/svg/03_couplers_splitters",
          (75, 40), (49, 19, 101, 61), 1.5,
@@ -240,6 +253,11 @@ def fiber_laser(label: str | None = None):
 def inline_power_meter(label: str | None = None):
     """A power monitor through which the fiber path continues."""
     return component("inline_power_meter", label)
+
+
+def fiber_power_meter(label: str | None = None):
+    """A power meter with a single fiber input that ends the path."""
+    return component("fiber_power_meter", label)
 
 
 def fiber_splitter(label: str | None = None, *, turn: str = "left"):

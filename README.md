@@ -184,6 +184,18 @@ their medium, so connecting a fiber output directly to a free-space input raises
 an error. `fiber_launch()` converts fiber to free-space;
 `fiber_launch(role="couple")` converts back to fiber and allows the chain to continue.
 
+`fiber_power_meter()` uses PCL's standalone power meter artwork and ends the
+path with a single fiber input. Its default label is `Fiber power meter`;
+pass a custom label or `""` to hide it. `inline_power_meter()` has both input
+and output ports, so the fiber path can continue through it.
+
+```python
+from beampath import fiber_laser, fiber_power_meter
+
+setup = fiber_laser("Tunable laser") >> fiber_power_meter("Measured power")
+setup.save("fiber_power.svg")
+```
+
 <!-- README:BEGIN mixed_fiber -->
 ```python
 from beampath.components import *
