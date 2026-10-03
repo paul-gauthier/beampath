@@ -7,6 +7,8 @@ def add_export_arguments(parser):
     parser.add_argument("--output-dir", type=Path, default=Path("build/examples"))
     parser.add_argument("--png", action="store_true",
                         help="Also export PNG; requires beampath[png] and native Cairo")
+    parser.add_argument("--pdf", action="store_true",
+                        help="Also export vector PDF; requires beampath[pdf] and native Cairo")
     parser.add_argument("--width", type=int, default=2400, help="PNG width in pixels")
 
 
@@ -19,6 +21,10 @@ def export_setup(setup, name, args, *, style=None):
         png = args.output_dir / f"{name}.png"
         setup.save(png, style=style, width=args.width, dpi=600)
         print(f"Created {png}")
+    if args.pdf:
+        pdf = args.output_dir / f"{name}.pdf"
+        setup.save(pdf, style=style)
+        print(f"Created {pdf}")
 
 
 def run_example(factory, name, *, style=None):

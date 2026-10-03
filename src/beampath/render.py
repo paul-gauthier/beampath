@@ -1,9 +1,10 @@
-"""Editable SVG assembly and optional PNG conversion."""
+"""Editable SVG assembly and optional PNG and vector PDF conversion."""
 from __future__ import annotations
 
 from copy import deepcopy
 from hashlib import sha256
 from importlib import resources
+from io import BytesIO
 import json
 from pathlib import Path
 import re
@@ -72,10 +73,14 @@ def _json_value(value):
     return value
 
 
+def _attribution(svg: str) -> str:
+    root = ET.fromstring(svg)
+    return root.find(f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text
+
+
 def _png_metadata(data: bytes, svg: str, dpi: float) -> bytes:
     """Embed credits and resolution without requiring another image backend."""
-    root = ET.fromstring(svg)
-    credits = root.find(f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text
+    credits = _attribution(svg)
 
     def chunk(kind, content):
         return struct.pack(">I", len(content)) + kind + content + struct.pack(">I", zlib.crc32(kind + content))
@@ -96,6 +101,34 @@ def _png_metadata(data: bytes, svg: str, dpi: float) -> bytes:
             result += data[cursor:cursor + length + 12]
         cursor += length + 12
     return result
+
+
+def _render_pdf(svg: str, width: int | None, dpi: float) -> bytes:
+    """Keep Cairo's vector artwork and text, and carry the SVG's credits."""
+    try:
+        import cairosvg
+        from pypdf import PdfReader, PdfWriter
+    except (ImportError, OSError) as exc:
+        raise RuntimeError(
+            "PDF export requires beampath[pdf] and a discoverable native Cairo library"
+        ) from exc
+
+    data = cairosvg.svg2pdf(bytestring=svg.encode("utf-8"), output_width=width, dpi=dpi)
+    credits = _attribution(svg)
+    assets = json.loads(credits)["assets"]
+    subject = "\n".join(
+        "; ".join(str(asset[key]) for key in ("component", "attribution", "source_url", "license_url")
+                  if asset[key])
+        for asset in assets
+    )
+    writer = PdfWriter()
+    writer.clone_document_from_reader(PdfReader(BytesIO(data)))
+    writer.add_metadata({
+        "/Creator": "beampath", "/Subject": subject, "/beampath-attribution": credits,
+    })
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()
 
 
 def render_svg(layout: Layout) -> str:
@@ -251,21 +284,22 @@ def render_svg(layout: Layout) -> str:
 
 def save(setup: Setup, filename: str | Path, *, style: Style | None = None,
          width: int | None = None, dpi: float = 96) -> Path:
+    """Save SVG, PNG, or vector PDF; width/dpi set PNG pixels or PDF page size."""
     filename = Path(filename)
     suffix = filename.suffix.lower()
-    if suffix not in {".svg", ".png"}:
-        raise ValueError("Output filename must end in .svg or .png")
+    if suffix not in {".svg", ".png", ".pdf"}:
+        raise ValueError("Output filename must end in .svg, .png, or .pdf")
     if width is not None and (not isinstance(width, int) or isinstance(width, bool) or width <= 0):
-        raise ValueError("PNG width must be a positive integer")
+        raise ValueError("Export width must be a positive integer")
     dpi = finite(dpi, "dpi")
     if dpi <= 0:
         raise ValueError("DPI must be positive")
     if suffix == ".svg" and width is not None:
-        raise ValueError("width is a PNG export option")
+        raise ValueError("width is a PNG or PDF export option")
     svg = setup.to_svg(style=style)
     if suffix == ".svg":
         filename.write_text(svg, encoding="utf-8")
-    else:
+    elif suffix == ".png":
         try:
             import cairosvg
         except (ImportError, OSError) as exc:
@@ -273,4 +307,6 @@ def save(setup: Setup, filename: str | Path, *, style: Style | None = None,
         data = cairosvg.svg2png(bytestring=svg.encode("utf-8"), output_width=width, dpi=dpi)
         data = _png_metadata(data, svg, dpi)
         filename.write_bytes(data)
+    else:
+        filename.write_bytes(_render_pdf(svg, width, dpi))
     return filename

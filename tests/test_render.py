@@ -271,21 +271,45 @@ def test_save_svg_and_invalid_options(tmp_path):
     for options in ({"width": 0}, {"width": 100}, {"dpi": -1}):
         with pytest.raises(ValueError):
             p.save(dest, **options)
-    with pytest.raises(ValueError, match=".svg or .png"):
-        p.save(tmp_path / "setup.pdf")
+    with pytest.raises(ValueError, match=r"\.svg, \.png, or \.pdf"):
+        p.save(tmp_path / "setup.jpg")
 
 
-def test_missing_png_dependency_has_clear_error(tmp_path, monkeypatch):
+@pytest.mark.parametrize("suffix", [".png", ".pdf"])
+@pytest.mark.parametrize("options", [
+    {"width": 0}, {"width": -1}, {"width": True}, {"width": 1.5},
+    {"dpi": 0}, {"dpi": -1}, {"dpi": float("nan")}, {"dpi": float("inf")},
+])
+def test_invalid_export_dimensions_fail_before_writing(tmp_path, suffix, options):
+    dest = tmp_path / ("setup" + suffix)
+    with pytest.raises(ValueError):
+        (beam() >> iris()).save(dest, **options)
+    assert not dest.exists()
+
+
+@pytest.mark.parametrize("suffix,missing,error", [
+    ("png", "cairosvg", ImportError), ("png", "cairosvg", OSError),
+    ("pdf", "cairosvg", ImportError), ("pdf", "cairosvg", OSError),
+    ("pdf", "pypdf", ImportError),
+])
+def test_missing_export_dependency_has_clear_error(tmp_path, monkeypatch, suffix, missing, error):
     original_import = builtins.__import__
 
-    def missing(name, *args, **kwargs):
+    def unavailable(name, *args, **kwargs):
+        if name == missing:
+            raise error("not installed")
         if name == "cairosvg":
-            raise ImportError("not installed")
+            return object()  # Reach the missing pypdf import even without native Cairo.
         return original_import(name, *args, **kwargs)
-    monkeypatch.setattr(builtins, "__import__", missing)
-    with pytest.raises(RuntimeError, match=r"beampath\[png\].*Cairo"):
-        (beam() >> iris()).save(tmp_path / "setup.png")
-    assert not (tmp_path / "setup.png").exists()
+    monkeypatch.setattr(builtins, "__import__", unavailable)
+    dest = tmp_path / f"setup.{suffix}"
+    with pytest.raises(RuntimeError, match=rf"beampath\[{suffix}\].*Cairo"):
+        (beam() >> iris()).save(dest)
+    assert not dest.exists()
+    dest.write_bytes(b"existing export")
+    with pytest.raises(RuntimeError):
+        (beam() >> iris()).save(dest)
+    assert dest.read_bytes() == b"existing export"
 
 
 def test_png_matches_svg_raster_and_retains_credits(tmp_path):
@@ -308,3 +332,53 @@ def test_png_matches_svg_raster_and_retains_credits(tmp_path):
     assert len(credits["assets"]) == 8
     assert "attribution" in credits["assets"][0]
     assert actual.convert("RGB").getpixel((0, 0)) == (255, 255, 255)
+
+
+@pytest.mark.parametrize("width,dpi", [(None, 96), (None, 192), (960, 96), (1800, 600)])
+@pytest.mark.parametrize("suffix", [".pdf", ".PDF"])
+def test_pdf_is_vector_with_selectable_labels_page_size_and_credits(tmp_path, width, dpi, suffix):
+    pypdf = pytest.importorskip("pypdf")
+    try:
+        import cairosvg
+    except (ImportError, OSError):
+        pytest.skip("Optional PDF converter or native Cairo is unavailable")
+
+    path = mzi()
+    style = Style(pitch=220, font_size=20, beam_color="#1f77b4")
+    dest = tmp_path / ("mzi" + suffix)
+    assert path.save(dest, style=style, width=width, dpi=dpi) == dest
+    reader = pypdf.PdfReader(dest)
+    assert len(reader.pages) == 1
+    page = reader.pages[0]
+    root = ET.fromstring(path.to_svg(style=style))
+    canvas_width, canvas_height = float(root.get("width")), float(root.get("height"))
+    page_width = (width or canvas_width) * 72 / dpi
+    assert float(page.mediabox.width) == pytest.approx(page_width)
+    assert float(page.mediabox.height) == pytest.approx(page_width * canvas_height / canvas_width)
+    assert not list(page.images)
+    text = page.extract_text()
+    assert all(label in text for label in ("NPBS1", "NPBS2", "HWP", "LP", "QWP", "Iris"))
+    expected_credits = root.find(
+        f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text
+    assert reader.metadata["/beampath-attribution"] == expected_credits
+    assert reader.metadata.creator == "beampath"
+    for asset in json.loads(expected_credits)["assets"]:
+        assert asset["attribution"] in reader.metadata.subject
+        assert asset["license_url"] in reader.metadata.subject
+        assert asset["source_url"] in reader.metadata.subject
+
+
+def test_pdf_preserves_multiline_unicode_labels(tmp_path):
+    pypdf = pytest.importorskip("pypdf")
+    try:
+        import cairosvg
+    except (ImportError, OSError):
+        pytest.skip("Optional PDF converter or native Cairo is unavailable")
+    label = "λ/2\nIn Rotation Mount"
+    path = beam("south") >> HWP(label)
+    dest = path.save(tmp_path / "waveplate.pdf")
+    reader = pypdf.PdfReader(dest)
+    text = reader.pages[0].extract_text()
+    assert all(line in text for line in label.split("\n"))
+    manifest = json.loads(reader.metadata["/beampath-attribution"])
+    assert manifest["labels"][0]["text"] == label

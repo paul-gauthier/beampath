@@ -1,4 +1,4 @@
-"""Render one example or every example as SVG and optionally PNG."""
+"""Render one example or every example as SVG and optionally PNG and PDF."""
 import argparse
 from importlib import import_module
 

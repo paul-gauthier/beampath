@@ -248,6 +248,7 @@ class Setup:
 
     def save(self, filename: str | FilePath, *, style: Style | None = None,
              width: int | None = None, dpi: float = 96) -> FilePath:
+        """Save SVG, PNG, or vector PDF, choosing the format by filename suffix."""
         from .render import save
         return save(self, filename, style=style, width=width, dpi=dpi)
 

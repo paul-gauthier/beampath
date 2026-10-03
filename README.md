@@ -1,7 +1,8 @@
 # beampath
 
 A Python DSL for optical setup diagrams. Compose reusable component specifications
-into a physical graph, solve its spacing, and render editable SVG artwork.
+into a physical graph, solve its spacing, and render editable SVG artwork,
+vector PDFs, or PNG previews.
 
 Start with a fiber launch, two mirrors, a half-wave plate, and a fiber coupler.
 `>>` connects components in beam order:
@@ -370,6 +371,21 @@ path.save("rendering.png", style=STYLE, width=2400, dpi=600)
 
 Runnable example: [rendering.py](examples/rendering.py).
 
+`save()` chooses the output format from `.svg`, `.png`, or `.pdf` (case-insensitive).
+For a vector PDF with selectable labels:
+
+```python
+path.save("setup.pdf", style=STYLE)
+```
+
+Install the `pdf` extra for PDF export. PDFs use the same canvas and margins as
+SVGs, with credits, source hashes, and the full attribution manifest embedded in
+document metadata (`/beampath-attribution`). `width` optionally sets the PNG
+pixel width or PDF page width in diagram pixels, preserving the aspect ratio.
+For PDF, `dpi` converts those pixels to physical size: `width=960, dpi=96`
+produces a page 10 inches wide. Without `width`, the canvas width is used;
+`dpi` defaults to 96 and controls PDF page size, not vector quality.
+
 `Layout` is an immutable snapshot with `placements`, `segments`, `labels`, and
 canvas `bounds`.
 Editing the setup afterward does not change the snapshot.
@@ -377,10 +393,10 @@ Incoming stubs have `source=None` and `output=None`, with the actual `target`
 and `input`; outgoing stubs have `target=None` and `input=None`. Segments with
 both endpoints describe component-to-component connections. Stubs add no optics
 or connections to the setup graph.
-SVG export has no raster dependency. PNG export retains credits in a PNG text
-chunk and embeds the requested resolution. The optional CairoSVG converter
-requires native Cairo. On macOS with Homebrew, if the loader cannot find it,
-set the library search path and launch Python directly:
+SVG export needs no optional converter. PNG export retains credits in a PNG text
+chunk and embeds the requested resolution. PNG and PDF use the optional
+CairoSVG converter, which requires native Cairo. On macOS with Homebrew, if the
+loader cannot find it, set the library search path and launch Python directly:
 
 ```sh
 brew install cairo
@@ -479,19 +495,23 @@ in custom artwork).
 pip install 'beampath @ git+https://github.com/paul-gauthier/beampath.git'
 # PNG export (also requires the native Cairo library):
 pip install 'beampath[png] @ git+https://github.com/paul-gauthier/beampath.git'
+# PDF export (also requires the native Cairo library):
+pip install 'beampath[pdf] @ git+https://github.com/paul-gauthier/beampath.git'
 ```
 
 Python 3.11 or later is required. PCL component artwork is credited to the
 Photonics Component Library under CC BY 4.0; the noise-eater artwork is an
-original beampath schematic. Credits and source hashes travel with exported SVGs.
+original beampath schematic. Credits and source hashes travel with SVG, PNG,
+and PDF exports.
 
 ## Development and examples
 
 ```sh
-uv sync --extra dev --extra png
+uv sync --extra dev --extra png --extra pdf
 uv run python -m pytest
 uv run python examples/hello.py --png
-uv run python -m beampath.examples --diagram all --png
+uv run python examples/hello.py --pdf
+uv run python -m beampath.examples --diagram all --png --pdf
 .venv/bin/python scripts/rebuild_readme.py
 uv build
 ```
@@ -515,10 +535,12 @@ README previews in `examples/images/`. Run any file as shown above, or use
 with the module command. Use `--diagram all` to render every example.
 
 Generated examples go under `build/examples/`; use `--output-dir` to choose
-another directory. Omit `--png` for SVG only, or set `--width` to choose the
-PNG width (default 2400 pixels). The module command also works after installing
-the package. Tests verify the example scripts, layout, bundled artwork hashes,
-attribution, PNG pixels, and rendering from an installed wheel.
+another directory. Add `--png` and/or `--pdf` to the SVG export, or omit both
+for SVG only. Set `--width` to choose the PNG width (default 2400 pixels);
+CLI PDFs use the canvas size at 96 dpi. The module command also works after
+installing the package. Tests verify the example scripts, layout, bundled
+artwork hashes, attribution, PNG pixels, vector PDFs, and rendering from an
+installed wheel.
 
 Component artwork, its license, and source provenance live in
 `src/beampath/assets/` and ship with the package.

@@ -61,3 +61,31 @@ def test_all_examples_export_png_with_requested_width_and_credits(tmp_path):
             manifest = json.loads(image.info["beampath-attribution"])
             assert len(manifest["optics"]) == count
             assert all(asset["attribution"] for asset in manifest["assets"])
+
+
+@pytest.mark.parametrize("entry_point", ["script", "module"])
+def test_examples_export_pdf_with_vector_artwork_and_credits(tmp_path, entry_point):
+    pypdf = pytest.importorskip("pypdf")
+    try:
+        import cairosvg
+    except (ImportError, OSError):
+        pytest.skip("Optional PDF converter or native Cairo is unavailable")
+    project = Path(__file__).resolve().parents[1]
+    command = ([str(project / "examples" / "hello.py")] if entry_point == "script"
+               else ["-m", "beampath.examples", "--diagram", "all"])
+    names = {"hello"} if entry_point == "script" else set(EXAMPLES)
+    subprocess.run(
+        [sys.executable, *command, "--pdf", "--png", "--width", "640",
+         "--output-dir", str(tmp_path)],
+        cwd=tmp_path, check=True, capture_output=True, text=True,
+    )
+    for suffix in (".svg", ".png", ".pdf"):
+        assert {p.stem for p in tmp_path.glob("*" + suffix)} == names
+    for name in names:
+        reader = pypdf.PdfReader(tmp_path / f"{name}.pdf")
+        assert len(reader.pages) == 1
+        assert not list(reader.pages[0].images)
+        root = ET.parse(tmp_path / f"{name}.svg").getroot()
+        assert float(reader.pages[0].mediabox.width) == pytest.approx(float(root.get("width")) * .75)
+        expected = root.find(f"{SVG}metadata/{SVG}metadata[@id='asset-attribution-manifest']").text
+        assert reader.metadata["/beampath-attribution"] == expected
