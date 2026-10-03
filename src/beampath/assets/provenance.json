@@ -89,13 +89,13 @@
       "origin": "original beampath schematic artwork",
       "reference_url": "https://www.thorlabs.com/liquid-crystal-eo-amplitude-modulators-free-space",
       "reference_part": "Thorlabs NEL03A",
-      "sha256": "2871cbc60514d4dc423406c129e7912af24cbd5e733dce2cd42bdd78ec90eb54",
+      "sha256": "724cfe7b027830a15f2155614be0dafc6170cee3c02da300e7e234aa9e08f3f3",
       "center": [
         54,
         60
       ],
       "center_basis": "Center of the schematic housing, x=41..67, y=10..110.",
-      "design_basis": "Tall green housing from the user-supplied Laser Clean-up diagram; no control leads or demonstration beams."
+      "design_basis": "Tall green housing and small gray beam-entry port from the user-supplied Laser Clean-up diagram; no control leads or demonstration beams."
     },
     {
       "file": "fs-nd-filter.svg",

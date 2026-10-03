@@ -159,7 +159,7 @@ register_component(ComponentDefinition(
     _splitter, default_input="primary"))
 register_component(ComponentDefinition(
     "noise_eater", "Noise eater",
-    Artwork((54, 60), (40, 9, 68, 111), 1.5,
+    Artwork((54, 60), (30, 9, 68, 111), 1.5,
             package_resource="fs-noise-eater.svg",
             attribution="Original beampath schematic artwork for a Thorlabs NEL03A noise eater; "
                         "green housing based on the user-supplied Laser Clean-up diagram."),

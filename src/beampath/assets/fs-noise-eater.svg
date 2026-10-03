@@ -2,6 +2,8 @@
   <!-- Original schematic artwork for a Thorlabs NEL03A noise eater.
        Optical axis: y=60; placement anchor: (54,60).
        The green housing follows the supplied diagram's visual convention. -->
+  <rect x="32" y="54" width="9" height="12" fill="#BEC4C4" stroke="#626B6B" stroke-width="0.75"/>
+  <rect x="31" y="55" width="2" height="10" fill="#929C9C" stroke="#626B6B" stroke-width="0.75"/>
   <rect x="41" y="10" width="26" height="100" rx="0.6" fill="#98C653"/>
   <path d="M62,10 H66.4 Q67,10 67,10.6 V109.4 Q67,110 66.4,110 H62 Z" fill="#7E9E49"/>
   <path d="M42.25,11 V109" fill="none" stroke="#BEDD8C" stroke-width="0.6"/>
