@@ -1,11 +1,12 @@
 import json
+import math
 import xml.etree.ElementTree as ET
 
 import pytest
 
 from beampath import (
     ConnectionError, HWP, beam, fiber_laser, fiber_launch, fiber_power_meter,
-    inline_power_meter,
+    fiber_splitter, inline_power_meter,
 )
 from beampath.layout import artwork_point
 from beampath.render import tag
@@ -44,6 +45,33 @@ def test_meter_terminates_connected_path_and_docks_at_housing(position):
     with pytest.raises(ConnectionError, match="ends the beam path"):
         path >> inline_power_meter()
     assert (path.setup.optics, path.setup.connections, path.end) == before
+
+
+@pytest.mark.parametrize("turn", ["left", "right"])
+@pytest.mark.parametrize("rotation", [0, 90, 180, 270])
+def test_unpinned_meter_input_aligns_with_splitter_branch_after_rotation(turn, rotation):
+    angle = math.radians(rotation)
+    split = beam().append(fiber_laser(""))
+    split.append(fiber_splitter("", turn=turn),
+                 at=(250 * math.cos(angle), 250 * math.sin(angle)))
+    ref = split.end
+    split.straight() >> fiber_launch("", heading=rotation)
+    meter_path = split.turn() >> fiber_power_meter("")
+    before = split.setup.optics, split.setup.connections
+    layout = split.layout()
+    route, = [r for r in layout.fibers if r.source == ref.id and r.output == "turn"]
+    assert len(route.points) == 2
+    assert route.length == pytest.approx(layout.style.pitch)
+    junction = layout.placements[ref.id]
+    meter = layout.placements[meter_path.end.id]
+    outward = junction.port_exit_direction("turn")
+    assert meter.port_exit_direction("in") == pytest.approx((outward + 180) % 360)
+    direction = math.cos(math.radians(outward)), math.sin(math.radians(outward))
+    assert route.end == pytest.approx(tuple(route.start[i] + layout.style.pitch * direction[i]
+                                           for i in (0, 1)))
+    assert meter.instance.at is None and meter.instance.heading is None
+    assert (split.setup.optics, split.setup.connections) == before
+    assert split.layout() == layout
 
 
 @pytest.mark.parametrize("heading", [0, 270, 31.7])

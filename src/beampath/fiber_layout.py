@@ -179,6 +179,18 @@ def _place(setup, style):
             lane = branches.index(edge)
             lane = ((lane + 1) // 2) * (1 if lane % 2 else -1) if lane else 0
             target_component = block[edge.target]
+            if len(block) == 1 and target_component.instance.heading is None:
+                # Orient an unpinned fiber device before positioning its input.
+                # Rotating an offset input after placement creates a needless
+                # sideways jog and changes the intended connector-to-connector gap.
+                desired = (source.port_exit_direction(edge.output) + 180
+                           - target_component.instance.port(edge.input).exit_direction) % 360
+                rotation = min(dict.fromkeys((target_component.rotation, 0, 90, 180, 270)),
+                               key=lambda r: abs((r - desired + 180) % 360 - 180))
+                target_component = replace(target_component, rotation=rotation,
+                                           bounds=translated(footprint(target_component.instance, rotation),
+                                                             target_component.position))
+                block = {edge.target: target_component}
             origin = source.port_position(edge.output)
             target = target_component.port_position(edge.input)
             # Like free-space edges, pitch measures the gap between ports.
