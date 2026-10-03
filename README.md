@@ -59,13 +59,11 @@ overlaps produce an error identifying a nearby component or port.
 
 ## Documentation
 
-| I want to… | Read |
-|---|---|
-| Build a diagram step by step | [User guide](docs/guide.md) |
-| Find components, options, or behavior rules | [Practical reference](docs/reference.md) |
-| Browse runnable examples and their previews | [Example index](docs/guide.md#more-examples) |
-| Export PNG/PDF or resolve a Cairo error | [Rendering reference](docs/reference.md#rendering) |
-| Run tests, update examples, or contribute | [Development notes](docs/development.md) |
+- [User guide](docs/guide.md)
+- [Practical reference](docs/reference.md)
+- [Example index](docs/guide.md#more-examples)
+- [Rendering reference](docs/reference.md#rendering)
+- [Development notes](docs/development.md)
 
 ## Artwork credits
 
