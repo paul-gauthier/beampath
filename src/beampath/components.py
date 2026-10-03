@@ -191,7 +191,8 @@ register_component(ComponentDefinition(
          (85, 27), (56.5, 25, 113.5, 79), 1.5,
          adaptations="Housing and display match the standalone f-power-meter.svg at the same scale. "
                      "Inline power-meter display changed to 1.23 mW and kept aligned with its housing. "
-                     "Embedded fiber line removed; both fiber ports attach at the tap."),
+                     "Embedded through fiber removed; both fiber ports attach at the tap. "
+                     "Internal tap fiber matches the routed fiber style."),
     _fiber_meter))
 register_component(ComponentDefinition(
     "fiber_power_meter", "Fiber power meter",

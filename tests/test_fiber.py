@@ -305,9 +305,11 @@ def test_fiber_style_and_root_stub():
     group = svg.find(f"{tag('g')}[@id='fiber-path']")
     assert group.get("stroke") == "#112233"
     assert group.get("stroke-width") == "6"
-    # Fiber lives only in layout; the asset contains the instrument itself.
+    # The short tap fiber inside the instrument follows the routed fiber style.
     components = svg.find(f"{tag('g')}[@id='components']")
-    assert not any(n.get("stroke") in {"#112233", "#1B1E89"} for n in components.iter())
+    tap, = components.iter(tag("line"))
+    assert tap.get("stroke") == style.fiber_color
+    assert float(tap.get("stroke-width")) * p.end.instance.spec.definition.artwork.scale == style.fiber_width
     assert all(route.length == style.open_length for route in result.fibers)
 
 
@@ -425,7 +427,13 @@ def test_fiber_docks_at_asset_attachment_without_embedded_cable(spec, attachment
         assert placed.port_position(name) == pytest.approx(expected)
     svg = ET.fromstring(path.to_svg())
     components = svg.find(f"{tag('g')}[@id='components']")
-    assert not any(node.get("stroke") == layout.style.fiber_color for node in components.iter())
+    cables = [node for node in components.iter() if node.get("stroke") == layout.style.fiber_color]
+    if spec.definition.name == "inline_power_meter":
+        tap, = cables
+        assert tap.tag == tag("line") and tap.get("x1") == tap.get("x2")
+        assert float(tap.get("stroke-width")) * spec.definition.artwork.scale == layout.style.fiber_width
+    else:
+        assert not cables
     assert_routes_clear(layout)
 
 
