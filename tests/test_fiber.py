@@ -5,9 +5,9 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from beampath import (
-    Artwork, ComponentDefinition, ComponentSpec, ConnectionError, Geometry, HWP,
+    Artwork, ComponentDefinition, ComponentError, ComponentSpec, ConnectionError, Geometry, HWP,
     Label, LayoutError, Port, Setup, Style, beam, fiber_laser, fiber_launch,
-    inline_power_meter, iris,
+    inline_power_meter, iris, fiber_splitter,
 )
 from beampath.layout import artwork_point, segment_intersects
 from beampath.render import tag
@@ -125,6 +125,92 @@ def test_fiber_branch_and_rejoin_use_existing_graph_api():
     assert len([r for r in layout.fibers if r.target]) == 6
     assert len(joined.setup.connections) == 7
     assert_routes_clear(layout)
+
+
+@pytest.mark.parametrize("turn,sign", [("left", -1), ("right", 1)])
+@pytest.mark.parametrize("branch_first", [False, True])
+def test_fiber_splitter_has_straight_and_perpendicular_runs(turn, sign, branch_first):
+    split = fiber_laser("") >> fiber_splitter("", turn=turn)
+    ref = split.end
+    before = split.setup.optics, split.setup.connections
+    with pytest.raises(ConnectionError, match="select an output"):
+        split >> inline_power_meter("")
+    assert (split.setup.optics, split.setup.connections) == before
+    if branch_first:
+        branch = ref.turn() >> inline_power_meter("")
+        main = split.straight() >> fiber_launch("", heading="east")
+    else:
+        main = ref.straight() >> fiber_launch("", heading="east")
+        branch = split.turn() >> inline_power_meter("")
+    layout = split.layout()
+    junction = layout.placements[ref.id]
+    assert junction.rotation == 0
+    assert junction.instance.heading is None
+    assert all(p.medium == "fiber" and p.direction is None for p in junction.instance.geometry.ports)
+    routes = {r.output: r for r in layout.fibers if r.source == ref.id}
+    straight, turned = routes["straight"], routes["turn"]
+    assert len(straight.points) == len(turned.points) == 2
+    assert straight.start[1] == straight.end[1] == junction.position[1]
+    assert straight.end[0] > straight.start[0]
+    assert turned.start[0] == turned.end[0] == junction.position[0]
+    assert sign * (turned.end[1] - turned.start[1]) > 0
+    assert branch.end.instance.heading is None
+    assert main.end.instance.heading == 0
+    with pytest.raises(ConnectionError, match="already connected"):
+        split.turn()
+    assert_routes_clear(layout)
+
+
+@pytest.mark.parametrize("turn,sign", [("left", -1), ("right", 1)])
+@pytest.mark.parametrize("rotation", [0, 90, 180, 270])
+def test_fiber_splitter_rotates_docks_without_setting_optical_headings(turn, sign, rotation):
+    radians = math.radians(rotation)
+    axis = math.cos(radians), math.sin(radians)
+    side = -sign * axis[1], sign * axis[0]
+    split = beam().append(fiber_laser(""), at=(0, 0))
+    split.append(fiber_splitter("", turn=turn), at=tuple(250 * v for v in axis))
+    ref = split.end
+    split.straight().append(inline_power_meter(""), at=tuple(500 * v for v in axis))
+    split.turn().append(inline_power_meter(""),
+                        at=tuple(250 * (axis[i] + side[i]) for i in (0, 1)))
+    layout = split.layout()
+    junction = layout.placements[ref.id]
+    assert junction.rotation == rotation
+    assert all(node.heading is None for node in split.setup.optics)
+    docks = {"in": (50, 40), "straight": (100, 40), "turn": (75, 20 if sign < 0 else 60)}
+    for name, dock in docks.items():
+        offset = artwork_point(junction.instance, dock, junction.rotation)
+        assert junction.port_position(name) == pytest.approx(
+            tuple(junction.position[i] + offset[i] for i in (0, 1)))
+    assert all(len(r.points) == 2 for r in layout.fibers)
+    assert_routes_clear(layout)
+
+
+def test_fiber_splitter_unused_output_is_a_perpendicular_stub_and_artwork_is_cable_free():
+    split = fiber_laser("") >> fiber_splitter("90:10 splitter")
+    ref = split.end
+    split.straight() >> fiber_launch("")
+    layout = split.layout(style=Style(fiber_color="#112233", fiber_width=6))
+    stub, = [r for r in layout.fibers if r.source == ref.id and r.output == "turn"]
+    assert stub.target is None
+    assert stub.length == pytest.approx(layout.style.open_length)
+    assert stub.start[0] == stub.end[0] and stub.end[1] < stub.start[1]
+    root = ET.fromstring(split.to_svg(style=layout.style))
+    housing = root.find(f"{tag('g')}[@id='components']/{tag('g')}[@id='{ref.id}']")
+    assert len(housing.findall(tag("rect"))) == 1
+    assert not housing.findall(tag("line")) and not housing.findall(tag("path"))
+    assert not housing.findall(tag("text"))
+    manifest = json.loads(root.find(f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text)
+    asset, = [a for a in manifest["assets"] if a["component"] == "fiber_splitter"]
+    assert "03_couplers_splitters/f-monitor-splitter.svg" in asset["source_url"]
+    assert "perpendicular branch" in asset["attribution"]
+    assert_routes_clear(layout)
+
+
+@pytest.mark.parametrize("turn", ["up", "", None, 90])
+def test_fiber_splitter_rejects_invalid_turn(turn):
+    with pytest.raises(ComponentError, match="turn must be 'left' or 'right'"):
+        fiber_splitter(turn=turn)
 
 
 @pytest.mark.parametrize("direction", [0, 90, 180, 270, 31.7])
