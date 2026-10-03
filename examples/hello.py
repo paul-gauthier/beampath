@@ -13,7 +13,7 @@ def build():
         >> mirror(turn="right")
         >> HWP()
         >> mirror(turn="left")
-        >> fiber_launch(role="couple")
+        >> fiber_coupler()
     )
     # README:END
     return setup

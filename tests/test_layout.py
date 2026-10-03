@@ -6,7 +6,7 @@ import pytest
 
 from beampath import (
     Artwork, ComponentDefinition, ComponentSpec, Geometry, HWP, LP, LayoutError,
-    Port, QWP, Setup, Style, beam, beamsplitter, component, fiber_launch, iris,
+    Port, QWP, Setup, Style, beam, beamsplitter, component, fiber_launch, fiber_coupler, iris,
     mirror, register_component,
 )
 from beampath.examples import cage_system, mzi
@@ -59,12 +59,12 @@ def test_input_stub_uses_displaced_port_and_extends_for_artwork():
 
 
 @pytest.mark.parametrize("direction", [0, 90, 180, 270, 31.7])
-@pytest.mark.parametrize("role", ["launch", "couple"])
-def test_fiber_launch_has_no_input_stub_but_coupler_does(direction, role):
-    path = beam(direction) >> fiber_launch(role=role)
+@pytest.mark.parametrize("factory", [fiber_launch, fiber_coupler])
+def test_fiber_launch_has_no_input_stub_but_coupler_does(direction, factory):
+    path = beam(direction) >> factory()
     result = path.layout()
     leads = [s for s in result.segments if s.source is None]
-    if role == "launch":
+    if factory is fiber_launch:
         assert leads == []
         outgoing, = result.segments
         assert outgoing.source == path.end.id and outgoing.target is None

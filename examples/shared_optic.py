@@ -14,7 +14,7 @@ def build():
     npbs2 = split.setup.add(beamsplitter("NPBS2", angle=+45))
     b.connect(npbs2.input("secondary"))
     a.connect(npbs2.input("primary"))
-    npbs2.reflect() >> fiber_launch(role="couple")
+    npbs2.reflect() >> fiber_coupler()
     npbs2.straight() >> iris()
     # README:END
     return split

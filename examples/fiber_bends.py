@@ -12,7 +12,7 @@ def build():
         >> inline_power_meter("Input power")
         >> fiber_launch()
         >> HWP()
-        >> fiber_launch(role="couple")
+        >> fiber_coupler()
     )
     setup.append(inline_power_meter("Output power"), at=(1900, -400))
     # README:END

@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from beampath import (
-    ConnectionError, HWP, beam, fiber_laser, fiber_launch, fiber_power_meter,
+    ConnectionError, HWP, beam, fiber_laser, fiber_launch, fiber_coupler, fiber_power_meter,
     fiber_splitter, inline_power_meter,
 )
 from beampath.layout import artwork_point
@@ -76,7 +76,7 @@ def test_unpinned_meter_input_aligns_with_splitter_branch_after_rotation(turn, r
 
 @pytest.mark.parametrize("heading", [0, 270, 31.7])
 def test_meter_after_recoupling_preserves_display_and_credits(heading):
-    path = (fiber_launch(heading=heading) >> HWP() >> fiber_launch(role="couple")
+    path = (fiber_launch(heading=heading) >> HWP() >> fiber_coupler()
             >> fiber_power_meter("Output power"))
     layout = path.layout()
     assert len(layout.segments) == 2

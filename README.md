@@ -15,7 +15,7 @@ setup = (
     >> mirror(turn="right")
     >> HWP()
     >> mirror(turn="left")
-    >> fiber_launch(role="couple")
+    >> fiber_coupler()
 )
 setup.save("hello.svg")
 ```
@@ -44,7 +44,7 @@ setup = (
     >> iris()
     >> mirror(turn="left")
     >> mirror(turn="right")
-    >> fiber_launch(role="couple")
+    >> fiber_coupler()
 )
 setup.save("setup.svg")
 ```
@@ -99,7 +99,7 @@ pass a custom label such as `nd_filter("ND 2.0")` or `bandpass_filter("980 nm")`
 ```python
 from beampath.components import *
 
-setup = fiber_launch() >> nd_filter() >> bandpass_filter() >> fiber_launch(role="couple")
+setup = fiber_launch() >> nd_filter() >> bandpass_filter() >> fiber_coupler()
 setup.save("filters.svg")
 ```
 
@@ -107,8 +107,9 @@ The non-polarizing cube beamsplitter defaults to the label `NPBS`.
 `noise_eater()` adds a straight-through noise eater, drawn as a tall green
 housing with no control leads. Its original schematic artwork represents a
 Thorlabs NEL03A; use `noise_eater("NE")` for a shorter label.
-A fiber launch's `role` controls its orientation; `role="couple"` ends the
-free-space section and supplies a fiber output.
+`fiber_coupler()` ends the free-space section and supplies a fiber output.
+It follows the incoming beam heading; an optional `heading` constrains that
+free-space section, using the same compass directions or degrees as `fiber_launch()`.
 
 ## Branching and shared optics
 
@@ -123,7 +124,7 @@ split = fiber_launch() >> beamsplitter("NPBS1", angle=-45)
 a = split.straight() >> HWP() >> mirror(heading="south")
 b = split.reflect() >> LP() >> QWP() >> mirror(heading="east")
 combined = a.join(b, beamsplitter("NPBS2", angle=+45))
-combined.reflect() >> fiber_launch(role="couple")
+combined.reflect() >> fiber_coupler()
 combined.straight() >> iris()
 split.save("mzi.svg")
 ```
@@ -160,7 +161,7 @@ b = split.reflect() >> LP() >> QWP() >> mirror(heading="east")
 npbs2 = split.setup.add(beamsplitter("NPBS2", angle=+45))
 b.connect(npbs2.input("secondary"))
 a.connect(npbs2.input("primary"))
-npbs2.reflect() >> fiber_launch(role="couple")
+npbs2.reflect() >> fiber_coupler()
 npbs2.straight() >> iris()
 split.save("shared_optic.svg")
 ```
@@ -182,7 +183,7 @@ Failed appends, connects, and joins leave the graph and cursors intact.
 The same `>>` chain can pass through fiber and free-space optics. Ports specify
 their medium, so connecting a fiber output directly to a free-space input raises
 an error. `fiber_launch()` converts fiber to free-space;
-`fiber_launch(role="couple")` converts back to fiber and allows the chain to continue.
+`fiber_coupler()` converts back to fiber and allows the chain to continue.
 
 `fiber_power_meter()` uses PCL's standalone power meter artwork and ends the
 path with a single fiber input. Its default label is `Fiber power meter`;
@@ -205,7 +206,7 @@ setup = (
     >> inline_power_meter("Input power")
     >> fiber_launch()
     >> HWP()
-    >> fiber_launch(role="couple")
+    >> fiber_coupler()
     >> inline_power_meter("Output power")
 )
 setup.save("mixed_fiber.svg")
@@ -243,7 +244,7 @@ setup = (
     >> inline_power_meter("Input power")
     >> fiber_launch()
     >> HWP()
-    >> fiber_launch(role="couple")
+    >> fiber_coupler()
 )
 setup.append(inline_power_meter("Output power"), at=(1900, -400))
 setup.save("fiber_bends.svg")

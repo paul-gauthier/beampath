@@ -8,7 +8,7 @@ from .errors import ComponentError
 from .geometry import aligned, finite, heading, reflection
 
 __all__ = [
-    "fiber_launch", "mirror", "beamsplitter", "iris", "LP", "HWP", "QWP", "noise_eater",
+    "fiber_launch", "fiber_coupler", "mirror", "beamsplitter", "iris", "LP", "HWP", "QWP", "noise_eater",
     "nd_filter", "bandpass_filter", "fiber_laser", "inline_power_meter", "fiber_splitter",
     "fiber_power_meter",
 ]
@@ -63,20 +63,25 @@ def _straight(parameters):
     return Geometry((Port("in", "input"), Port("out", "output")))
 
 
-def _fiber(parameters):
-    _parameters(parameters, ("role", "heading"))
-    role = parameters.get("role", "launch")
-    if role not in {"launch", "couple"}:
-        raise ComponentError("fiber_launch role must be 'launch' or 'couple'")
-    if role == "launch":
+def _fiber_transition(parameters, *, launch):
+    _parameters(parameters, ("heading",))
+    if launch:
         ports = (Port("in", "input", position=(-152.4, 0), medium="fiber"),
                  Port("out", "output"))
     else:
         ports = (Port("in", "input"),
                  Port("out", "output", position=(152.4, 0), medium="fiber"))
-    return Geometry(ports, reflected=role == "launch",
+    return Geometry(ports, reflected=launch,
                     heading=heading(parameters["heading"]) if "heading" in parameters else None,
-                    default_heading=0 if role == "launch" else None)
+                    default_heading=0 if launch else None)
+
+
+def _fiber_launch(parameters):
+    return _fiber_transition(parameters, launch=True)
+
+
+def _fiber_coupler(parameters):
+    return _fiber_transition(parameters, launch=False)
 
 
 def _fiber_source(parameters):
@@ -164,12 +169,16 @@ def _splitter(parameters):
                     artwork_rotation=angle - source_normal)
 
 
+_FIBER_TRANSITION_ARTWORK = _art(
+    "f-fiber-launch.svg", "fiber-optics/flat_2d/svg/11_beam_delivery",
+    (46.5, 27), (41, 10, 111, 44), 2.4, remove_axes=True,
+    adaptations="Embedded fiber tail removed; fiber connects at the housing.")
 register_component(ComponentDefinition(
-    "fiber_launch", "Fiber launch",
-    _art("f-fiber-launch.svg", "fiber-optics/flat_2d/svg/11_beam_delivery",
-         (46.5, 27), (41, 10, 111, 44), 2.4, remove_axes=True,
-         adaptations="Embedded fiber tail removed; fiber connects at the housing."),
-    _fiber, label_anchor=(85, 27)))
+    "fiber_launch", "Fiber launch", _FIBER_TRANSITION_ARTWORK,
+    _fiber_launch, label_anchor=(85, 27)))
+register_component(ComponentDefinition(
+    "fiber_coupler", "Fiber coupler", _FIBER_TRANSITION_ARTWORK,
+    _fiber_coupler, label_anchor=(85, 27)))
 register_component(ComponentDefinition(
     "fiber_laser", "Fiber laser",
     _art("f-laser.svg", "fiber-optics/flat_2d/svg/05_laser_sources",
@@ -237,14 +246,20 @@ register_component(ComponentDefinition(
     _straight))
 
 
-def fiber_launch(label: str | None = None, *, role: str = "launch",
-                 heading: str | float | None = None):
-    if label is None and role == "couple":
-        label = "Fiber coupler"
-    parameters = {"role": role}
+def fiber_launch(label: str | None = None, *, heading: str | float | None = None):
+    """Convert fiber to free space, defaulting to an eastward beam heading."""
+    parameters = {}
     if heading is not None:
         parameters["heading"] = heading
     return component("fiber_launch", label, **parameters)
+
+
+def fiber_coupler(label: str | None = None, *, heading: str | float | None = None):
+    """Convert free space to fiber, following the incoming beam heading."""
+    parameters = {}
+    if heading is not None:
+        parameters["heading"] = heading
+    return component("fiber_coupler", label, **parameters)
 
 
 def fiber_laser(label: str | None = None):

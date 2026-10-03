@@ -21,7 +21,7 @@ def build():
         >> iris()
         >> mirror(turn="left")
         >> mirror(turn="right")
-        >> fiber_launch(role="couple")
+        >> fiber_coupler()
     )
     # README:END
     return setup

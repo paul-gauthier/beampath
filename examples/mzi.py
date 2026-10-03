@@ -12,7 +12,7 @@ def build():
     a = split.straight() >> HWP() >> mirror(heading="south")
     b = split.reflect() >> LP() >> QWP() >> mirror(heading="east")
     combined = a.join(b, beamsplitter("NPBS2", angle=+45))
-    combined.reflect() >> fiber_launch(role="couple")
+    combined.reflect() >> fiber_coupler()
     combined.straight() >> iris()
     # README:END
     return split

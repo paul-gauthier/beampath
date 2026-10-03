@@ -5,7 +5,7 @@ import pytest
 
 from beampath import (
     HWP, LP, QWP, ComponentError, ConnectionError, Setup, beam,
-    beamsplitter, chain, component, fiber_launch, iris, mirror,
+    beamsplitter, chain, component, fiber_launch, fiber_coupler, iris, mirror,
 )
 
 
@@ -278,7 +278,7 @@ def test_ownership_and_terminal_errors():
         a.join(b, beamsplitter(angle=-45))
     with pytest.raises(ConnectionError, match="different setups"):
         a.connect(b.end.input())
-    a >> fiber_launch(role="couple")
+    a >> fiber_coupler()
     with pytest.raises(ConnectionError, match="fiber.*free_space"):
         a >> iris()
 
@@ -286,9 +286,16 @@ def test_ownership_and_terminal_errors():
 @pytest.mark.parametrize("factory", [
     lambda: beam("up"), lambda: mirror(angle=float("nan")),
     lambda: beamsplitter(angle=0), lambda: beamsplitter(angle=90),
-    lambda: fiber_launch(role="other"), lambda: component("LP", unexpected=1),
+    lambda: component("fiber_launch", role="couple"),
+    lambda: component("fiber_coupler", role="launch"), lambda: component("LP", unexpected=1),
     lambda: chain(), lambda: chain(Setup()),
 ])
 def test_invalid_specs(factory):
     with pytest.raises(ComponentError):
         factory()
+
+
+@pytest.mark.parametrize("factory", [fiber_launch, fiber_coupler])
+def test_fiber_transitions_reject_removed_role_keyword(factory):
+    with pytest.raises(TypeError, match="unexpected keyword argument 'role'"):
+        factory(role="couple")

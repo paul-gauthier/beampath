@@ -10,7 +10,7 @@ import pytest
 
 from beampath import (
     Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, Style, beam,
-    bandpass_filter, beamsplitter, iris, HWP, QWP, mirror, nd_filter,
+    bandpass_filter, beamsplitter, fiber_launch, fiber_coupler, iris, HWP, QWP, mirror, nd_filter,
 )
 from beampath.examples import cage_system, mzi
 from beampath.layout import artwork_point
@@ -73,7 +73,7 @@ def test_bundled_primitives_and_provenance_are_retained():
     p = cage_system()
     root = ET.fromstring(p.to_svg())
     manifest = json.loads(root.find(f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text)
-    assert len(manifest["assets"]) == 6
+    assert len(manifest["assets"]) == 7
     assert all("Creative Commons Attribution" in a["attribution"] for a in manifest["assets"])
     assert all("7e44e14341489b067d7c8e1390af87b9c423103e" in a["source_url"] for a in manifest["assets"])
     for node in p.setup.optics:
@@ -124,7 +124,7 @@ def test_npbs_cube_surface_matches_beam_geometry(initial, normal):
     assert (math.cos(outgoing), math.sin(outgoing)) == pytest.approx(reflected)
 
 
-def test_fiber_role_orientation_and_mirror_backing():
+def test_fiber_transition_orientation_and_mirror_backing():
     layout = cage_system().layout()
     nodes = list(layout.placements.values())
     launch, couple = nodes[0].instance, nodes[-1].instance
@@ -140,6 +140,31 @@ def test_fiber_role_orientation_and_mirror_backing():
             hatch_a, hatch_b = artwork_point(node, (51.4, 17.2)), artwork_point(node, (47.1, 19.9))
             d = math.cos(math.radians(node.heading)), math.sin(math.radians(node.heading))
             assert sum((hatch_b[i] - hatch_a[i]) * d[i] for i in (0, 1)) > 0
+
+
+@pytest.mark.parametrize("label", [None, "Custom label", ""])
+def test_fiber_transitions_have_distinct_svg_identity_and_labels(label):
+    path = fiber_launch(label, heading="north") >> HWP() >> fiber_coupler(label)
+    root = ET.fromstring(path.to_svg())
+    components = root.find(f"{tag('g')}[@id='components']")
+    assert [node.get("data-component") for node in components] == [
+        "fiber_launch", "HWP", "fiber_coupler",
+    ]
+    manifest = json.loads(root.find(
+        f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text)
+    launch, _, coupler = manifest["optics"]
+    assert launch["component"] == "fiber_launch"
+    assert coupler["component"] == "fiber_coupler"
+    assert launch["label"] == ("Fiber launch" if label is None else label)
+    assert coupler["label"] == ("Fiber coupler" if label is None else label)
+    assert launch["parameters"] == {"heading": "north"}
+    assert coupler["parameters"] == {}
+    assert launch["heading"] == coupler["heading"] == 270
+    assets = {asset["component"]: asset for asset in manifest["assets"]}
+    assert assets["fiber_launch"]["sha256"] == assets["fiber_coupler"]["sha256"]
+    labels = [node.text for node in root.find(f"{tag('g')}[@id='component-labels']")]
+    expected_labels = [launch["label"], "HWP", coupler["label"]] if label != "" else ["HWP"]
+    assert labels == expected_labels
 
 
 @pytest.mark.parametrize("initial,normal,parameters", [

@@ -6,7 +6,7 @@ import pytest
 
 from beampath import (
     Artwork, ComponentDefinition, ComponentError, ComponentSpec, ConnectionError, Geometry, HWP,
-    Label, LayoutError, Port, Setup, Style, beam, fiber_laser, fiber_launch,
+    Label, LayoutError, Port, Setup, Style, beam, fiber_laser, fiber_launch, fiber_coupler,
     inline_power_meter, iris, fiber_splitter,
 )
 from beampath.layout import artwork_point, segment_intersects
@@ -16,7 +16,7 @@ from beampath.routing import rounded_path, route_connection
 
 def mixed(output_at=None):
     path = (fiber_laser("Tunable laser") >> inline_power_meter("Input power")
-            >> fiber_launch() >> HWP() >> fiber_launch(role="couple"))
+            >> fiber_launch() >> HWP() >> fiber_coupler())
     return path.append(inline_power_meter("Output power"), at=output_at)
 
 
@@ -219,7 +219,7 @@ def test_fiber_splitter_rejects_invalid_turn(turn):
 
 @pytest.mark.parametrize("direction", [0, 90, 180, 270, 31.7])
 def test_launch_seeds_independent_heading_after_fiber(direction):
-    p = fiber_laser("") >> fiber_launch(heading=direction) >> HWP() >> fiber_launch(role="couple")
+    p = fiber_laser("") >> fiber_launch(heading=direction) >> HWP() >> fiber_coupler()
     p >> inline_power_meter("") >> fiber_launch(heading="north") >> HWP()
     assert [n.heading for n in p.setup.optics] == [None, direction, direction, direction, None, 270, 270]
     layout = p.layout()
@@ -235,11 +235,11 @@ def test_explicit_launch_and_legacy_beam_heading():
     p = fiber_laser() >> fiber_launch(heading="east") >> HWP()
     before = p.setup.optics, p.setup.connections
     with pytest.raises(ConnectionError, match="disagrees"):
-        p >> fiber_launch(role="couple", heading="north")
+        p >> fiber_coupler(heading="north")
     assert (p.setup.optics, p.setup.connections) == before
 
 
-@pytest.mark.parametrize("spec", [iris(), fiber_launch(role="couple")])
+@pytest.mark.parametrize("spec", [iris(), fiber_coupler()])
 def test_mismatched_media_reject_atomically(spec):
     p = fiber_laser() >> inline_power_meter()
     before = p.setup.optics, p.setup.connections, p.end
@@ -354,7 +354,7 @@ def test_two_initial_paths_cannot_pin_one_component_to_different_positions(mediu
 def test_pinned_input_meter_keeps_free_space_heading_independent():
     p = beam().append(fiber_laser(""))
     p.append(inline_power_meter(""), at=(0, 650))
-    p >> fiber_launch() >> HWP() >> fiber_launch(role="couple") >> inline_power_meter("")
+    p >> fiber_launch() >> HWP() >> fiber_coupler() >> inline_power_meter("")
     result = p.layout()
     assert result.placements["optic-002"].position == (0, 650)
     assert result.placements["optic-002"].rotation == 90
@@ -377,7 +377,7 @@ def test_pinned_fiber_device_can_rotate_to_clear_artwork():
 
 @pytest.mark.parametrize("factory,incoming,outgoing", [
     (fiber_laser, 0, 1), (inline_power_meter, 1, 1),
-    (fiber_launch, 1, 0), (lambda: fiber_launch(role="couple"), 0, 1),
+    (fiber_launch, 1, 0), (fiber_coupler, 0, 1),
 ])
 def test_standalone_fiber_ports_have_null_ended_stubs(factory, incoming, outgoing):
     path = beam().append(factory())
@@ -397,7 +397,7 @@ def test_connected_fiber_replaces_open_stub_without_adding_components():
     before = path.layout()
     before_end = path.end.id
     open_output, = [r for r in before.fibers if r.target is None]
-    path >> fiber_launch() >> HWP() >> fiber_launch(role="couple") >> inline_power_meter("Output power")
+    path >> fiber_launch() >> HWP() >> fiber_coupler() >> inline_power_meter("Output power")
     after = path.layout()
     connected, = [r for r in after.fibers if r.source == before_end]
     assert connected.target == "optic-002"
@@ -413,7 +413,7 @@ def test_connected_fiber_replaces_open_stub_without_adding_components():
     (fiber_laser(""), {"out": (115, 32)}),
     (inline_power_meter(""), {"in": (85, 27), "out": (85, 27)}),
     (fiber_launch("", heading=31.7), {"in": (110, 27)}),
-    (fiber_launch("", role="couple", heading=31.7), {"out": (110, 27)}),
+    (fiber_coupler("", heading=31.7), {"out": (110, 27)}),
 ])
 def test_fiber_docks_at_asset_attachment_without_embedded_cable(spec, attachments):
     path = beam(31.7).append(spec)
