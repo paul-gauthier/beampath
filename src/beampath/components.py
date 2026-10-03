@@ -1,4 +1,4 @@
-"""Builtins using the pinned Photonics Component Library artwork."""
+"""Builtins using pinned PCL artwork and original schematic assets."""
 from __future__ import annotations
 
 import math
@@ -8,7 +8,7 @@ from .errors import ComponentError
 from .geometry import aligned, finite, heading, reflection
 
 __all__ = [
-    "fiber_launch", "mirror", "beamsplitter", "iris", "LP", "HWP", "QWP",
+    "fiber_launch", "mirror", "beamsplitter", "iris", "LP", "HWP", "QWP", "noise_eater",
 ]
 
 REVISION = "7e44e14341489b067d7c8e1390af87b9c423103e"
@@ -148,6 +148,13 @@ register_component(ComponentDefinition(
     _art("fs-npbs-cube.svg", "free-space-optics/flat_2d/svg/15_nonpolarizing",
          (60, 45), (39, 24, 81, 66), 1.6, source_filename="fs-bs-cube.svg"),
     _splitter, default_input="primary"))
+register_component(ComponentDefinition(
+    "noise_eater", "Noise eater",
+    Artwork((54, 60), (40, 9, 68, 111), 1.5,
+            package_resource="fs-noise-eater.svg",
+            attribution="Original beampath schematic artwork for a Thorlabs NEL03A noise eater; "
+                        "green housing based on the user-supplied Laser Clean-up diagram."),
+    _straight))
 
 
 def fiber_launch(label: str | None = None, *, role: str = "launch"):
@@ -184,3 +191,8 @@ def HWP(label: str | None = None):
 
 def QWP(label: str | None = None):
     return component("QWP", label)
+
+
+def noise_eater(label: str | None = None):
+    """A straight-through NEL03A noise-eater schematic with no control leads."""
+    return component("noise_eater", label)

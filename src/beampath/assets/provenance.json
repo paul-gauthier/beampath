@@ -83,6 +83,19 @@
         45
       ],
       "center_basis": "Center of the cube rectangle x=40..80, y=25..65, at the midpoint of its splitting diagonal."
+    },
+    {
+      "file": "fs-noise-eater.svg",
+      "origin": "original beampath schematic artwork",
+      "reference_url": "https://www.thorlabs.com/liquid-crystal-eo-amplitude-modulators-free-space",
+      "reference_part": "Thorlabs NEL03A",
+      "sha256": "2871cbc60514d4dc423406c129e7912af24cbd5e733dce2cd42bdd78ec90eb54",
+      "center": [
+        54,
+        60
+      ],
+      "center_basis": "Center of the schematic housing, x=41..67, y=10..110.",
+      "design_basis": "Tall green housing from the user-supplied Laser Clean-up diagram; no control leads or demonstration beams."
     }
   ]
 }

@@ -93,6 +93,9 @@ Use `\n` for line breaks, such as `HWP("HWP\nIn Rotation Mount")`;
 each line is center-aligned.
 Waveplates display only their label, with no additional annotations.
 The non-polarizing cube beamsplitter defaults to the label `NPBS`.
+`noise_eater()` adds a straight-through noise eater, drawn as a tall green
+housing with no control leads. Its original schematic artwork represents a
+Thorlabs NEL03A; use `noise_eater("NE")` for a shorter label.
 A fiber launch's `role` controls its orientation; `role="couple"` ends the
 free-space path.
 
@@ -327,8 +330,9 @@ pip install 'beampath @ git+https://github.com/paul-gauthier/beampath.git'
 pip install 'beampath[png] @ git+https://github.com/paul-gauthier/beampath.git'
 ```
 
-Python 3.11 or later is required. Component artwork is credited to the Photonics
-Component Library under CC BY 4.0; credits and source hashes travel with exported SVGs.
+Python 3.11 or later is required. PCL component artwork is credited to the
+Photonics Component Library under CC BY 4.0; the noise-eater artwork is an
+original beampath schematic. Credits and source hashes travel with exported SVGs.
 
 ## Development and examples
 
