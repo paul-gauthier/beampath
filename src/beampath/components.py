@@ -29,7 +29,7 @@ def _selector(*, remove_axes=False):
     def keep(element):
         tag = element.tag.rsplit("}", 1)[-1]
         if tag == "text":
-            return False
+            return element.get("data-display-readout") == "true"
         if tag == "polygon" and element.get("fill") == "#CC0000":
             return False
         if tag == "line":
@@ -41,11 +41,13 @@ def _selector(*, remove_axes=False):
     return keep
 
 
-def _art(filename, upstream_path, center, bounds, scale, *, remove_axes=False, source_filename=None):
+def _art(filename, upstream_path, center, bounds, scale, *, remove_axes=False, source_filename=None,
+         adaptations=""):
     source_filename = source_filename or filename
     return Artwork(center, bounds, scale, package_resource=filename,
                    source_url=f"https://raw.githubusercontent.com/itgall/photonics-component-library/{REVISION}/{upstream_path}/{source_filename}",
-                   attribution=ATTRIBUTION, license_url=LICENSE_URL,
+                   attribution=ATTRIBUTION + (" " + adaptations if adaptations else ""),
+                   license_url=LICENSE_URL,
                    selector=_selector(remove_axes=remove_axes))
 
 
@@ -152,7 +154,9 @@ register_component(ComponentDefinition(
 register_component(ComponentDefinition(
     "inline_power_meter", "Inline power meter",
     _art("f-inline-power-meter.svg", "fiber-optics/flat_2d/svg/11_inline_components",
-         (85, 27), (4, 25, 166, 53), 1.5), _fiber_meter))
+         (85, 27), (4, 25, 166, 53), 1.5,
+         adaptations="Inline power-meter display changed to 1.23 mW and kept aligned with its housing."),
+    _fiber_meter))
 register_component(ComponentDefinition(
     "mirror", "Mirror",
     _art("fs-flat-mirror.svg", "free-space-optics/flat_2d/svg/14_flat_mirrors",

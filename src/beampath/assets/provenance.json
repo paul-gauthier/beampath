@@ -130,12 +130,13 @@
     {
       "file": "f-inline-power-meter.svg",
       "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/fiber-optics/flat_2d/svg/11_inline_components/f-inline-power-meter.svg",
-      "sha256": "57a4146cc61ef75f796951b328e74d889bbb298ded6b40f4ba1d51274e37a51f",
+      "sha256": "9dee31d0fb5d20ee816e6240229f4f38a8ceaf9b48ca33650024f151d3826b9e",
       "center": [
         85,
         27
       ],
-      "center_basis": "Fiber tap on the horizontal through line."
+      "center_basis": "Fiber tap on the horizontal through line.",
+      "adaptations": "Display readout changed to 1.23 mW and marked for retention aligned with its housing."
     }
   ]
 }

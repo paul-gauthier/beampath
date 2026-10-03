@@ -212,6 +212,9 @@ def render_svg(layout: Layout) -> str:
                 child.set("id", child_id)
                 source_ids.add(child_id)
             for text in child.iter(tag("text")):
+                # Instrument readouts stay aligned with their display housing.
+                if text.get("data-display-readout") == "true":
+                    continue
                 # Counteract the placement transform at the text's own anchor.
                 # Artwork geometry and the glyph's position still transform normally.
                 tx, ty = float(text.get("x", 0)), float(text.get("y", 0))
