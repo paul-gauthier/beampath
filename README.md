@@ -108,7 +108,7 @@ The non-polarizing cube beamsplitter defaults to the label `NPBS`.
 housing with no control leads. Its original schematic artwork represents a
 Thorlabs NEL03A; use `noise_eater("NE")` for a shorter label.
 A fiber launch's `role` controls its orientation; `role="couple"` ends the
-free-space path.
+free-space section and supplies a fiber output.
 
 ## Branching and shared optics
 
@@ -176,6 +176,86 @@ Here, `Setup.add()` creates the shared optic instead of `join()`.
 cursor advances. Component specifications are reusable templates: inserting
 the same specification twice creates two optics. Sharing requires an `OpticRef`.
 Failed appends, connects, and joins leave the graph and cursors intact.
+
+## Fiber and free-space paths
+
+The same `>>` chain can pass through fiber and free-space optics. Ports specify
+their medium, so connecting a fiber output directly to a free-space input raises
+an error. `fiber_launch()` converts fiber to free-space;
+`fiber_launch(role="couple")` converts back to fiber and allows the chain to continue.
+
+<!-- README:BEGIN mixed_fiber -->
+```python
+from beampath.components import *
+
+setup = (
+    fiber_laser("Tunable laser")
+    >> inline_power_meter("Input power")
+    >> fiber_launch()
+    >> HWP()
+    >> fiber_launch(role="couple")
+    >> inline_power_meter("Output power")
+)
+setup.save("mixed_fiber.svg")
+```
+<!-- README:END mixed_fiber -->
+
+![A fiber laser and two power monitors connected through a free-space waveplate](examples/images/mixed_fiber.png)
+
+Runnable example: [mixed_fiber.py](examples/mixed_fiber.py).
+
+Fiber components and connections have no optical heading. Layout chooses their
+positions and drawing rotations, preferring straight runs. Inline components
+can lie on horizontal or vertical runs; bends occur outside their artwork.
+Each new free-space section defaults east; `fiber_launch(heading="north")`
+or a numeric heading overrides it. An explicit heading elsewhere in the same
+free-space section also constrains the section. Fiber never transmits that
+heading to the next section. The existing `beam("north") >> fiber_launch()`
+form continues to work.
+
+Use `at=` to pin a component and let the fiber router introduce the necessary
+bends. Here the output monitor moves above the free-space section:
+
+<!-- README:BEGIN fiber_bends -->
+```python
+from beampath.components import *
+
+setup = (
+    fiber_laser("Tunable laser")
+    >> inline_power_meter("Input power")
+    >> fiber_launch()
+    >> HWP()
+    >> fiber_launch(role="couple")
+)
+setup.append(inline_power_meter("Output power"), at=(1900, -400))
+setup.save("fiber_bends.svg")
+```
+<!-- README:END fiber_bends -->
+
+![A power monitor above the free-space section connected by an automatically bent fiber](examples/images/fiber_bends.png)
+
+Runnable example: [fiber_bends.py](examples/fiber_bends.py).
+
+Routing prefers fewer bends, then shorter routes, and avoids component artwork
+and labels. Cartesian routes have rounded corners; non-cardinal free-space
+interfaces receive short aligned cable leads. Placement is deterministic and
+does not automatically wrap a long chain into rows or promise a globally optimal
+arrangement. Hard pins that obstruct a connector or overlap artwork raise a
+`LayoutError` identifying the affected connection or component.
+
+`distance=` remains a free-space spacing constraint; using it on fiber raises
+an error. Diagram fiber lengths do not represent physical cable lengths.
+Branching and joining use the same `out()`, `connect()`, and `join()` operations
+as other components. Crossing lines never imply a connection, and closed paths
+remain unsupported.
+
+`layout.fibers` contains one immutable `FiberRoute` per connection or open stub,
+with `points`, `legs`, `length`, and source/target port references. Bend points
+exist only in layout; `setup.connections` retains the original semantic edges.
+`layout.segments` continues to contain straight free-space beams.
+`PlacedOptic.rotation` is the drawing pose; the underlying instance's `heading`
+is `None` for fiber-only components. `Style.fiber_color`, `fiber_width`, and
+`fiber_radius` control generated cables; radius zero gives square corners.
 
 ## Spacing and reuse
 
@@ -267,9 +347,17 @@ directly preserves the search path. See Apple's
 
 Definitions provide artwork, geometry, and ports. Input headings describe
 propagation **into** the optic; output headings describe propagation **out**.
-Port directions and positions are relative to its reference beam frame, with
+Free-space port directions and positions are relative to its reference beam frame, with
 positions in diagram units. Artwork coordinates and bounds are in source SVG
 units; the renderer applies its `scale`, reference `center`, and resolved pose.
+
+Custom fiber ports use `Port("in", "input", medium="fiber")` and
+`Port("out", "output", medium="fiber")`. Their optical `direction` is `None`.
+Set `position` to the artwork's cable attachment in diagram units and optionally
+set `exit_direction` to its outward drawing tangent (defaults: input west,
+output east). Layout rotates the attachment and tangent together with the
+component. `draw_open=False` suppresses an output stub when the artwork already
+includes a terminating pigtail. Existing ports default to `medium="free_space"`.
 
 <!-- README:BEGIN custom_component -->
 ```python

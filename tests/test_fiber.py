@@ -6,12 +6,12 @@ import pytest
 
 from beampath import (
     Artwork, ComponentDefinition, ComponentSpec, ConnectionError, Geometry, HWP,
-    LayoutError, Port, Setup, Style, beam, fiber_laser, fiber_launch,
+    Label, LayoutError, Port, Setup, Style, beam, fiber_laser, fiber_launch,
     inline_power_meter, iris,
 )
 from beampath.layout import segment_intersects
 from beampath.render import tag
-from beampath.routing import rounded_path
+from beampath.routing import rounded_path, route_connection
 
 
 def mixed(output_at=None):
@@ -215,3 +215,70 @@ def test_fiber_style_and_root_stub():
     group = svg.find(f"{tag('g')}[@id='fiber-path']")
     assert group.get("stroke") == "#112233"
     assert group.get("stroke-width") == "6"
+    # Embedded PCL fiber leads use the same stroke as generated cable paths.
+    components = svg.find(f"{tag('g')}[@id='components']")
+    leads = [n for n in components.iter() if n.get("stroke") == "#112233"]
+    assert leads and all(float(n.get("stroke-width")) * 1.5 == 6 for n in leads)
+
+
+def test_crossing_fibers_do_not_create_junctions():
+    setup = Setup()
+    a = setup.beam(origin=(-800, 0)) >> fiber_laser("")
+    a.append(inline_power_meter(""), at=(800, 0))
+    b = setup.beam(origin=(0, -700)) >> fiber_laser("")
+    b.append(inline_power_meter(""), at=(0, 700))
+    before = setup.optics, setup.connections
+    result = setup.layout()
+    assert len(result.placements) == 4
+    routes = [r for r in result.fibers if r.target]
+    assert len(routes) == 2
+    assert all(len(r.points) == 2 for r in routes)
+    assert routes[0].start[1] == routes[0].end[1] == 0
+    assert routes[1].start[0] == routes[1].end[0] == 0
+    assert (setup.optics, setup.connections) == before
+    assert_routes_clear(result)
+
+
+def test_router_can_detour_around_reserved_label_bounds():
+    path = fiber_laser("") >> inline_power_meter("")
+    layout = path.layout()
+    label = Label("note", "Reserved label", (300, 0), (270, -20, 330, 20))
+    route = route_connection(path.setup.connections[0], layout.placements, layout.style, [label])
+    assert len(route.points) > 2
+    assert all(not segment_intersects(leg.start, leg.end, label.bounds) for leg in route.legs)
+
+
+@pytest.mark.parametrize("medium", ["fiber", "free_space"])
+def test_two_initial_paths_cannot_pin_one_component_to_different_positions(medium):
+    setup = Setup()
+    shared = setup.add(fiber_component("shared", [
+        Port("in", "input", medium=medium), Port("other", "input", medium=medium),
+        Port("out", "output", medium=medium)]))
+    setup.beam().connect(shared.input())
+    setup.beam(origin=(50, 0)).connect(shared.input("other"))
+    with pytest.raises(LayoutError, match="incompatible placement constraints"):
+        setup.layout()
+
+
+def test_pinned_input_meter_keeps_free_space_heading_independent():
+    p = beam().append(fiber_laser(""))
+    p.append(inline_power_meter(""), at=(0, 650))
+    p >> fiber_launch() >> HWP() >> fiber_launch(role="couple") >> inline_power_meter("")
+    result = p.layout()
+    assert result.placements["optic-002"].position == (0, 650)
+    assert result.placements["optic-002"].rotation == 90
+    assert [p.instance.heading for p in result.placements.values()][2:5] == [0, 0, 0]
+    assert_routes_clear(result)
+
+
+def test_pinned_fiber_device_can_rotate_to_clear_artwork():
+    device = fiber_component("wide", [
+        Port("in", "input", medium="fiber", position=(-100, 0), draw_lead_in=False),
+        Port("out", "output", medium="fiber", position=(100, 0), draw_open=False),
+    ], (-100, -10, 100, 10))
+    p = beam().append(device)
+    p.append(device, at=(150, 0))
+    result = p.layout()
+    assert result.placements["optic-002"].rotation in (90, 270)
+    assert result.placements["optic-002"].position == (150, 0)
+    assert_routes_clear(result)

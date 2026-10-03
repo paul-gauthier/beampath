@@ -126,6 +126,8 @@ def render_svg(layout: Layout) -> str:
                      "attribution": art.attribution, "source_center": art.center,
                      "scale": art.scale, "adaptations":
                      "Selected source primitives; similarity transforms; upright text; namespaced IDs."}
+            if layout.fibers:
+                asset["adaptations"] += " Fiber lead strokes styled to match routed cables."
             manifest["assets"].append(asset)
             if art.attribution:
                 work = ET.SubElement(rdf, f"{{{CC}}}Work", {f"{{{RDF}}}about": definition.name})
@@ -188,7 +190,7 @@ def render_svg(layout: Layout) -> str:
         group = element(components, "g", id=node.id, transform=transform,
                         data_component=node.spec.definition.name,
                         data_optical_center=" ".join(number(v) for v in placed.position),
-                                    data_heading="" if node.heading is None else number(node.heading))
+                        data_heading="" if node.heading is None else number(node.heading))
         source = deepcopy(sources[node.spec.definition.name])
         for attribute in ("font-family", "fill", "stroke", "stroke-width"):
             if attribute in source.attrib:
@@ -198,6 +200,11 @@ def render_svg(layout: Layout) -> str:
         for index, child in enumerate(source):
             if child.tag != tag("defs") and art.selector is not None and not art.selector(child):
                 continue
+            if layout.fibers:
+                for primitive in child.iter():
+                    if primitive.get("stroke") == "#1B1E89":
+                        primitive.set("stroke", style.fiber_color)
+                        primitive.set("stroke-width", number(style.fiber_width / art.scale))
             if child.get("id") is None:
                 child_id = f"{node.id}-source-{index:02d}"
                 while child_id in source_ids:

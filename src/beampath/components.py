@@ -30,6 +30,8 @@ def _selector(*, remove_axes=False):
         tag = element.tag.rsplit("}", 1)[-1]
         if tag == "text":
             return False
+        if tag == "polygon" and element.get("fill") == "#CC0000":
+            return False
         if tag == "line":
             if element.get("stroke") == "#CC0000" and not element.get("stroke-dasharray"):
                 return False

@@ -260,6 +260,7 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
     nodes = {n.id: n for n in setup.optics}
     if not nodes:
         raise LayoutError("The setup has no components")
+    anchors = _root_origins(setup)
     if any(e.medium == "fiber" for e in setup.connections) or any(
         all(p.medium == "fiber" for p in n.geometry.ports) for n in nodes.values()
     ):
@@ -272,9 +273,17 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
             if port.kind == "input" and port.required and not setup._input_used(node.id, port.name):
                 raise LayoutError(f"{node.id}.{port.name}: required input is not connected")
 
-    placements = _solve_beams(nodes, setup.connections,
-                              {r.optic: r.origin for r in setup._roots}, style)
+    placements = _solve_beams(nodes, setup.connections, anchors, style)
     return _finish_free_space(setup, placements, style)
+
+
+def _root_origins(setup):
+    origins = {}
+    for root in setup._roots:
+        if root.optic in origins and math.dist(origins[root.optic], root.origin) > EPSILON:
+            raise LayoutError(f"{root.optic}: incompatible placement constraints on initial paths")
+        origins[root.optic] = root.origin
+    return origins
 
 
 def _solve_beams(nodes, connections, anchors, style):

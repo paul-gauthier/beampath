@@ -212,7 +212,7 @@ def test_cli_rebuilds_all_previews_from_another_directory_and_is_idempotent(chec
     shutil.copy(PROJECT / "scripts" / "rebuild_readme.py", helper)
     command = [sys.executable, str(helper)]
     first = subprocess.run(command, cwd=tmp_path, check=True, capture_output=True, text=True)
-    assert "8 previews" in first.stdout
+    assert f"{len(rebuild_readme.SAVE_CALLS)} previews" in first.stdout
     snapshot = output_snapshot(checkout)
     subprocess.run(command, cwd=tmp_path, check=True, capture_output=True, text=True)
     assert output_snapshot(checkout) == snapshot

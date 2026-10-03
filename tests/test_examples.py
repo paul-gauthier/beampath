@@ -16,6 +16,8 @@ EXAMPLES = {
     "reuse": 8,
     "rendering": 3,
     "custom_component": 4,
+    "mixed_fiber": 6,
+    "fiber_bends": 6,
 }
 SVG = "{http://www.w3.org/2000/svg}"
 

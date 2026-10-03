@@ -18,6 +18,8 @@ SAVE_CALLS = {
     "reuse": 'path.save("reuse.svg")',
     "rendering": 'path.save("rendering.png", style=STYLE, width=2400, dpi=600)',
     "custom_component": 'fork.save("custom_component.svg")',
+    "mixed_fiber": 'setup.save("mixed_fiber.svg")',
+    "fiber_bends": 'setup.save("fiber_bends.svg")',
 }
 README_MARKER = re.compile(r"<!-- README:(BEGIN|END) ([a-z][a-z0-9_]*) -->")
 

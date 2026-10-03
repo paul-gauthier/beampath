@@ -8,7 +8,7 @@ from .errors import LayoutError
 from .geometry import add, overlap, translated, unit
 from .layout import (
     FiberRoute, PlacedOptic, Segment, _assemble_layout, _beam_segments,
-    _labels, _solve_beams, footprint, segment_intersects,
+    _labels, _root_origins, _solve_beams, footprint, segment_intersects,
 )
 from .routing import connector_lead, route_connection
 
@@ -111,7 +111,7 @@ def _place(setup, style):
     beam_edges = [e for e in setup.connections if e.medium == "free_space"]
     fiber_edges = [e for e in setup.connections if e.medium == "fiber"]
     sections, membership = _sections(nodes, setup.connections)
-    anchors = {r.optic: r.origin for r in setup._roots}
+    anchors = _root_origins(setup)
     hints = {**anchors, **{n.id: n.at for n in nodes.values() if n.at is not None}}
     local, fixed = {}, set()
     # First solve beam sections with all their hard pins; their coordinates can
@@ -138,10 +138,22 @@ def _place(setup, style):
         local[index] = {ident: PlacedOptic(node, position, translated(footprint(node, rotation), position), rotation)}
 
     placed, done = {}, set()
-    for index in sorted(fixed):
-        if _collides(local[index], placed, beam_edges, 0):
+    # Fixed beam geometry takes precedence over the drawing pose of a fiber
+    # device. A pinned fiber position still permits all four artwork rotations.
+    for index in sorted(fixed, key=lambda i: (all(p.instance.heading is None for p in local[i].values()), i)):
+        block = local[index]
+        if len(block) == 1:
+            ident, original = next(iter(block.items()))
+            if original.instance.heading is None:
+                for rotation in dict.fromkeys((original.rotation, 0, 90, 180, 270)):
+                    candidate = replace(original, rotation=rotation,
+                                        bounds=translated(footprint(original.instance, rotation), original.position))
+                    if not _collides({ident: candidate}, placed, beam_edges, 0):
+                        block = {ident: candidate}
+                        break
+        if _collides(block, placed, beam_edges, 0):
             raise LayoutError(f"{sections[index][0]}: pinned component artwork overlaps or obstructs a beam")
-        placed.update(local[index])
+        placed.update(block)
         done.add(index)
     while len(done) < len(sections):
         pending = [index for index in range(len(sections)) if index not in done]
@@ -185,7 +197,7 @@ def _place(setup, style):
     return {ident: placed[ident] for ident in nodes}
 
 
-def _orient_fiber_components(placements, edges, style):
+def _orient_fiber_components(placements, edges, beam_edges, style):
     # Select the drawing pose using actual neighboring ports, after placement.
     # The graph's heading remains None and its geometry is never rewritten.
     for ident, original in list(placements.items()):
@@ -200,6 +212,9 @@ def _orient_fiber_components(placements, edges, style):
             if any(overlap(bounds, p.bounds, style.clearance) for key, p in placements.items() if key != ident):
                 continue
             candidate = replace(original, rotation=rotation, bounds=bounds)
+            if _collides({ident: candidate}, {key: p for key, p in placements.items() if key != ident},
+                         beam_edges, 0):
+                continue
             trial = {**placements, ident: candidate}
             try:
                 routes = [route_connection(edge, trial, style) for edge in incident]
@@ -239,7 +254,8 @@ def mixed_layout(setup, style):
     _validate(setup)
     placements = _place(setup, style)
     edges = [e for e in setup.connections if e.medium == "fiber"]
-    _orient_fiber_components(placements, edges, style)
+    _orient_fiber_components(placements, edges,
+                            [e for e in setup.connections if e.medium == "free_space"], style)
     segments = _beam_segments(setup, placements, style)
     open_routes = _open_fibers(setup, placements, style)
     fibers = [route_connection(edge, placements, style) for edge in edges] + open_routes
