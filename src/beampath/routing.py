@@ -6,6 +6,7 @@ import heapq
 import math
 
 from .errors import LayoutError
+from .fiber_conflicts import conflict_score, leg_contacts, route_set_score, shared_attachments
 from .geometry import EPSILON, add, aligned, overlap, unit
 from .layout import FiberRoute, _project, segment_intersects
 
@@ -37,13 +38,19 @@ def connector_lead(placed, name, clearance):
     return start, add(start, (direction[0] * length, direction[1] * length))
 
 
-def orthogonal_path(start, end, boxes, first_direction, last_direction, margin):
-    """Visibility-grid Dijkstra, ordered by bend count and then drawn length."""
+def orthogonal_path(start, end, boxes, first_direction, last_direction, margin,
+                    peers=(), clearance=None, prefix=None, suffix=None, attachments=()):
+    """Visibility-grid search ordered by contacts, overlap, bends and length."""
+    clearance = margin if clearance is None else clearance
     xs = {start[0], end[0]}
     ys = {start[1], end[1]}
     for x0, y0, x1, y1 in boxes:
         xs.update((x0, x1))
         ys.update((y0, y1))
+    for peer in peers:
+        for x, y in peer.points:
+            xs.update((x - clearance, x, x + clearance))
+            ys.update((y - clearance, y, y + clearance))
     xs.update((min(xs) - margin, max(xs) + margin))
     ys.update((min(ys) - margin, max(ys) + margin))
     xs, ys = sorted(xs), sorted(ys)
@@ -69,26 +76,54 @@ def orthogonal_path(start, end, boxes, first_direction, last_direction, margin):
                 adjacency[i, j].append((neighbor, direction, distance))
                 adjacency[neighbor].append(((i, j), (direction + 180) % 360, distance))
 
+    contact_cache = {}
+
+    def contact_cost(a, b, include_start=False):
+        key = a, b, include_start
+        if key not in contact_cache:
+            count, shared_length = 0, 0.0
+            length = math.dist(a, b)
+            if length > EPSILON:
+                for index, peer in enumerate(peers):
+                    for low, high in leg_contacts(a, b, peer):
+                        if high - low <= EPSILON and attachments:
+                            p = (a[0] + (b[0] - a[0]) * low / length,
+                                 a[1] + (b[1] - a[1]) * low / length)
+                            if any(math.dist(p, q) <= EPSILON for q in attachments[index]):
+                                continue
+                        # The previous edge already counted contact at this
+                        # vertex. Continuing an overlap adds length, not a new
+                        # event. This also handles turns and grid subdivisions.
+                        count += int(include_start or low > EPSILON)
+                        shared_length += high - low
+            contact_cache[key] = count, shared_length
+        return contact_cache[key]
+
     initial = (first, first_direction)
-    costs = {initial: (0, 0.0)}
+    initial_contacts = contact_cost(prefix, start, True) if prefix is not None else (0, 0.0)
+    costs = {initial: (*initial_contacts, 0, 0.0)}
     previous = {}
-    queue = [(0, 0.0, first, first_direction)]
+    queue = [(*costs[initial], first, first_direction)]
     best = None
     while queue:
-        bends, length, vertex, direction = heapq.heappop(queue)
+        contacts, shared_length, bends, length, vertex, direction = heapq.heappop(queue)
         state = vertex, direction
-        if costs[state] != (bends, length):
+        if costs[state] != (contacts, shared_length, bends, length):
             continue
-        if best is not None and (bends, length) > best[0]:
+        if best is not None and (contacts, shared_length, bends, length) > best[0]:
             break
         if vertex == last and not aligned(direction, last_direction + 180):
-            score = (bends + int(not aligned(direction, last_direction)), length)
+            tail = contact_cost(end, suffix) if suffix is not None else (0, 0.0)
+            score = (contacts + tail[0], shared_length + tail[1],
+                     bends + int(not aligned(direction, last_direction)), length)
             if best is None or score < best[0]:
                 best = score, state
         for neighbor, outgoing, distance in adjacency[vertex]:
             if aligned(outgoing, direction + 180):
                 continue
-            score = bends + int(not aligned(direction, outgoing)), length + distance
+            added = contact_cost(vertices[vertex], vertices[neighbor], state == initial and prefix is None)
+            score = (contacts + added[0], shared_length + added[1],
+                     bends + int(not aligned(direction, outgoing)), length + distance)
             next_state = neighbor, outgoing
             if next_state not in costs or score < costs[next_state]:
                 costs[next_state] = score
@@ -104,11 +139,13 @@ def orthogonal_path(start, end, boxes, first_direction, last_direction, margin):
     return tuple(reversed(result))
 
 
-def route_connection(edge, placements, style, labels=()):
+def route_connection(edge, placements, style, labels=(), peers=()):
     source, target = placements[edge.source], placements[edge.target]
     clearance = max(style.clearance, style.fiber_width)
     start, first = connector_lead(source, edge.output, clearance)
     end, last = connector_lead(target, edge.input, clearance)
+    peers = tuple(peer for peer in peers if peer.id != edge.id)
+    straight = FiberRoute(edge.id, (start, end), edge.source, edge.output, edge.target, edge.input)
     obstacles = [(p.id, p.bounds) for p in placements.values()]
     obstacles += [(f"label-{label.optic}", label.bounds) for label in labels]
     # A clear straight connection needs no detour or escape corridor. Endpoint
@@ -118,8 +155,9 @@ def route_connection(edge, placements, style, labels=()):
             and aligned(direction, source.port_exit_direction(edge.output))
             and aligned(direction + 180, target.port_exit_direction(edge.input))
             and not any(segment_intersects(start, end, inflate(box, clearance))
-                        for ident, box in obstacles if ident not in {source.id, target.id})):
-        return FiberRoute(edge.id, (start, end), edge.source, edge.output, edge.target, edge.input)
+                        for ident, box in obstacles if ident not in {source.id, target.id})
+            and not conflict_score(straight, peers)[0]):
+        return straight
     try:
         for a, b, owner in ((start, first, source.id), (end, last, target.id)):
             for ident, box in obstacles:
@@ -128,14 +166,15 @@ def route_connection(edge, placements, style, labels=()):
         points = orthogonal_path(
             first, last, [inflate(box, clearance) for _, box in obstacles],
             source.port_exit_direction(edge.output),
-            (target.port_exit_direction(edge.input) + 180) % 360, style.pitch)
+            (target.port_exit_direction(edge.input) + 180) % 360, style.pitch,
+            peers, clearance, start, end, tuple(shared_attachments(straight, peer) for peer in peers))
     except LayoutError as exc:
         raise LayoutError(f"{edge.id} ({edge.source}.{edge.output} → {edge.target}.{edge.input}): {exc}") from exc
     return FiberRoute(edge.id, simplify((start, *points, end)),
                       edge.source, edge.output, edge.target, edge.input)
 
 
-def center_route(route, placements, style, labels=()):
+def center_route(route, placements, style, labels=(), peers=()):
     """Center movable runs in their clear corridors, keeping length and bends.
 
     A run can slide without changing length only when its two perpendicular
@@ -148,6 +187,10 @@ def center_route(route, placements, style, labels=()):
     clearance = max(style.clearance, style.fiber_width)
     obstacles = [(p.id, inflate(p.bounds, clearance)) for p in placements.values()]
     obstacles += [(None, inflate(label.bounds, clearance)) for label in labels]
+    peers = tuple(peer for peer in peers if peer.id != route.id)
+    fiber_boxes = [(None, inflate((min(a[0], b[0]), min(a[1], b[1]),
+                                  max(a[0], b[0]), max(a[1], b[1])), clearance))
+                   for peer in peers for a, b in zip(peer.points, peer.points[1:])]
     _, first = connector_lead(placements[route.source], route.output, clearance)
     _, last = connector_lead(placements[route.target], route.input, clearance)
     points = list(route.points)
@@ -171,7 +214,7 @@ def center_route(route, placements, style, labels=()):
         low, high = sorted((before[across], after[across]))
         left, right = sorted((b[along], c[along]))
         position = b[across]
-        for _, box in obstacles:
+        for _, box in obstacles + fiber_boxes:
             if box[along] >= right - EPSILON or box[along + 2] <= left + EPSILON:
                 continue
             if box[across + 2] <= position + EPSILON:
@@ -198,13 +241,78 @@ def center_route(route, placements, style, labels=()):
                if not (j == 0 and owner == route.source
                        or j == len(points) - 2 and owner == route.target)):
             continue
+        trial = replace(route, points=tuple(candidate))
+        if conflict_score(trial, peers) > conflict_score(replace(route, points=tuple(points)), peers):
+            continue
         points = candidate
     return replace(route, points=tuple(points))
 
 
-def rounded_path(route, radius, obstacles, width):
-    """SVG path commands, with rounding suppressed near artwork or labels."""
+def refine_routes(edges, placements, style, labels, routes, fixed=()):
+    """Improve only conflicted movable routes, then safely center the set.
+
+    Every accepted reroute strictly improves the complete set's score; three
+    stable-order sweeps bound work even when a crossing cannot be removed.
+    Already measured child routes and open stubs remain fixed.
+    """
+    routes = list(routes)
+    fixed = set(fixed)
+    by_id = {edge.id: edge for edge in edges}
+    order = sorted((i for i, route in enumerate(routes)
+                    if route.id in by_id and route.id not in fixed), key=lambda i: routes[i].id)
+    for _ in range(3):
+        changed = False
+        for i in order:
+            peers = routes[:i] + routes[i + 1:]
+            if not conflict_score(routes[i], peers)[0]:
+                continue
+            try:
+                candidate = route_connection(by_id[routes[i].id], placements, style, labels, peers)
+            except LayoutError:
+                continue  # The known valid route is still available.
+            trial = routes[:i] + [candidate] + routes[i + 1:]
+            if route_set_score(trial) < route_set_score(routes):
+                routes[i] = candidate
+                changed = True
+        if not changed:
+            break
+    for i in order:
+        peers = routes[:i] + routes[i + 1:]
+        candidate = center_route(routes[i], placements, style, labels, peers)
+        trial = routes[:i] + [candidate] + routes[i + 1:]
+        if candidate != routes[i] and route_set_score(trial) <= route_set_score(routes):
+            routes[i] = candidate
+    return routes
+
+
+def _corner(a, b, c, radius):
+    before, after = math.dist(a, b), math.dist(b, c)
+    if before < EPSILON or after < EPSILON:
+        return None
+    r = min(radius, before / 2, after / 2)
+    entry = (b[0] + r * (a[0] - b[0]) / before, b[1] + r * (a[1] - b[1]) / before)
+    exit = (b[0] + r * (c[0] - b[0]) / after, b[1] + r * (c[1] - b[1]) / after)
+    box = (min(entry[0], b[0], exit[0]), min(entry[1], b[1], exit[1]),
+           max(entry[0], b[0], exit[0]), max(entry[1], b[1], exit[1]))
+    return r, entry, exit, box
+
+
+def rounded_path(route, radius, obstacles, width, peers=()):
+    """SVG path commands, suppressing rounding near artwork, labels or fibers."""
     from .render import number
+
+    obstacles = list(obstacles)
+    for peer in peers:
+        if peer.id == route.id:
+            continue
+        obstacles.extend(inflate((min(a[0], b[0]), min(a[1], b[1]),
+                                  max(a[0], b[0]), max(a[1], b[1])), width / 2)
+                         for a, b in zip(peer.points, peer.points[1:]))
+        # Conservatively include the peer's possible rounded corners too, so
+        # independently rounding two clear centerlines cannot make them touch.
+        obstacles.extend(inflate(corner[3], width / 2)
+                         for a, b, c in zip(peer.points, peer.points[1:], peer.points[2:])
+                         if (corner := _corner(a, b, c, radius)) is not None)
 
     def xy(p):
         return f"{number(p[0])},{number(p[1])}"
@@ -212,16 +320,10 @@ def rounded_path(route, radius, obstacles, width):
     points = route.points
     commands = [f"M {xy(points[0])}"]
     for a, b, c in zip(points, points[1:], points[2:]):
-        before, after = math.dist(a, b), math.dist(b, c)
-        r = min(radius, before / 2, after / 2)
-        if before < EPSILON or after < EPSILON:
+        corner = _corner(a, b, c, radius)
+        if corner is None:
             continue
-        u = ((a[0] - b[0]) / before, (a[1] - b[1]) / before)
-        v = ((c[0] - b[0]) / after, (c[1] - b[1]) / after)
-        entry = (b[0] + r * u[0], b[1] + r * u[1])
-        exit = (b[0] + r * v[0], b[1] + r * v[1])
-        box = (min(entry[0], b[0], exit[0]), min(entry[1], b[1], exit[1]),
-               max(entry[0], b[0], exit[0]), max(entry[1], b[1], exit[1]))
+        r, entry, exit, box = corner
         if r and not any(overlap(inflate(box, width / 2), obstacle) for obstacle in obstacles):
             commands.extend((f"L {xy(entry)}", f"Q {xy(b)} {xy(exit)}"))
         else:

@@ -203,7 +203,7 @@ def render_svg(layout: Layout) -> str:
         manifest["fibers"] = []
         for route in layout.fibers:
             element(fibers, "path", id=route.id,
-                    d=rounded_path(route, style.fiber_radius, obstacles, style.fiber_width),
+                    d=rounded_path(route, style.fiber_radius, obstacles, style.fiber_width, layout.fibers),
                     data_source=route.source or "", data_output=route.output or "",
                     data_target=route.target or "", data_input=route.input or "")
             manifest["fibers"].append({"id": route.id, "points": route.points,

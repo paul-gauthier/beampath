@@ -10,7 +10,7 @@ from .layout import (
     Layout, Segment, _assemble_layout, _beam_segments, _content_bounds, _labels, segment_intersects,
 )
 from .model import Root, Setup
-from .routing import center_route, connector_lead, inflate, route_connection
+from .routing import connector_lead, inflate, refine_routes, route_connection
 
 
 def _translate(layout, delta):
@@ -75,8 +75,7 @@ def _finish(setup, placements, style, children=()):
         if any(segment_intersects(s.start, s.end, label.bounds) for s in segments):
             raise LayoutError(f"{label.optic}: beam crosses a stage label")
 
-    fibers = [route if route.id in fixed_fibers else center_route(route, placements, style, labels)
-              for route in fibers]
+    fibers = refine_routes(edges, placements, style, labels, fibers, fixed_fibers)
     for route in fibers:
         for leg in route.legs:
             if any(segment_intersects(leg.start, leg.end, p.bounds) for p in placements.values()

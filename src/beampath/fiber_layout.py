@@ -10,7 +10,7 @@ from .layout import (
     FiberRoute, PlacedOptic, Segment, _assemble_layout, _beam_segments,
     _labels, _project, _root_origins, _solve_beams, footprint, segment_intersects,
 )
-from .routing import center_route, connector_lead, inflate, route_connection
+from .routing import connector_lead, inflate, refine_routes, route_connection
 
 
 def _validate(setup):
@@ -318,5 +318,5 @@ def mixed_layout(setup, style):
                 leads.append(Segment(f"lead-{ident}-{name}", a, b, ident, name))
         labels = _labels(placements, segments + leads, style)
         fibers = [route_connection(edge, placements, style, labels) for edge in edges] + open_routes
-    fibers = [center_route(route, placements, style, labels) for route in fibers]
+    fibers = refine_routes(edges, placements, style, labels, fibers)
     return _assemble_layout(placements, segments, labels, style, fibers)

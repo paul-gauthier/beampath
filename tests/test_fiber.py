@@ -313,7 +313,8 @@ def test_fiber_style_and_root_stub():
     assert all(route.length == style.open_length for route in result.fibers)
 
 
-def test_crossing_fibers_do_not_create_junctions():
+def test_avoidable_crossing_is_rerouted_without_creating_junctions():
+    from beampath.fiber_conflicts import route_set_score
     setup = Setup()
     a = setup.beam(origin=(-800, 0)) >> fiber_laser("")
     a.append(inline_power_meter(""), at=(800, 0))
@@ -324,7 +325,8 @@ def test_crossing_fibers_do_not_create_junctions():
     assert len(result.placements) == 4
     routes = [r for r in result.fibers if r.target]
     assert len(routes) == 2
-    assert all(len(r.points) == 2 for r in routes)
+    assert route_set_score(result.fibers)[:2] == (0, 0)
+    assert any(len(r.points) > 2 for r in routes)
     assert routes[0].start[1] == routes[0].end[1] == 0
     assert routes[1].start[0] == routes[1].end[0] == 0
     assert (setup.optics, setup.connections) == before
