@@ -15,7 +15,8 @@ setup = beam() >> HWP()
 
 Define `setup` at module level. Optionally define `style = Style(...)`. Helper
 functions and intermediate paths are ordinary Python. Keep the docstring concise;
-the gallery uses it as prose and displays the rest of the file as its code block.
+the gallery uses it as prose and displays the rest of the file as its code block,
+followed by `setup.save("SLUG.svg")` (with `style=style` when defined).
 There are no markers, metadata tables, or separate snippets to maintain.
 
 Importing an example should only construct its diagram: no file writes, rendering,

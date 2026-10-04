@@ -29,11 +29,13 @@ setup = (
     >> mirror(turn="left")
     >> fiber_coupler()
 )
+
+setup.save("hello.svg")
 ```
 <!-- HELLO:END -->
 
-Save the diagram with `setup.save("hello.svg")`. Open the SVG in a browser or
-vector editor; labels remain editable. To render a bundled example:
+Open `hello.svg` in a browser or vector editor; labels remain editable.
+To render a bundled example:
 
 ```sh
 python -m beampath.examples --diagram hello

@@ -111,19 +111,23 @@ def fence(code):
     return f"```python\n{code}\n```\n\n"
 
 
+def example_fence(diagram):
+    style = ", style=style" if diagram.style is not None else ""
+    return fence(f'{diagram.code}\n\nsetup.save("{diagram.slug}.svg"{style})')
+
+
 def gallery_page(diagrams, project):
     page = GENERATED + "# Examples\n\n" + NAV
-    page += ("Each file constructs a `setup`; the runner handles rendering. Copy a code block\n"
-             "and call `setup.save(\"diagram.svg\")`, or run an example by its filename stem:\n\n"
+    page += ("Each code block constructs a `setup` and saves its diagram as an SVG.\n"
+             "Copy and run a code block, or run an example by its filename stem:\n\n"
              "```sh\npython -m beampath.examples --diagram hello --png\n```\n\n"
              "Outputs go to `build/examples/`. Use `--diagram all` for every example;\n"
-             "add `--pdf` for PDF. PNG/PDF need the [export dependencies](api.md#export).\n"
-             "When an example defines `style`, pass it to `setup.save(..., style=style)`.\n\n")
+             "add `--pdf` for PDF. PNG/PDF need the [export dependencies](api.md#export).\n\n")
     page += " · ".join(f"[{d.slug}](#{d.slug})" for d in diagrams) + "\n\n"
     for diagram in diagrams:
         page += (f"## {diagram.slug}\n\n{diagram.description}\n\n"
                  f"![{diagram.slug} diagram](../examples/images/{diagram.slug}.png)\n\n"
-                 + fence(diagram.code)
+                 + example_fence(diagram)
                  + f"[Source](../{diagram.source.relative_to(project).as_posix()})\n\n")
     return page.rstrip() + "\n"
 
@@ -230,7 +234,7 @@ def rebuild_docs(project=PROJECT, *, check=False):
     example_diagrams = examples(project)
     demos = component_demos()
     hello = next(d for d in example_diagrams if d.slug == "hello")
-    hello_block = (f"![{hello.description}](examples/images/hello.png)\n\n" + fence(hello.code))
+    hello_block = (f"![{hello.description}](examples/images/hello.png)\n\n" + example_fence(hello))
     documents = {
         project / "docs/gallery.md": gallery_page(example_diagrams, project),
         project / "docs/components.md": components_page(demos),

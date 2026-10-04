@@ -4,8 +4,8 @@
 
 [README](../README.md) · [Gallery](gallery.md) · [Components](components.md) · [API](api.md)
 
-Each file constructs a `setup`; the runner handles rendering. Copy a code block
-and call `setup.save("diagram.svg")`, or run an example by its filename stem:
+Each code block constructs a `setup` and saves its diagram as an SVG.
+Copy and run a code block, or run an example by its filename stem:
 
 ```sh
 python -m beampath.examples --diagram hello --png
@@ -13,7 +13,6 @@ python -m beampath.examples --diagram hello --png
 
 Outputs go to `build/examples/`. Use `--diagram all` for every example;
 add `--pdf` for PDF. PNG/PDF need the [export dependencies](api.md#export).
-When an example defines `style`, pass it to `setup.save(..., style=style)`.
 
 [hello](#hello) · [cage](#cage) · [custom_component](#custom_component) · [fiber_splitter](#fiber_splitter) · [franson](#franson) · [ghz_path_identity](#ghz_path_identity) · [mirror_heading](#mirror_heading) · [mixed_fiber](#mixed_fiber) · [mzi](#mzi) · [rendering](#rendering) · [reuse](#reuse) · [spdc](#spdc) · [zwm](#zwm)
 
@@ -33,6 +32,8 @@ setup = (
     >> mirror(turn="left")
     >> fiber_coupler()
 )
+
+setup.save("hello.svg")
 ```
 
 [Source](../examples/hello.py)
@@ -61,6 +62,8 @@ setup = (
     >> mirror(turn="right")
     >> fiber_coupler()
 )
+
+setup.save("cage.svg")
 ```
 
 [Source](../examples/cage.py)
@@ -104,6 +107,8 @@ setup = beam() >> fork_spec
 setup.out("forward") >> LP()
 setup.out("up") >> HWP()
 setup.out("down") >> QWP()
+
+setup.save("custom_component.svg")
 ```
 
 [Source](../examples/custom_component.py)
@@ -120,6 +125,8 @@ from beampath.components import *
 setup = fiber_laser("Input laser") >> fiber_splitter("90:10 splitter", turn="left")
 setup.straight() >> fiber_launch("Main output")
 setup.turn() >> fiber_power_meter("Power monitor")
+
+setup.save("fiber_splitter.svg")
 ```
 
 [Source](../examples/fiber_splitter.py)
@@ -152,6 +159,8 @@ for channel, suffix, outward, inward, return_heading in (
     combined = short.join(long, beamsplitter("50:50", turn=inward))
     combined.straight() >> detector(f"D{suffix}+")
     combined.reflect() >> detector(f"D{suffix}−")
+
+setup.save("franson.svg")
 ```
 
 [Source](../examples/franson.py)
@@ -201,6 +210,8 @@ for crystal, outputs in ((vv_ac, ("c", "a")), (vv_bd, ("d", "b"))):
     crystal.out("pump") >> beam_block("Pump dump")
     for port, name in zip(("signal", "idler"), outputs):
         crystal.out(port) >> detector(name)
+
+setup.save("ghz_path_identity.svg")
 ```
 
 [Source](../examples/ghz_path_identity.py)
@@ -216,6 +227,8 @@ from beampath import beam
 from beampath.components import *
 
 setup = beam("east") >> mirror(heading="north") >> mirror(turn="right") >> iris()
+
+setup.save("mirror_heading.svg")
 ```
 
 [Source](../examples/mirror_heading.py)
@@ -237,6 +250,8 @@ setup = (
     >> fiber_coupler()
     >> inline_power_meter("Output power")
 )
+
+setup.save("mixed_fiber.svg")
 ```
 
 [Source](../examples/mixed_fiber.py)
@@ -256,6 +271,8 @@ upper = setup.reflect() >> mirror(heading="east") >> HWP()
 combined = lower.join(upper, beamsplitter("NPBS2", turn="right"))
 combined.reflect() >> detector()
 combined.straight() >> detector()
+
+setup.save("mzi.svg")
 ```
 
 [Source](../examples/mzi.py)
@@ -273,6 +290,8 @@ from beampath.components import *
 style = Style(pitch=220, font_size=20, beam_color="#1f77b4")
 
 setup = beam() >> LP() >> HWP() >> QWP()
+
+setup.save("rendering.svg", style=style)
 ```
 
 [Source](../examples/rendering.py)
@@ -292,6 +311,8 @@ polarization = chain(LP(), HWP(), QWP())
 setup = beam() >> polarization >> polarization  # Six independent optics.
 setup.append(iris(), distance=250)
 setup.append(mirror(turn="right"), at=(2000, 0))
+
+setup.save("reuse.svg")
 ```
 
 [Source](../examples/reuse.py)
@@ -309,6 +330,8 @@ setup = laser("Pump input") >> spdc()
 setup.out("pump") >> beam_block("Transmitted pump")
 setup.out("signal") >> fiber_coupler("Signal")
 setup.out("idler") >> fiber_coupler("Idler")
+
+setup.save("spdc.svg")
 ```
 
 [Source](../examples/spdc.py)
@@ -340,6 +363,8 @@ s1 = c1.out("signal") >> mirror("Signal 1", heading="east")
 s2 = c2.out("signal") >> mirror("Signal 2", heading="north")
 combined = s1.join(s2, beamsplitter("Signal combiner", turn="left"))
 combined.straight() >> fiber_coupler("Signal detection")
+
+setup.save("zwm.svg")
 ```
 
 [Source](../examples/zwm.py)
