@@ -171,7 +171,17 @@ def test_spdc_artwork_is_only_the_crystal_body_with_user_label(label, expected):
 def test_noncollinear_example_preserves_full_opening_angle_in_layout():
 
     setup = runpy.run_module("beampath.examples.spdc")["setup"]
+    assert all(edge.distance is None for edge in setup.setup.connections)
     layout = setup.layout()
+    assert len(layout.labels) == 5
+    root = ET.fromstring(setup.to_svg())
+    assert len(list(root.iter(tag("text")))) == 5
+    repeated = setup.layout()
+    for ident, placed in layout.placements.items():
+        assert repeated.placements[ident].position == pytest.approx(placed.position, abs=1e-7, rel=0)
+    for first, second in zip(layout.labels, repeated.labels):
+        assert (first.optic, first.text) == (second.optic, second.text)
+        assert second.position == pytest.approx(first.position, abs=1e-7, rel=0)
     source = layout.placements[setup.end.id]
     assert source.port_direction("pump") == 0
     assert source.port_direction("signal") == 350
@@ -180,3 +190,40 @@ def test_noncollinear_example_preserves_full_opening_angle_in_layout():
         segment, = [s for s in layout.segments if s.source == source.id and s.output == name]
         dx, dy = (segment.end[i] - segment.start[i] for i in (0, 1))
         assert math.degrees(math.atan2(dy, dx)) == pytest.approx(turn)
+
+
+@pytest.mark.parametrize("direction", [0, 90, 180, 270, 31.7])
+@pytest.mark.parametrize("fixed", [None, "distance", "pin"])
+def test_spdc_spacing_clears_beams_and_preserves_constraints(direction, fixed):
+    from beampath import fiber_coupler
+    from beampath.geometry import rotate
+    from beampath.layout import segment_intersects
+
+    source = beam(direction) >> spdc()
+    hints = {"distance": 800} if fixed == "distance" else (
+        {"at": rotate((800, 0), direction)} if fixed == "pin" else {})
+    pump = source.out("pump").append(iris(""), **hints).end
+    source.out("signal") >> fiber_coupler("")
+    source.out("idler") >> fiber_coupler("")
+    before = source.setup.optics, source.setup.connections
+    result = source.layout()
+    for segment in result.segments:
+        for optic in result.placements.values():
+            if optic.id not in {segment.source, segment.target}:
+                assert not segment_intersects(segment.start, segment.end, optic.bounds)
+    if fixed:
+        assert result.placements[pump.id].position == pytest.approx(rotate((800, 0), direction))
+    repeated = source.layout()
+    for ident, placed in result.placements.items():
+        assert repeated.placements[ident].position == pytest.approx(placed.position, abs=1e-7, rel=0)
+    assert (source.setup.optics, source.setup.connections) == before
+
+
+def test_fixed_spdc_beam_obstruction_is_reported_as_infeasible():
+    from beampath import fiber_coupler
+    source = beam() >> spdc()
+    source.out("pump").append(iris(""), distance=190)
+    source.out("signal").append(fiber_coupler(""), distance=600)
+    source.out("idler").append(fiber_coupler(""), distance=600)
+    with pytest.raises(LayoutError, match="beam crosses unrelated optic.*no feasible"):
+        source.layout()

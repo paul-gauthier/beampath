@@ -249,8 +249,17 @@ def _labels(placements: Mapping[str, PlacedOptic], segments: list[Segment], styl
         order = [preferred] + [side for side in ("bottom", "top", "right", "left") if side != preferred]
         corners = ("bottom_right", "bottom_left", "top_right", "top_left")
         order += [side for side in corners if preferred in side] + [side for side in corners if preferred not in side]
-        for side in order:
-            cx, cy = candidates[side]
+        # Preserve immediate placements first, then search a bounded set of
+        # outward rings. Tight branch layouts can surround all eight neighbors.
+        positions = []
+        for ring in range(9):
+            gap = ring * style.font_size * 1.25
+            for side in order:
+                cx, cy = candidates[side]
+                cx += gap * (("right" in side) - ("left" in side))
+                cy += gap * (("bottom" in side) - ("top" in side))
+                positions.append((cx, cy))
+        for cx, cy in positions:
             box = (cx - width / 2, cy - height / 2, cx + width / 2, cy + height / 2)
             if any(overlap(box, p.bounds, 3) for p in placements.values()):
                 continue
@@ -300,6 +309,9 @@ def _root_origins(setup):
             raise LayoutError(f"{root.optic}: incompatible placement constraints on initial paths")
         origins[root.optic] = root.origin
     return origins
+
+
+_BEAM_SEARCH_LIMIT = 1000
 
 
 def _solve_beams(nodes, connections, anchors, style, blocks=None):
@@ -376,49 +388,97 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None):
             add_constraint((lengths[a.id] == lengths[b.id]) | kiwi.strength.medium)
     solver.updateVariables()
 
-    # Branches can bring nonadjacent optics together even when every connected
-    # pair has enough clearance. Separate colliding artwork by extending the
-    # available beam gaps, keeping all pins, distances, and headings required.
-    # Each accepted constraint permanently separates one pair, so this loop
-    # needs at most one refinement per pair of optics.
-    while True:
-        placements = {}
+    def placements_now():
+        result = {}
         for ident, node in nodes.items():
             position = clean(xs[ident].value()), clean(ys[ident].value())
-            placements[ident] = PlacedOptic(
+            result[ident] = PlacedOptic(
                 node, position, translated(footprints[ident], position), poses.get(ident),
             )
+        return result
+
+    def conflict(placements):
         items = list(placements.values())
-        collision = next(((a, b) for index, a in enumerate(items) for b in items[index + 1:]
-                          if overlap(a.bounds, b.bounds)), None)
+        for index, a in enumerate(items):
+            for b in items[index + 1:]:
+                if not overlap(a.bounds, b.bounds):
+                    continue
+                alternatives = []
+                for axis, coordinates in enumerate((xs, ys)):
+                    for first, second in ((a, b), (b, a)):
+                        separation = (footprints[first.id][axis + 2]
+                                      - footprints[second.id][axis] + style.clearance)
+                        alternatives.append(coordinates[second.id] - coordinates[first.id]
+                                            >= separation)
+                return f"{a.id} and {b.id}: component artwork overlaps", alternatives
+        for edge in connections:
+            source, target = placements[edge.source], placements[edge.target]
+            start, end = source.port_position(edge.output), target.port_position(edge.input)
+            direction = unit(source.port_direction(edge.output))
+            for obstacle in items:
+                if obstacle.id in {edge.source, edge.target} or not segment_intersects(
+                        start, end, obstacle.bounds):
+                    continue
+                alternatives = []
+                # Separating-axis theorem for a finite segment and an axis-aligned
+                # box: box axes plus the segment normal. Fixed headings keep all
+                # projected endpoints linear, including displaced optical ports.
+                offset = rotate(source.instance.port(edge.output).position,
+                                source.instance.heading)
+                for axis in ((1, 0), (0, 1), (-direction[1], direction[0])):
+                    beam_start = ((xs[source.id] + offset[0]) * axis[0]
+                                  + (ys[source.id] + offset[1]) * axis[1])
+                    advance = sum(d * a for d, a in zip(direction, axis))
+                    if abs(advance) < EPSILON:
+                        advance = 0.0
+                    beam_end = beam_start + lengths[edge.id] * advance
+                    low, high = ((beam_start, beam_end) if advance >= 0
+                                 else (beam_end, beam_start))
+                    origin = xs[obstacle.id] * axis[0] + ys[obstacle.id] * axis[1]
+                    lo, hi = _project(footprints[obstacle.id], (0, 0), axis)
+                    alternatives.extend((origin + lo >= high + style.clearance,
+                                         low >= origin + hi + style.clearance))
+                return (f"{edge.id}: beam crosses unrelated optic {obstacle.id}",
+                        alternatives)
+        return None
+
+    # A greedy separation can block a later collision. Explore alternatives with
+    # backtracking; each branch permanently separates the selected conflict.
+    # Rebuild every candidate solver because rejected Kiwi constraints can leave
+    # its tableau changed. Stored solvers share variables, so update on each pop.
+    pending = [((), solver)]
+    attempts = 0
+    first_error = None
+    while pending:
+        accepted, current = pending.pop()
+        current.updateVariables()
+        placements = placements_now()
+        collision = conflict(placements)
         if collision is None:
             return placements
-        a, b = collision
+        context, alternatives = collision
+        first_error = first_error or context
         candidates = []
-        for axis, coordinates in enumerate((xs, ys)):
-            for first, second in ((a, b), (b, a)):
-                gap = first.bounds[axis + 2] - second.bounds[axis] + style.clearance
-                separation = (footprints[first.id][axis + 2]
-                              - footprints[second.id][axis] + style.clearance)
-                constraint = coordinates[second.id] - coordinates[first.id] >= separation
-                candidates.append((gap, constraint))
-        for _, constraint in sorted(candidates, key=lambda candidate: candidate[0]):
+        for order, alternative in enumerate(alternatives):
+            if attempts >= _BEAM_SEARCH_LIMIT:
+                raise LayoutError(f"{context}: automatic layout search budget exhausted "
+                                  f"({_BEAM_SEARCH_LIMIT} candidate states)")
+            attempts += 1
+            trial = kiwi.Solver()
+            branch = (*accepted, alternative)
             try:
-                add_constraint(constraint)
+                for constraint in (*constraints, *branch):
+                    trial.addConstraint(constraint)
             except kiwi.UnsatisfiableConstraint:
-                # A rejected inequality can leave Kiwi's internal tableau
-                # changed. Restore accepted constraints before trying another
-                # direction, otherwise a feasible alternative can also fail.
-                solver = kiwi.Solver()
-                for accepted in constraints:
-                    solver.addConstraint(accepted)
                 continue
-            solver.updateVariables()
-            break
-        else:
-            # The caller reports the existing artwork-overlap error when hard
-            # placement constraints leave no room to separate this pair.
-            return placements
+            trial.updateVariables()
+            score = round(sum(length.value() for length in lengths.values()), 7)
+            candidates.append((score, order, branch, trial))
+        # Stack order visits the smallest total length first, with stable axis
+        # order breaking ties. Existing soft preferences still apply per solve.
+        for _, _, branch, trial in sorted(candidates, key=lambda item: item[:2], reverse=True):
+            pending.append((branch, trial))
+    raise LayoutError(f"{first_error}: no feasible automatic spacing with required constraints")
 
 
 def _finish_free_space(setup, placements, style):

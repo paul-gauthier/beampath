@@ -25,11 +25,17 @@ Most diagrams can start from the [examples](gallery.md). Import core tools from
   between ports; it cannot be used on a first component or a fiber connection.
   `at=(x, y)` pins a component reference point. The beam origin places its first
   optic. Pins and distances are required constraints; incompatible ones fail.
-  Automatic spacing can stretch free-space paths to separate overlapping optics.
+  Automatic spacing can stretch free-space paths to separate overlapping optics
+  and clear beams crossing unrelated optics within a free-space section. The
+  deterministic search tries up to 1,000 candidate states; budget exhaustion is
+  reported separately from infeasible constraints. Explicit pins and distances
+  are never relaxed.
   Use `rows()` for explicit stage boundaries; it preserves local pins and headings.
 - **Drawing:** crossings do not imply connections. Open ports have stubs, replaced
   when connected.
-  Labels do not expand component spacing inside a stage; allow room when pinning.
+  Labels do not expand component spacing inside a stage. If adjacent label
+  positions are obstructed, placement tries eight additional outward rings;
+  allow room when pinning.
 - **Fiber routing:** prefer fewer crossings, touches, and overlapping runs before
   minimizing bends and length. Routes may take longer detours to avoid contacts;
   artwork and labels remain clear. Centering and corner rounding also consider

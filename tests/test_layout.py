@@ -325,3 +325,36 @@ def test_style_scales_spacing_and_clearance():
     assert result.segments[0].length == pytest.approx(250)
     with pytest.raises(LayoutError, match="positive"):
         Style(pitch=-1)
+
+
+def test_spacing_backtracks_when_shortest_separation_blocks_later_collision():
+    # Moving B right is the shortest A/B separation (its total run is pinned).
+    # It puts B against C, with its downstream pin preventing another move.
+    # The search must undo that choice and move A instead.
+    box = ComponentSpec(ComponentDefinition(
+        "box", "", Artwork((0, 0), (-40, -30, 40, 30),
+                            svg='<svg xmlns="http://www.w3.org/2000/svg"/>'),
+        lambda p: Geometry((Port("in", "input"), Port("out", "output"),
+                            Port("unused", "output", 90, draw_open=False))),
+    ))
+    drawing, paths = parallel_detector_inputs(0)
+    a = (paths[0] >> box).end
+    b_path = paths[1] >> box
+    b = b_path.end
+    b_path.out("out").append(box, at=(550, 40))
+    drawing.beam(origin=(300, 80)) >> box
+    result = drawing.layout()
+    assert result.placements[a.id].position == pytest.approx((290, 0))
+    assert result.placements[b.id].position == pytest.approx((190, 40))
+    assert result == drawing.layout()
+
+
+def test_spacing_search_budget_is_distinct_from_infeasibility(monkeypatch):
+    import importlib
+    layout_module = importlib.import_module("beampath.layout")
+    drawing, paths = parallel_detector_inputs(0)
+    for path in paths:
+        path >> detector("")
+    monkeypatch.setattr(layout_module, "_BEAM_SEARCH_LIMIT", 0)
+    with pytest.raises(LayoutError, match="automatic layout search budget exhausted"):
+        drawing.layout()
