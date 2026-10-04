@@ -14,7 +14,7 @@ python -m beampath.examples --diagram hello --png
 Outputs go to `build/examples/`. Use `--diagram all` for every example;
 add `--pdf` for PDF. PNG/PDF need the [export dependencies](api.md#export).
 
-[hello](#hello) · [cage](#cage) · [custom_component](#custom_component) · [fiber_splitter](#fiber_splitter) · [franson](#franson) · [ghz_path_identity](#ghz_path_identity) · [mirror_heading](#mirror_heading) · [mixed_fiber](#mixed_fiber) · [mzi](#mzi) · [rendering](#rendering) · [reuse](#reuse) · [spdc](#spdc) · [zwm](#zwm)
+[hello](#hello) · [cage](#cage) · [fiber_splitter](#fiber_splitter) · [franson](#franson) · [ghz_path_identity](#ghz_path_identity) · [mirror_heading](#mirror_heading) · [mixed_fiber](#mixed_fiber) · [mzi](#mzi) · [rendering](#rendering) · [reuse](#reuse) · [spdc](#spdc) · [zwm](#zwm)
 
 ## hello
 
@@ -67,51 +67,6 @@ setup.save("cage.svg")
 ```
 
 [Source](../examples/cage.py)
-
-## custom_component
-
-Define inline artwork and three named output ports for a custom component.
-
-![custom_component diagram](../examples/images/custom_component.png)
-
-```python
-from beampath import (
-    Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, beam,
-)
-from beampath.components import *
-
-
-def fork_geometry(parameters):
-    return Geometry((
-        Port("in", "input", 0, (-10, 0)),
-        Port("forward", "output", 0, (10, 0)),
-        Port("up", "output", 270, (0, -10)),
-        Port("down", "output", 90, (0, 10)),
-    ))
-
-
-fork_spec = ComponentSpec(ComponentDefinition(
-    name="fork",
-    default_label="Fork",
-    artwork=Artwork(
-        center=(0, 0), bounds=(-10, -10, 10, 10),
-        svg='<svg xmlns="http://www.w3.org/2000/svg">'
-            '<rect x="-10" y="-10" width="20" height="20" fill="#d5d8e8"/>'
-            '</svg>',
-        attribution="beampath custom component example artwork",
-    ),
-    resolve=fork_geometry,
-))
-
-setup = beam() >> fork_spec
-setup.out("forward") >> LP()
-setup.out("up") >> HWP()
-setup.out("down") >> QWP()
-
-setup.save("custom_component.svg")
-```
-
-[Source](../examples/custom_component.py)
 
 ## fiber_splitter
 
@@ -174,7 +129,6 @@ into (a, c) and (b, d). With coherent pumping, indistinguishable modes,
 balanced pair amplitudes, and zero relative phase, postselecting one photon
 in each output gives (|HHHH⟩ + |VVVV⟩) / √2 in the low-gain regime.
 Pump waveplates rotate the polarization between the two source stages.
-The drawing shows connectivity; optical delays and phase tuning are omitted.
 
 Based on the path-identity scheme in
 [Fig. 1 of the PyTheus paper](https://arxiv.org/pdf/2210.09980#page=6).
@@ -186,7 +140,9 @@ from beampath.components import HWP, beam_block, beamsplitter, detector, laser, 
 
 setup = laser("Coherent pump") >> beamsplitter("Pump splitter", turn="right")
 
-hh_ab = (setup.straight() >> spdc("SPDC\nHH", opening_angle=60)).end
+hh_ab = (
+    setup.straight() >> spdc("SPDC\nHH", opening_angle=60)
+).end
 hh_cd = (
     setup.reflect() >> mirror("", heading="east") >> spdc("SPDC\nHH", opening_angle=60)
 ).end
@@ -346,7 +302,7 @@ The shared pump feeds both crystals; their signals meet at a beamsplitter.
 
 ```python
 from beampath import beam
-from beampath.components import beamsplitter, fiber_coupler, mirror, spdc
+from beampath.components import *
 
 setup = beam() >> beamsplitter("Pump splitter", turn="right")
 c1 = (setup.straight() >> spdc("NL1", opening_angle=60)).end
@@ -362,7 +318,8 @@ c1.out("idler").connect(c2.input("idler_in"))
 s1 = c1.out("signal") >> mirror("Signal 1", heading="east")
 s2 = c2.out("signal") >> mirror("Signal 2", heading="north")
 combined = s1.join(s2, beamsplitter("Signal combiner", turn="left"))
-combined.straight() >> fiber_coupler("Signal detection")
+combined.straight() >> detector("")
+combined.reflect() >> detector("")
 
 setup.save("zwm.svg")
 ```

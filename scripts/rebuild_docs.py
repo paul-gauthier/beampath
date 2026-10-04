@@ -117,6 +117,7 @@ def example_fence(diagram):
 
 
 def gallery_page(diagrams, project):
+    diagrams = [d for d in diagrams if d.slug != "custom_component"]
     page = GENERATED + "# Examples\n\n" + NAV
     page += ("Each code block constructs a `setup` and saves its diagram as an SVG.\n"
              "Copy and run a code block, or run an example by its filename stem:\n\n"
@@ -132,19 +133,32 @@ def gallery_page(diagrams, project):
     return page.rstrip() + "\n"
 
 
-def components_page(diagrams):
+def components_page(diagrams, custom_example):
     page = GENERATED + "# Components\n\n" + NAV
     page += ("Import factories from `beampath.components` (also available from `beampath`).\n"
              "The optional first argument is the label: `None` uses the default, `\"\"` hides\n"
              "it, and `\\n` creates multiple lines. Each demo shows the component's open\n"
              "beam or fiber ports.\n\n")
-    page += " · ".join(f"[{d.slug}](#{d.slug.lower()})" for d in diagrams) + "\n\n"
+    page += " · ".join(f"[{d.slug}](#{d.slug.lower()})" for d in diagrams)
+    page += " · [Custom components](#custom-components)\n\n"
     for diagram in diagrams:
         source = f"../src/beampath/components/{diagram.source.name}"
         page += (f"## {diagram.slug}\n\n" + fence(diagram.signature)
                  + diagram.description + "\n\n"
                  + f'<img src="images/components/{diagram.slug}.png" alt="{diagram.slug} demo" width="420">\n\n'
                  + fence(diagram.code) + f"[Source]({source})\n\n")
+    page += ("## Custom components\n\n"
+             "To draw an optic beyond the builtins, combine `Artwork` and a `Geometry`\n"
+             "resolver in a `ComponentDefinition`, then wrap it in a reusable `ComponentSpec`.\n"
+             "Append the spec with `>>` and select its named outputs with `.out(name)`.\n\n"
+             + custom_example.description + "\n\n"
+             + f"![Custom component diagram](../examples/images/{custom_example.slug}.png)\n\n"
+             + example_fence(custom_example)
+             + f"[Source](../examples/{custom_example.source.name})\n\n"
+             + "Run this example with:\n\n"
+             + f"```sh\npython -m beampath.examples --diagram {custom_example.slug} --png\n```\n\n"
+             + "See the [geometry and artwork conventions](api.md#extending-and-inspecting)\n"
+             + "and [component authoring guide](../src/beampath/components/README.md) for details.\n\n")
     return page.rstrip() + "\n"
 
 
@@ -234,10 +248,11 @@ def rebuild_docs(project=PROJECT, *, check=False):
     example_diagrams = examples(project)
     demos = component_demos()
     hello = next(d for d in example_diagrams if d.slug == "hello")
+    custom_example = next(d for d in example_diagrams if d.slug == "custom_component")
     hello_block = (f"![{hello.description}](examples/images/hello.png)\n\n" + example_fence(hello))
     documents = {
         project / "docs/gallery.md": gallery_page(example_diagrams, project),
-        project / "docs/components.md": components_page(demos),
+        project / "docs/components.md": components_page(demos, custom_example),
     }
     for filename, marker, block in (("README.md", "HELLO", hello_block),
                                      ("docs/api.md", "API", api_summary())):

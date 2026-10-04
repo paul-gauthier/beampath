@@ -26,7 +26,7 @@ EXPECTED_COUNTS = {
     "mixed_fiber": 6,
     "fiber_splitter": 4,
     "spdc": 5,
-    "zwm": 8,
+    "zwm": 9,
 }
 SVG = "{http://www.w3.org/2000/svg}"
 

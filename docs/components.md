@@ -9,7 +9,7 @@ The optional first argument is the label: `None` uses the default, `""` hides
 it, and `\n` creates multiple lines. Each demo shows the component's open
 beam or fiber ports.
 
-[bandpass_filter](#bandpass_filter) · [beam_block](#beam_block) · [beamsplitter](#beamsplitter) · [detector](#detector) · [fiber_coupler](#fiber_coupler) · [fiber_laser](#fiber_laser) · [fiber_launch](#fiber_launch) · [fiber_power_meter](#fiber_power_meter) · [fiber_splitter](#fiber_splitter) · [HWP](#hwp) · [inline_power_meter](#inline_power_meter) · [iris](#iris) · [laser](#laser) · [LP](#lp) · [mirror](#mirror) · [nd_filter](#nd_filter) · [noise_eater](#noise_eater) · [QWP](#qwp) · [spdc](#spdc)
+[bandpass_filter](#bandpass_filter) · [beam_block](#beam_block) · [beamsplitter](#beamsplitter) · [detector](#detector) · [fiber_coupler](#fiber_coupler) · [fiber_laser](#fiber_laser) · [fiber_launch](#fiber_launch) · [fiber_power_meter](#fiber_power_meter) · [fiber_splitter](#fiber_splitter) · [HWP](#hwp) · [inline_power_meter](#inline_power_meter) · [iris](#iris) · [laser](#laser) · [LP](#lp) · [mirror](#mirror) · [nd_filter](#nd_filter) · [noise_eater](#noise_eater) · [QWP](#qwp) · [spdc](#spdc) · [Custom components](#custom-components)
 
 ## bandpass_filter
 
@@ -398,3 +398,61 @@ setup = beam() >> spdc()
 ```
 
 [Source](../src/beampath/components/spdc.py)
+
+## Custom components
+
+To draw an optic beyond the builtins, combine `Artwork` and a `Geometry`
+resolver in a `ComponentDefinition`, then wrap it in a reusable `ComponentSpec`.
+Append the spec with `>>` and select its named outputs with `.out(name)`.
+
+Define inline artwork and three named output ports for a custom component.
+
+![Custom component diagram](../examples/images/custom_component.png)
+
+```python
+from beampath import (
+    Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, beam,
+)
+from beampath.components import *
+
+
+def fork_geometry(parameters):
+    return Geometry((
+        Port("in", "input", 0, (-10, 0)),
+        Port("forward", "output", 0, (10, 0)),
+        Port("up", "output", 270, (0, -10)),
+        Port("down", "output", 90, (0, 10)),
+    ))
+
+
+fork_spec = ComponentSpec(ComponentDefinition(
+    name="fork",
+    default_label="Fork",
+    artwork=Artwork(
+        center=(0, 0), bounds=(-10, -10, 10, 10),
+        svg='<svg xmlns="http://www.w3.org/2000/svg">'
+            '<rect x="-10" y="-10" width="20" height="20" fill="#d5d8e8"/>'
+            '</svg>',
+        attribution="beampath custom component example artwork",
+    ),
+    resolve=fork_geometry,
+))
+
+setup = beam() >> fork_spec
+setup.out("forward") >> LP()
+setup.out("up") >> HWP()
+setup.out("down") >> QWP()
+
+setup.save("custom_component.svg")
+```
+
+[Source](../examples/custom_component.py)
+
+Run this example with:
+
+```sh
+python -m beampath.examples --diagram custom_component --png
+```
+
+See the [geometry and artwork conventions](api.md#extending-and-inspecting)
+and [component authoring guide](../src/beampath/components/README.md) for details.

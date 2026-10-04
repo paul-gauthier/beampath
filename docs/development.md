@@ -24,6 +24,8 @@ directly on macOS to preserve its library search path.
 The gallery comes from example modules; the component catalog comes from factory
 docstrings and demo functions. API summaries and style defaults come from Python.
 The README hello block is generated from the same source as the gallery.
+The `custom_component.py` example is generated at the end of the
+[Components page](components.md#custom-components), outside the gallery.
 
 Edit sources, regenerate, inspect the Markdown and PNGs, and commit both. The
 builder stages all previews before replacing outputs; failed rendering leaves

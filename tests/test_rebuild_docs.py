@@ -119,7 +119,8 @@ def test_invalid_demo_contract_is_an_error():
 
 def test_api_summaries_and_style_defaults_come_from_python(monkeypatch):
     monkeypatch.setattr(components.HWP, "__doc__", "A revised waveplate description.")
-    page = docs.components_page(docs.component_demos())
+    custom_example = next(d for d in docs.examples() if d.slug == "custom_component")
+    page = docs.components_page(docs.component_demos(), custom_example)
     assert "A revised waveplate description." in page
     assert docs.signature(components.HWP) in page
     summary = docs.api_summary()

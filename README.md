@@ -39,8 +39,9 @@ Open `hello.svg` in a browser or vector editor; labels remain editable.
 ## Documentation
 
 - **[Example gallery](docs/gallery.md):** pictures and complete code for setups,
-  branching, fiber connections, reusable stages, and custom components.
-- **[Components](docs/components.md):** every builtin, with a minimal demo and API.
+  branching, fiber connections, and reusable stages.
+- **[Components](docs/components.md):** every builtin, with a minimal demo and API,
+  plus [defining custom components](docs/components.md#custom-components).
 - **[API and conventions](docs/api.md):** construction, layout, styling, and export.
 - **[Development](docs/development.md):** setup, checks, and documentation generation.
 

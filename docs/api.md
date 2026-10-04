@@ -149,7 +149,7 @@ via an `/usr/bin/env` shebang. SVG needs no Cairo.
 
 ## Extending and inspecting
 
-The [custom component example](gallery.md#custom_component) defines artwork and
+The [custom component example](components.md#custom-components) defines artwork and
 ports directly. Reuse a `ComponentSpec`, or register its `ComponentDefinition`
 under a unique name and construct specs with `component(name, ...)`.
 

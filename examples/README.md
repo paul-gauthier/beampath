@@ -1,8 +1,9 @@
 # Adding examples
 
-Each public `.py` file is automatically listed by the runner and
-[gallery](../docs/gallery.md). Its basename is its slug; underscore-prefixed files
-are helpers. Start with:
+Each public `.py` file is automatically listed by the runner and, except for
+`custom_component.py`, the [gallery](../docs/gallery.md). The custom component
+example appears under [Components](../docs/components.md#custom-components).
+The basename is the example's slug; underscore-prefixed files are helpers. Start with:
 
 ```python
 """A short description of what this setup demonstrates."""
