@@ -12,6 +12,7 @@ EXAMPLES = {
     "cage": 13,
     "mirror_heading": 3,
     "mzi": 10,
+    "franson": 17,
     "shared_optic": 10,
     "reuse": 8,
     "rendering": 3,
@@ -23,6 +24,49 @@ EXAMPLES = {
     "spdc_collinear": 4,
 }
 SVG = "{http://www.w3.org/2000/svg}"
+
+
+def test_franson_analyzers_have_matching_nonzero_arm_imbalance():
+    from beampath.examples.franson import build
+
+    path = build()
+    layout = path.layout()
+    nodes = {optic.id: optic for optic in path.setup.optics}
+    incoming, outgoing = {}, {}
+    for segment in layout.segments:
+        if segment.source is not None and segment.target is not None:
+            incoming.setdefault(segment.target, []).append(segment)
+            outgoing.setdefault(segment.source, []).append(segment)
+    splitters = [node for node in nodes.values()
+                 if node.spec.definition.name == "beamsplitter" and len(incoming[node.id]) == 1]
+    assert len(splitters) == 2
+    imbalances = []
+    detectors = set()
+    for splitter in splitters:
+        lengths, ends = [], []
+        for segment in outgoing[splitter.id]:
+            length = segment.length
+            while nodes[segment.target].spec.definition.name == "mirror":
+                segment, = outgoing[segment.target]
+                length += segment.length
+            lengths.append(length)
+            ends.append(segment.target)
+        assert len(lengths) == 2
+        assert ends[0] == ends[1]  # Both arms meet the same physical optic.
+        recombiner = ends[0]
+        assert nodes[recombiner].spec.definition.name == "beamsplitter"
+        assert {segment.input for segment in incoming[recombiner]} == {"primary", "secondary"}
+        imbalances.append(max(lengths) - min(lengths))
+        outputs = outgoing[recombiner]
+        assert {segment.output for segment in outputs} == {"straight", "reflect"}
+        for segment in outputs:
+            detector = nodes[segment.target]
+            assert detector.spec.definition.name == "franson_detector"
+            assert all(port.kind == "input" for port in detector.geometry.ports)
+            detectors.add(detector.id)
+    assert len(detectors) == 4
+    assert imbalances[0] > 0
+    assert imbalances[0] == pytest.approx(imbalances[1])
 
 
 @pytest.mark.parametrize("name,count", EXAMPLES.items())

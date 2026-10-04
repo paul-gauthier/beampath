@@ -160,6 +160,28 @@ use `path.save("rendering.svg", style=STYLE)` without `width`; for PDF, use
 [rendering reference](reference.md#rendering) covers dependencies, dimensions,
 PDF page size, and troubleshooting.
 
+## Franson interferometer
+
+[franson.py](../examples/franson.py) draws a CW-pumped SPDC source feeding
+separate signal and idler Mach–Zehnder interferometers. Each uses two 50:50
+beamsplitters, a straight short arm, and a folded long arm with a PZT mirror
+for phase control. Both long arms add the same extra distance, ΔL. The four
+outputs terminate at single-photon detectors.
+
+![Franson interferometer with an SPDC source, two matched unequal-arm analyzers, and four single-photon detectors](../examples/images/franson.png)
+
+In a typical experiment, ΔL exceeds each photon's coherence length but remains
+below the pump coherence length. Time-tagged coincidences between signal and
+idler detectors select the central short–short/long–long peak and reject the
+short–long/long–short side peaks. The central coincidence rate depends on the
+sum of the two interferometer phases. See the
+[Franson setup and theory in Fallon et al.](https://ntrs.nasa.gov/api/citations/20240008684/downloads/Franson_final.pdf)
+for an experimental implementation.
+
+The example draws the optical paths; coincidence electronics are omitted.
+Distances are schematic units, and the SPDC opening angle is exaggerated
+for readability. beampath does not simulate coherence or coincidence counts.
+
 ## More examples
 
 Each file is runnable from a checkout; the installed package also includes the
@@ -179,6 +201,7 @@ See [example commands](development.md#running-examples) for all CLI options.
 | [cage.py](../examples/cage.py) | A longer linear chain | [Image](../examples/images/cage.png) |
 | [mirror_heading.py](../examples/mirror_heading.py) | Absolute headings and relative turns | [Image](../examples/images/mirror_heading.png) |
 | [mzi.py](../examples/mzi.py) | Branching and recombination | [Image](../examples/images/mzi.png) |
+| [franson.py](../examples/franson.py) | SPDC and matched unequal-arm interferometers | [Image](../examples/images/franson.png) |
 | [shared_optic.py](../examples/shared_optic.py) | Explicit shared inputs | [Image](../examples/images/shared_optic.png) |
 | [mixed_fiber.py](../examples/mixed_fiber.py) | Fiber/free-space transitions | [Image](../examples/images/mixed_fiber.png) |
 | [fiber_bends.py](../examples/fiber_bends.py) | A pinned fiber device | [Image](../examples/images/fiber_bends.png) |

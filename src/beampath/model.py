@@ -105,6 +105,9 @@ class Setup:
         self._nodes: dict[str, OpticInstance] = {}
         self._connections: list[Connection] = []
         self._roots: list[Root] = []
+        # A copied fiber input loses its root but still starts the same oriented
+        # free-space section. These seeds carry orientation, never placement.
+        self._heading_seeds: dict[str, float] = {}
 
     @property
     def optics(self) -> tuple[OpticInstance, ...]:
@@ -116,11 +119,12 @@ class Setup:
 
     @contextmanager
     def _transaction(self):
-        snapshot = self._nodes.copy(), self._connections.copy(), self._roots.copy()
+        snapshot = (self._nodes.copy(), self._connections.copy(), self._roots.copy(),
+                    self._heading_seeds.copy())
         try:
             yield
         except Exception:
-            self._nodes, self._connections, self._roots = snapshot
+            self._nodes, self._connections, self._roots, self._heading_seeds = snapshot
             raise
 
     def beam(self, direction: str | float = "east", *, origin: Point = (0, 0)) -> Path:
@@ -142,7 +146,7 @@ class Setup:
                 or any(r.optic == optic and r.input == port for r in self._roots))
 
     def _connect(self, source: str, output: str, target: str, input_name: str,
-                 distance: float | None):
+                 distance: float | None, *, resolve: bool = True):
         outgoing = self._nodes[source].port(output, "output")
         incoming = self._nodes[target].port(input_name, "input")
         if outgoing.medium != incoming.medium:
@@ -165,15 +169,18 @@ class Setup:
                 todo.extend(c.target for c in self._connections if c.source == node)
         self._connections.append(Connection(f"segment-{len(self._connections) + 1:03d}",
                                             source, output, target, input_name, distance, outgoing.medium))
-        self._resolve_headings()
+        if resolve:
+            self._resolve_headings()
 
-    def _bind_root(self, optic: str, input_name: str | None, direction: float, origin: Point):
+    def _bind_root(self, optic: str, input_name: str | None, direction: float, origin: Point,
+                   *, resolve: bool = True):
         if input_name is not None and self._input_used(optic, input_name):
             raise ConnectionError(f"{optic}.{input_name}: input is already connected")
         if any(r.optic == optic and r.input == input_name for r in self._roots):
             raise ConnectionError(f"{optic}: port already starts a beam")
         self._roots.append(Root(optic, input_name, direction, origin))
-        self._resolve_headings()
+        if resolve:
+            self._resolve_headings()
 
     def _resolve_headings(self):
         # Propagate frame relations in both directions. A secondary input may be
@@ -195,6 +202,9 @@ class Setup:
         for node in nodes.values():
             if node.geometry.heading is not None:
                 assign(node.id, node.geometry.heading, node.id)
+        for ident, direction in self._heading_seeds.items():
+            if nodes[ident].geometry.heading is None:
+                assign(ident, direction, ident)
         for root in self._roots:
             node = nodes[root.optic]
             if not any(p.medium == "free_space" for p in node.geometry.ports):
@@ -297,20 +307,29 @@ class Path:
             raise ConnectionError(f"{self._end}.{self._port}: output is already connected")
         return self._end, self._port
 
-    def append(self, spec: ComponentSpec | Chain, *, distance: float | None = None,
+    def append(self, spec: ComponentSpec | Chain | Path, *, distance: float | None = None,
                at: Point | None = None) -> Path:
+        """Append a specification, chain, or independent copy of a path's setup.
+
+        A copied path exposes its setup's sole root as the entry and keeps its
+        selected endpoint. ``at`` translates explicit pins with that entry;
+        ``distance`` constrains only the new incoming connection.
+        """
         self._check()
-        if not isinstance(spec, (ComponentSpec, Chain)):
-            raise ConnectionError("append() needs a component specification or chain")
+        if not isinstance(spec, (ComponentSpec, Chain, Path)):
+            raise ConnectionError("append() needs a component specification, chain, or path")
         distance = _distance(distance)
         at = point(at) if at is not None else None
-        specs = spec.specs if isinstance(spec, Chain) else (spec,)
         old_cursor = self._end, self._port
         try:
             with self.setup._transaction():
-                for index, item in enumerate(specs):
-                    self._append_one(item, distance if index == 0 else None,
-                                     at if index == 0 else None)
+                if isinstance(spec, Path):
+                    self._append_path(spec, distance, at)
+                else:
+                    specs = spec.specs if isinstance(spec, Chain) else (spec,)
+                    for index, item in enumerate(specs):
+                        self._append_one(item, distance if index == 0 else None,
+                                         at if index == 0 else None)
         except Exception:
             self._end, self._port = old_cursor
             raise
@@ -331,6 +350,65 @@ class Path:
             self.setup._connect(*frontier, ref.id, default_input, distance)
         outputs = [p.name for p in spec.geometry.ports if p.kind == "output"]
         self._end, self._port = ref.id, outputs[0] if len(outputs) == 1 else None
+
+    def _append_path(self, source: Path, distance: float | None, at: Point | None):
+        source._check()
+        if source.setup is self.setup:
+            raise ConnectionError("Cannot append a path from the same setup")
+        if source._end is None:
+            raise ConnectionError("The source path has no first component yet")
+        if source._port is not None:
+            source._frontier()  # Reject a stale selected output; terminals and groups are valid.
+        if len(source.setup._roots) != 1:
+            raise ConnectionError("Appending a path needs a source setup with exactly one root")
+        root, = source.setup._roots
+        outgoing: dict[str, list[str]] = {}
+        for edge in source.setup._connections:
+            outgoing.setdefault(edge.source, []).append(edge.target)
+        reachable, todo = set(), [root.optic]
+        while todo:
+            ident = todo.pop()
+            if ident not in reachable:
+                reachable.add(ident)
+                todo.extend(outgoing.get(ident, ()))
+        if reachable != source.setup._nodes.keys():
+            raise ConnectionError("Appending a path needs every source optic connected to its root")
+
+        frontier = self._frontier() if self._end is not None else None
+        if frontier is None and distance is not None:
+            raise ConnectionError("The first component has no preceding segment to set a distance on")
+        if frontier is not None and root.input is None:
+            raise ConnectionError("Cannot append a stage whose entry optic has no input")
+        origin = at if at is not None else (self._origin if frontier is None else None)
+        delta = ((origin[0] - root.origin[0], origin[1] - root.origin[1])
+                 if origin is not None else (0, 0))
+        mapping = {}
+        for node in source.setup.optics:
+            pin = ((node.at[0] + delta[0], node.at[1] + delta[1])
+                   if node.at is not None else None)
+            if node.id == root.optic and at is not None:
+                pin = at
+            mapping[node.id] = self.setup.add(node.spec, at=pin).id
+        self.setup._heading_seeds.update(
+            (mapping[ident], direction) for ident, direction in source.setup._heading_seeds.items())
+        entry = mapping[root.optic]
+        if frontier is None:
+            self.setup._bind_root(entry, root.input, self._initial_heading, origin, resolve=False)
+        else:
+            incoming = source.setup._nodes[root.optic].port(root.input, "input")
+            if incoming.medium == "fiber" and any(
+                p.medium == "free_space" for p in source.setup._nodes[root.optic].geometry.ports
+            ):
+                self.setup._heading_seeds[entry] = root.direction
+            self.setup._connect(*frontier, entry, root.input, distance, resolve=False)
+        # Clone edges in source order after the boundary, then resolve the whole
+        # graph once: a partial branch or join can imply a different orientation.
+        for edge in source.setup._connections:
+            self.setup._connections.append(replace(
+                edge, id=f"segment-{len(self.setup._connections) + 1:03d}",
+                source=mapping[edge.source], target=mapping[edge.target]))
+        self.setup._resolve_headings()
+        self._end, self._port = mapping[source._end], source._port
 
     def __rshift__(self, spec):
         return self.append(spec)
