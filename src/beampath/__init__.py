@@ -6,6 +6,7 @@ from .definitions import (
 from .components import (
     HWP, LP, QWP, bandpass_filter, beamsplitter, fiber_launch, fiber_coupler, iris, mirror,
     nd_filter, noise_eater, fiber_laser, inline_power_meter, fiber_splitter, fiber_power_meter, spdc,
+    detector, beam_block,
 )
 from .errors import BeampathError, ComponentError, ConnectionError, LayoutError
 from .model import InputRef, OpticRef, Path, Setup, beam
@@ -13,7 +14,7 @@ from .layout import FiberRoute, Label, Layout, PlacedOptic, Segment, Style
 
 __all__ = [
     "beam", "fiber_launch", "fiber_coupler", "mirror", "beamsplitter", "iris", "LP", "HWP", "QWP",
-    "noise_eater", "spdc",
+    "noise_eater", "spdc", "detector", "beam_block",
     "nd_filter", "bandpass_filter",
     "fiber_laser", "inline_power_meter", "fiber_splitter", "fiber_power_meter",
     "chain", "component", "register_component", "Setup", "Path", "OpticRef", "InputRef",

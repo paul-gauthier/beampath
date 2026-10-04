@@ -10,7 +10,7 @@ from .geometry import aligned, finite, heading, reflection
 __all__ = [
     "fiber_launch", "fiber_coupler", "mirror", "beamsplitter", "iris", "LP", "HWP", "QWP", "noise_eater",
     "nd_filter", "bandpass_filter", "fiber_laser", "inline_power_meter", "fiber_splitter",
-    "fiber_power_meter", "spdc",
+    "fiber_power_meter", "spdc", "detector", "beam_block",
 ]
 
 REVISION = "7e44e14341489b067d7c8e1390af87b9c423103e"
@@ -61,6 +61,16 @@ def _parameters(parameters, allowed):
 def _straight(parameters):
     _parameters(parameters, ())
     return Geometry((Port("in", "input"), Port("out", "output")))
+
+
+def _detector(parameters):
+    _parameters(parameters, ())
+    return Geometry((Port("in", "input", position=(-22, 0)),))
+
+
+def _beam_block(parameters):
+    _parameters(parameters, ())
+    return Geometry((Port("in", "input", position=(-10, 0)),))
 
 
 def _fiber_transition(parameters, *, launch):
@@ -231,6 +241,20 @@ register_component(ComponentDefinition(
     _art("fs-iris.svg", "free-space-optics/flat_2d/svg/23_apertures_beam_control",
          (50, 40), (24, 14, 76, 66), 1.5), _straight))
 register_component(ComponentDefinition(
+    "detector", "Detector",
+    Artwork((0, 0), (-24, -30, 38, 30),
+            package_resource="fs-detector.svg",
+            attribution="Original beampath schematic artwork for a detector: "
+                        "a blue D-shaped housing with a flat beam-entry face."),
+    _detector))
+register_component(ComponentDefinition(
+    "beam_block", "Beam block",
+    Artwork((0, 0), (-12, -30, 12, 30),
+            package_resource="fs-beam-block.svg",
+            attribution="Original beampath schematic artwork for a beam block: "
+                        "a dark rectangular absorber."),
+    _beam_block))
+register_component(ComponentDefinition(
     "LP", "LP",
     _art("fs-wire-grid-polarizer.svg", "free-space-optics/flat_2d/svg/17_polarizers",
          (49, 35), (44, 7, 54, 63), 1.5), _straight))
@@ -346,6 +370,20 @@ def spdc(label: str | None = None, *, opening_angle: float = 20):
 
 def iris(label: str | None = None):
     return component("iris", label)
+
+
+def detector(label: str | None = None):
+    """A generic detector with one free-space input that ends the beam path.
+
+    The flat face follows the incoming beam. Detector type (such as a
+    single-photon detector) belongs in the label; detection is not simulated.
+    """
+    return component("detector", label)
+
+
+def beam_block(label: str | None = None):
+    """A beam block with one free-space input and no output, following incidence."""
+    return component("beam_block", label)
 
 
 def LP(label: str | None = None):

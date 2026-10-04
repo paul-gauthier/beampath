@@ -16,6 +16,8 @@ def test_built_wheel_resources_work_without_checkout(tmp_path):
         assert "beampath/assets/LICENSE" in archive.namelist()
         assert "beampath/assets/f-power-meter.svg" in archive.namelist()
         assert "beampath/assets/fs-spdc.svg" in archive.namelist()
+        assert "beampath/assets/fs-detector.svg" in archive.namelist()
+        assert "beampath/assets/fs-beam-block.svg" in archive.namelist()
         assert "beampath/py.typed" in archive.namelist()
         assert "beampath/examples/hello.py" in archive.namelist()
         assert "beampath/examples/custom_component.py" in archive.namelist()
@@ -29,6 +31,7 @@ sys.path.insert(0, sys.argv[1])
 import beampath
 from beampath.examples import cage_system, mzi
 from beampath import nd_filter, bandpass_filter, fiber_laser, fiber_launch, fiber_coupler, fiber_power_meter
+from beampath import beam_block, detector
 from beampath.examples.mixed_fiber import build as mixed_fiber
 from beampath.examples.fiber_bends import build as fiber_bends
 from beampath.examples.fiber_splitter import build as fiber_splitter
@@ -37,7 +40,8 @@ assert 'cairosvg' not in sys.modules
 assert 'pypdf' not in sys.modules
 for setup in (cage_system(), mzi(), nd_filter() >> bandpass_filter(), mixed_fiber(), fiber_bends(), fiber_splitter(),
               fiber_laser() >> fiber_power_meter(),
-              fiber_laser() >> fiber_launch() >> fiber_coupler() >> fiber_power_meter()):
+              fiber_laser() >> fiber_launch() >> fiber_coupler() >> fiber_power_meter(),
+              fiber_launch() >> detector(), fiber_launch() >> beam_block()):
     svg = setup.to_svg()
     assert 'CC BY' in svg or 'Creative Commons Attribution' in svg
     assert 'data-component' in svg

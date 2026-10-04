@@ -63,7 +63,7 @@ def test_franson_analyzers_have_matching_nonzero_arm_imbalance():
         assert {segment.output for segment in outputs} == {"straight", "reflect"}
         for segment in outputs:
             detector = nodes[segment.target]
-            assert detector.spec.definition.name == "franson_detector"
+            assert detector.spec.definition.name == "detector"
             assert all(port.kind == "input" for port in detector.geometry.ports)
             detectors.add(detector.id)
     assert len(detectors) == 4

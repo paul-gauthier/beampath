@@ -92,5 +92,6 @@ Bundled SVG assets, their [license](../src/beampath/assets/LICENSE), and
 transform artwork in `src/beampath/components.py`.
 
 Preserve credits and source hashes when changing assets. PCL adaptations retain
-CC BY 4.0 attribution; the noise eater and fiber splitter use original beampath
-schematics. Export tests check that attribution survives SVG, PNG, and PDF output.
+CC BY 4.0 attribution; the noise eater, fiber splitter, detector, and beam block
+use original beampath schematics. Export tests check that attribution survives
+SVG, PNG, and PDF output.

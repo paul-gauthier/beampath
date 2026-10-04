@@ -21,6 +21,8 @@ Import components from `beampath.components`; they are also exported from
 | `beamsplitter()` | NPBS | Free space inputs `primary` and optional `secondary`; outputs `straight` and `reflect`; `turn="left"` (default) or `"right"` |
 | `spdc()` | SPDC | Required pump input `in`; optional `signal_in`, `idler_in`; outputs `pump`, `signal`, `idler`; `opening_angle=20` is the full signal–idler angle in degrees |
 | `iris()` | Iris | Straight-through free space |
+| `detector()` | Detector | Free-space input `in` only; ends a path and follows incidence |
+| `beam_block()` | Beam block | Free-space input `in` only; ends a path and follows incidence |
 | `LP()` | LP | Linear polarizer; straight-through free space |
 | `HWP()` | HWP | Half-wave plate; straight-through free space |
 | `QWP()` | QWP | Quarter-wave plate; straight-through free space |
@@ -37,6 +39,12 @@ Fiber splitter turns describe connector arrangement in the drawing pose, not
 optical headings. Put descriptive values in labels, such as
 `nd_filter("ND 2.0")`, `bandpass_filter("980 nm")`, or
 `fiber_splitter("90:10 splitter")`; these do not introduce simulation parameters.
+
+Use `detector("D1")` or `beam_block("Pump dump")` to end a free-space path,
+for example `fiber_launch() >> detector("D1")`. Both rotate their entrance
+face toward the incoming beam and have no output port. The detector symbol
+is generic; specify a detector type in its label when needed. The
+[Franson example](../examples/franson.py) uses both components.
 
 ### SPDC sources
 

@@ -173,6 +173,28 @@
       ],
       "center_basis": "Center of the crystal body rectangle x=58..93, y=14..60.",
       "adaptations": "Only the crystal body is retained; BBO, Type I, source captions, and all demonstration beams are removed. Pump, signal, and idler paths are generated from the component ports."
+    },
+    {
+      "file": "fs-detector.svg",
+      "origin": "original beampath schematic artwork",
+      "sha256": "9b01bf02be5ef937300330b043d7b1dc864f898fb29bec842caa89948a676b6e",
+      "center": [
+        0,
+        0
+      ],
+      "center_basis": "Origin on the input axis, 22 units behind the flat entrance face.",
+      "design_basis": "Original blue D-shaped detector symbol from the Franson example. The beam meets its flat face at (-22, 0)."
+    },
+    {
+      "file": "fs-beam-block.svg",
+      "origin": "original beampath schematic artwork",
+      "sha256": "e4caf92ce1cb2c0f988cbd16cf879ab4458a0c34f79d3acc407d103f656b83ba",
+      "center": [
+        0,
+        0
+      ],
+      "center_basis": "Center of the rectangular absorber on its input axis.",
+      "design_basis": "Original dark beam block symbol from the Franson example. The beam meets its left face at (-10, 0)."
     }
   ]
 }
