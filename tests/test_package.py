@@ -26,6 +26,8 @@ def test_built_wheel_resources_work_without_checkout(tmp_path):
         assert "beampath/examples/custom_component.py" in archive.namelist()
         assert "beampath/examples/reuse.py" in archive.namelist()
         assert "beampath/examples/zwm.py" in archive.namelist()
+        for name in ("hom", "chsh", "hbt", "swapping"):
+            assert f"beampath/examples/{name}.py" in archive.namelist()
         for name in ("spdc_collinear", "shared_optic", "fiber_bends", "composition"):
             assert f"beampath/examples/{name}.py" not in archive.namelist()
     code = """

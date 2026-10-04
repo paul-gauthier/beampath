@@ -27,6 +27,10 @@ EXPECTED_COUNTS = {
     "fiber_splitter": 4,
     "spdc": 5,
     "zwm": 9,
+    "hom": 10,
+    "chsh": 13,
+    "hbt": 9,
+    "swapping": 24,
 }
 SVG = "{http://www.w3.org/2000/svg}"
 

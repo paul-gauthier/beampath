@@ -14,7 +14,7 @@ python -m beampath.examples --diagram hello --png
 Outputs go to `build/examples/`. Use `--diagram all` for every example;
 add `--pdf` for PDF. PNG/PDF need the [export dependencies](api.md#export).
 
-[hello](#hello) · [cage](#cage) · [fiber_splitter](#fiber_splitter) · [franson](#franson) · [ghz_path_identity](#ghz_path_identity) · [mirror_heading](#mirror_heading) · [mixed_fiber](#mixed_fiber) · [mzi](#mzi) · [rendering](#rendering) · [reuse](#reuse) · [spdc](#spdc) · [zwm](#zwm)
+[hello](#hello) · [cage](#cage) · [chsh](#chsh) · [fiber_splitter](#fiber_splitter) · [franson](#franson) · [ghz_path_identity](#ghz_path_identity) · [hbt](#hbt) · [hom](#hom) · [mirror_heading](#mirror_heading) · [mixed_fiber](#mixed_fiber) · [mzi](#mzi) · [rendering](#rendering) · [reuse](#reuse) · [spdc](#spdc) · [swapping](#swapping) · [zwm](#zwm)
 
 ## hello
 
@@ -67,6 +67,52 @@ setup.save("cage.svg")
 ```
 
 [Source](../examples/cage.py)
+
+## chsh
+
+A CHSH Bell test with independently chosen Alice and Bob polarization analyzers.
+
+The compact source represents compensated SPDC prepared in the singlet
+|Ψ−⟩ = (|HV⟩ − |VH⟩) / √2; source preparation and collection optics are omitted.
+Assume polarization-preserving routing and a PBS convention that transmits H
+and reflects V in each analyzer's local basis. Each HWP at θ/2 selects the
+linear-polarization measurement basis θ, with transmitted/reflected outcomes +/−.
+
+Alice chooses a = 0° or a′ = 45°; Bob chooses b = 22.5° or b′ = −22.5°.
+The slash-separated HWP labels are alternative settings, not simultaneous ones.
+From coincidence counts, E = (N++ + N−− − N+− − N−+) / Ntotal. The ideal singlet
+gives E(a,b) = −cos(2(a−b)) and |S| = 2√2 for
+S = E(a,b) + E(a,b′) + E(a′,b) − E(a′,b′).
+
+See [CHSH (1969)](https://doi.org/10.1103/PhysRevLett.23.880) and the entangled
+source of [Kwiat et al. (1995)](https://doi.org/10.1103/PhysRevLett.75.4337).
+
+![chsh diagram](../examples/images/chsh.png)
+
+```python
+from beampath.components import HWP, PBS, beam_block, detector, laser, mirror, spdc
+
+
+def analyzer(path, name, angles, *, turn):
+    settings = " / ".join(f"{angle / 2:g}°" for angle in angles)
+    split = path >> HWP(f"{name} HWP\n{settings}") >> PBS(turn=turn)
+    split.straight() >> detector(f"{name} +")
+    split.reflect() >> detector(f"{name} −")
+
+
+alice_angles = (0, 45)
+bob_angles = (22.5, -22.5)
+setup = laser("Pump") >> spdc("SPDC\nΨ−", opening_angle=60)
+setup.out("pump") >> beam_block("Pump dump")
+alice = setup.out("signal") >> mirror("", heading="east")
+bob = setup.out("idler") >> mirror("", heading="east")
+analyzer(alice, "Alice", alice_angles, turn="left")
+analyzer(bob, "Bob", bob_angles, turn="right")
+
+setup.save("chsh.svg")
+```
+
+[Source](../examples/chsh.py)
 
 ## fiber_splitter
 
@@ -171,6 +217,70 @@ setup.save("ghz_path_identity.svg")
 ```
 
 [Source](../examples/ghz_path_identity.py)
+
+## hbt
+
+A heralded Hanbury Brown–Twiss measurement of an SPDC single-photon source.
+
+An idler click heralds its signal partner, which is split between D1 and D2.
+Conditioning on the herald measures the signal's autocorrelation: in the
+low-click-probability regime, `g_h^(2)(0) ≈ N_h N_h12 / (N_h1 N_h2)`, using herald
+singles, herald–D1/D2 coincidences, and triple coincidences in consistent windows.
+An ideal heralded single photon gives zero triple coincidences; multipair
+emission and background can increase them. Coincidence processing is not drawn.
+
+This SPDC version uses the heralded anticorrelation principle of
+[Grangier, Roger, and Aspect (1986)](https://doi.org/10.1209/0295-5075/1/4/004).
+
+![hbt diagram](../examples/images/hbt.png)
+
+```python
+from beampath.components import bandpass_filter, beam_block, beamsplitter, detector, laser, mirror, spdc
+
+setup = laser("Pump") >> spdc(opening_angle=60)
+setup.out("pump") >> beam_block("Pump dump")
+setup.out("idler") >> detector("Herald")
+
+signal = setup.out("signal") >> bandpass_filter() >> mirror("", heading="east")
+split = signal >> beamsplitter("50:50", turn="left")
+split.straight() >> detector("D1")
+split.reflect() >> detector("D2")
+
+setup.save("hbt.svg")
+```
+
+[Source](../examples/hbt.py)
+
+## hom
+
+Hong–Ou–Mandel interference: two SPDC photons meet at one 50:50 beamsplitter.
+
+Assume degenerate signal and idler photons with the same polarization, matched
+spectral filters, and overlapping spatial modes at the beamsplitter. Scanning
+the delay τ produces a dip in D1–D2 coincidences when the wavepackets overlap;
+ideal indistinguishable photons leave together through either output.
+The labeled delay represents a scanned path length, not a simulated time.
+
+Based on [Hong, Ou, and Mandel (1987)](https://doi.org/10.1103/PhysRevLett.59.2044).
+
+![hom diagram](../examples/images/hom.png)
+
+```python
+from beampath.components import bandpass_filter, beam_block, beamsplitter, detector, laser, mirror, spdc
+
+setup = laser("Pump") >> spdc("SPDC\nDegenerate", opening_angle=60)
+setup.out("pump") >> beam_block("Pump dump")
+
+signal = setup.out("signal") >> bandpass_filter("Matched filter") >> mirror("", heading="east")
+idler = setup.out("idler") >> bandpass_filter("Matched filter") >> mirror("Delay τ", heading="north")
+combined = signal.join(idler, beamsplitter("50:50", turn="left"))
+combined.straight() >> detector("D1")
+combined.reflect() >> detector("D2")
+
+setup.save("hom.svg")
+```
+
+[Source](../examples/hom.py)
 
 ## mirror_heading
 
@@ -291,6 +401,61 @@ setup.save("spdc.svg")
 ```
 
 [Source](../examples/spdc.py)
+
+## swapping
+
+Entanglement swapping with two singlet-pair sources and a partial Bell measurement.
+
+Each compact source represents compensated SPDC preparing
+|Ψ−⟩ = (|HV⟩ − |VH⟩) / √2; source preparation and collection optics are omitted.
+A shared pulsed pump synchronizes the sources. One photon from each pair meets
+at a 50:50 NPBS, with matched spectra, spatial modes, and arrival times; the
+other photons go to Alice and Bob's HWP–PBS polarization analyzers.
+
+In the one-pair-per-source sector, a B1–B2 coincidence selects the antisymmetric
+singlet of the interfering photons and leaves the remote photons in a singlet.
+This identifies one Bell state, not a complete Bell measurement. Fourfold events
+(B1, B2, one Alice detector, one Bob detector) verify the swapped correlations;
+higher-order SPDC emission and background are neglected. Routing preserves the
+local H/V bases, and a HWP at θ/2 selects analyzer angle θ.
+
+Based on [Pan et al. (1998)](https://doi.org/10.1103/PhysRevLett.80.3891).
+
+![swapping diagram](../examples/images/swapping.png)
+
+```python
+from beampath.components import HWP, PBS, bandpass_filter, beam_block, beamsplitter, detector, laser, mirror, spdc
+
+
+def analyzer(path, name, angle, *, turn):
+    split = path >> HWP(f"{name} HWP\n{angle}/2") >> PBS(turn=turn)
+    split.straight() >> detector(f"{name} +")
+    split.reflect() >> detector(f"{name} −")
+
+
+setup = laser("Pulsed pump") >> beamsplitter("Pump splitter", turn="right")
+pair1 = (setup.straight() >> spdc("SPDC 1\nΨ−", opening_angle=60)).end
+pair2 = (
+    setup.reflect() >> mirror("", heading="east") >> spdc("SPDC 2\nΨ−", opening_angle=60)
+).end
+for source in (pair1, pair2):
+    source.out("pump") >> beam_block("Pump dump")
+
+inner1 = pair1.out("idler") >> bandpass_filter("Matched filter") >> mirror("", heading="east")
+inner2 = pair2.out("signal") >> bandpass_filter("Matched filter") >> mirror("Delay τ", heading="north")
+bell = inner1.join(inner2, beamsplitter("Bell measurement\n50:50", turn="left"))
+bell.straight() >> detector("B1")
+bell.reflect() >> detector("B2")
+
+alice = pair1.out("signal") >> mirror("", heading="east")
+bob = pair2.out("idler") >> mirror("", heading="east")
+analyzer(alice, "Alice", "α", turn="left")
+analyzer(bob, "Bob", "β", turn="right")
+
+setup.save("swapping.svg")
+```
+
+[Source](../examples/swapping.py)
 
 ## zwm
 
