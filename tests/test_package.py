@@ -20,6 +20,7 @@ def test_built_wheel_resources_work_without_checkout(tmp_path):
         assert "beampath/examples/hello.py" in archive.namelist()
         assert "beampath/examples/custom_component.py" in archive.namelist()
         assert "beampath/examples/composition.py" in archive.namelist()
+        assert "beampath/examples/zwm.py" in archive.namelist()
     code = """
 import sys
 import runpy
@@ -50,7 +51,7 @@ sys.argv = ["beampath.examples", "--diagram", "all", "--output-dir", "all-exampl
 runpy.run_module("beampath.examples", run_name="__main__")
 assert {p.stem for p in Path("all-examples").glob("*.svg")} == {
     "hello", "cage", "mirror_heading", "mzi", "franson", "shared_optic", "reuse", "composition", "rendering", "custom_component",
-    "mixed_fiber", "fiber_bends", "fiber_splitter", "spdc", "spdc_collinear",
+    "mixed_fiber", "fiber_bends", "fiber_splitter", "spdc", "spdc_collinear", "zwm",
 }
 assert 'cairosvg' not in sys.modules
 assert 'pypdf' not in sys.modules

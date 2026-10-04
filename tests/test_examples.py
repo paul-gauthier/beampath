@@ -23,6 +23,7 @@ EXAMPLES = {
     "fiber_splitter": 4,
     "spdc": 5,
     "spdc_collinear": 4,
+    "zwm": 8,
 }
 SVG = "{http://www.w3.org/2000/svg}"
 
@@ -68,6 +69,43 @@ def test_franson_analyzers_have_matching_nonzero_arm_imbalance():
     assert len(detectors) == 4
     assert imbalances[0] > 0
     assert imbalances[0] == pytest.approx(imbalances[1])
+
+
+def test_zwm_overlaps_idlers_and_recombines_separate_signals():
+    from beampath.examples.zwm import build
+
+    path = build()
+    layout = path.layout()
+    crystals = [node for node in path.setup.optics if node.spec.definition.name == "spdc"]
+    c1, c2 = crystals
+    connections = path.setup.connections
+    idler, = [edge for edge in connections if edge.source == c1.id and edge.output == "idler"]
+    assert (idler.target, idler.input) == (c2.id, "idler_in")
+    incoming = next(s for s in layout.segments if s.id == idler.id)
+    outgoing, = [s for s in layout.segments if s.source == c2.id and s.output == "idler"]
+    assert incoming.end == outgoing.start
+    assert tuple((b - a) / incoming.length for a, b in zip(incoming.start, incoming.end)) == (
+        pytest.approx(tuple((b - a) / outgoing.length for a, b in zip(outgoing.start, outgoing.end)))
+    )
+
+    signal_ends, signal_inputs, pump_sources = [], set(), set()
+    nodes = {node.id: node for node in path.setup.optics}
+    for crystal in crystals:
+        assert not any(edge.target == crystal.id and edge.input == "signal_in" for edge in connections)
+        pump, = [edge for edge in connections if edge.target == crystal.id and edge.input == "in"]
+        while nodes[pump.source].spec.definition.name == "mirror":
+            pump, = [edge for edge in connections if edge.target == pump.source]
+        pump_sources.add(pump.source)
+        signal, = [edge for edge in connections if edge.source == crystal.id and edge.output == "signal"]
+        assert nodes[signal.target].spec.definition.name == "mirror"
+        end, = [edge for edge in connections if edge.source == signal.target]
+        signal_ends.append(end.target)
+        signal_inputs.add(end.input)
+    assert len(pump_sources) == 1
+    assert nodes[pump_sources.pop()].spec.definition.name == "beamsplitter"
+    assert signal_ends[0] == signal_ends[1]
+    assert nodes[signal_ends[0]].spec.definition.name == "beamsplitter"
+    assert signal_inputs == {"primary", "secondary"}
 
 
 @pytest.mark.parametrize("name,count", EXAMPLES.items())
@@ -135,4 +173,12 @@ def test_examples_export_pdf_with_vector_artwork_and_credits(tmp_path, entry_poi
         root = ET.parse(tmp_path / f"{name}.svg").getroot()
         assert float(reader.pages[0].mediabox.width) == pytest.approx(float(root.get("width")) * .75)
         expected = root.find(f"{SVG}metadata/{SVG}metadata[@id='asset-attribution-manifest']").text
-        assert reader.metadata["/beampath-attribution"] == expected
+        # Each format solves the layout independently. Compare coordinates at
+        # SVG's 12-significant-digit precision, ignoring solver roundoff while
+        # keeping all attribution text and graph identities exact.
+        def svg_precision(value):
+            return float(f"{float(value):.12g}")
+
+        assert json.loads(reader.metadata["/beampath-attribution"], parse_float=svg_precision) == (
+            json.loads(expected, parse_float=svg_precision)
+        ), name

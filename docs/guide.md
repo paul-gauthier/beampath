@@ -257,6 +257,7 @@ See [example commands](development.md#running-examples) for all CLI options.
 | [fiber_splitter.py](../examples/fiber_splitter.py) | A fiber monitor branch | [Image](../examples/images/fiber_splitter.png) |
 | [spdc.py](../examples/spdc.py) | SPDC pump, signal, and idler branches | [Image](../examples/images/spdc.png) |
 | [spdc_collinear.py](../examples/spdc_collinear.py) | Collinear SPDC with shared downstream optics | [Image](../examples/images/spdc_collinear.png) |
+| [zwm.py](../examples/zwm.py) | ZWM induced coherence with overlapping idler modes | [Image](../examples/images/zwm.png) |
 | [reuse.py](../examples/reuse.py) | Reusable chains and spacing constraints | [Image](../examples/images/reuse.png) |
 | [composition.py](../examples/composition.py) | Independently renderable stages with copied branches | [Image](../examples/images/composition.png) |
 | [rendering.py](../examples/rendering.py) | Styling and export | [Image](../examples/images/rendering.png) |

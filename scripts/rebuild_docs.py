@@ -23,6 +23,7 @@ SAVE_CALLS = {
     "mixed_fiber": 'setup.save("mixed_fiber.svg")',
     "spdc": 'source.save("spdc.svg")',
     "spdc_collinear": 'source.save("spdc_collinear.svg")',
+    "zwm": 'pump.save("zwm.svg")',
 }
 DOCS_MARKER = re.compile(r"<!-- DOCS:(BEGIN|END) ([a-z][a-z0-9_]*) -->")
 

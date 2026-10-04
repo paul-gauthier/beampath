@@ -6,7 +6,7 @@ from ._export import add_export_arguments, export_setup
 
 EXAMPLES = (
     "hello", "cage", "mirror_heading", "mzi", "franson", "shared_optic", "reuse", "composition", "rendering",
-    "custom_component", "mixed_fiber", "fiber_bends", "fiber_splitter", "spdc", "spdc_collinear",
+    "custom_component", "mixed_fiber", "fiber_bends", "fiber_splitter", "spdc", "spdc_collinear", "zwm",
 )
 
 

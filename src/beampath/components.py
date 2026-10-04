@@ -176,7 +176,9 @@ def _spdc(parameters):
         raise ComponentError("SPDC opening_angle must be between 0 and 180 degrees")
     return Geometry((Port("in", "input"), Port("pump", "output"),
                      Port("signal", "output", -angle / 2),
-                     Port("idler", "output", angle / 2)))
+                     Port("idler", "output", angle / 2),
+                     Port("signal_in", "input", -angle / 2, required=False),
+                     Port("idler_in", "input", angle / 2, required=False)))
 
 
 _FIBER_TRANSITION_ARTWORK = _art(
@@ -333,6 +335,10 @@ def spdc(label: str | None = None, *, opening_angle: float = 20):
     The pump continues straight; signal and idler turn by -/+ half the angle.
     Zero makes all three outputs collinear, retaining their distinct names.
     Select a path with out("pump"), out("signal"), or out("idler").
+    The default input "in" is the required pump. Optional "signal_in" and
+    "idler_in" inputs continue along their corresponding output rays; use
+    path.connect(crystal.input("idler_in")) to overlap an incoming idler.
+    Unconnected optional inputs are not drawn. Overlap is geometrical only.
     Crystal material and polarization type belong in the optional label.
     """
     return component("spdc", label, opening_angle=opening_angle)

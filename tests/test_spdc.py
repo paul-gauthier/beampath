@@ -3,7 +3,10 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from beampath import ComponentError, ConnectionError, HWP, QWP, Style, beam, component, iris, spdc
+from beampath import (
+    ComponentError, ConnectionError, HWP, LayoutError, QWP, Setup, Style,
+    beam, component, iris, spdc,
+)
 from beampath.render import tag
 
 
@@ -14,7 +17,9 @@ def test_spdc_outputs_follow_incidence(factory, incidence, opening):
     source = beam(incidence) >> factory(opening_angle=opening)
     origin = source.end.instance
     assert origin.spec.display_label == "SPDC"
-    assert [p.name for p in origin.geometry.ports] == ["in", "pump", "signal", "idler"]
+    assert [p.name for p in origin.geometry.ports] == [
+        "in", "pump", "signal", "idler", "signal_in", "idler_in",
+    ]
     for name, turn in (("pump", 0), ("signal", -opening / 2), ("idler", opening / 2)):
         downstream = source.out(name) >> iris()
         assert downstream.end.instance.heading == pytest.approx((incidence + turn) % 360)
@@ -43,6 +48,64 @@ def test_spdc_rejects_invalid_opening_angle(angle):
 def test_spdc_polarization_type_is_a_label_not_a_parameter():
     with pytest.raises(ComponentError, match="Unknown component parameter.*type"):
         component("spdc", type="II")
+
+
+@pytest.mark.parametrize("mode", ["signal", "idler"])
+@pytest.mark.parametrize("incidence", [0, 31.4, 90])
+@pytest.mark.parametrize("opening", [0, 20, 180])
+@pytest.mark.parametrize("pump_first", [False, True])
+def test_optional_input_continues_along_output_in_either_connection_order(
+    mode, incidence, opening, pump_first,
+):
+    setup = Setup()
+    crystal = setup.add(spdc(opening_angle=opening))
+    direction = (incidence + (-1 if mode == "signal" else 1) * opening / 2) % 360
+    dx, dy = math.cos(math.radians(direction)), math.sin(math.radians(direction))
+    incoming = setup.beam(direction, origin=(-300 * dx, -300 * dy)) >> iris()
+    if pump_first:
+        setup.beam(incidence).connect(crystal.input())
+    incoming.connect(crystal.input(mode + "_in"))
+    if not pump_first:
+        setup.beam(incidence).connect(crystal.input())
+    crystal.out(mode).append(iris(), distance=300)
+
+    layout = setup.layout()
+    assert crystal.instance.heading == pytest.approx(incidence)
+    incoming, = [s for s in layout.segments if s.input == mode + "_in"]
+    outgoing, = [s for s in layout.segments if s.source == crystal.id and s.output == mode]
+    assert incoming.end == outgoing.start
+    for segment in (incoming, outgoing):
+        assert tuple((b - a) / segment.length for a, b in zip(segment.start, segment.end)) == (
+            pytest.approx((dx, dy), abs=1e-8)
+        )
+    assert {s.input for s in layout.segments if s.target == crystal.id} == {"in", mode + "_in"}
+
+
+@pytest.mark.parametrize("mode", ["signal", "idler"])
+@pytest.mark.parametrize("failure", ["direction", "duplicate"])
+def test_optional_input_rejects_invalid_connections_without_consuming_path(mode, failure):
+    pump = beam() >> spdc()
+    crystal = pump.end
+    direction = -10 if mode == "signal" else 10
+    if failure == "duplicate":
+        existing = pump.setup.beam(direction) >> iris()
+        existing.connect(crystal.input(mode + "_in"))
+    incoming = pump.setup.beam(direction + (1 if failure == "direction" else 0)) >> iris()
+    before = pump.setup.optics, pump.setup.connections
+    message = "incoming direction disagrees" if failure == "direction" else "input is already connected"
+    with pytest.raises(ConnectionError, match=message):
+        incoming.connect(crystal.input(mode + "_in"))
+    assert (pump.setup.optics, pump.setup.connections) == before
+    incoming >> iris()  # Failed connections leave the cursor available.
+
+
+@pytest.mark.parametrize("mode", ["signal", "idler"])
+def test_optional_input_does_not_replace_required_pump(mode):
+    setup = Setup()
+    crystal = setup.add(spdc())
+    setup.beam(-10 if mode == "signal" else 10).connect(crystal.input(mode + "_in"))
+    with pytest.raises(LayoutError, match=r"\.in: required input is not connected"):
+        setup.layout()
 
 
 @pytest.mark.parametrize("incidence", [0, 90, 180, 270, 31.4])

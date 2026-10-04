@@ -19,7 +19,7 @@ Import components from `beampath.components`; they are also exported from
 | `fiber_coupler()` | Fiber coupler | Free space in → fiber out; follows incidence, optional `heading` constrains the section |
 | `mirror()` | Mirror | Free space in/out; requires exactly one of `angle`, `heading`, or `turn` |
 | `beamsplitter()` | NPBS | Free space inputs `primary` and optional `secondary`; outputs `straight` and `reflect`; `turn="left"` (default) or `"right"` |
-| `spdc()` | SPDC | Free space input `in`; outputs `pump`, `signal`, `idler`; `opening_angle=20` is the full signal–idler angle in degrees |
+| `spdc()` | SPDC | Required pump input `in`; optional `signal_in`, `idler_in`; outputs `pump`, `signal`, `idler`; `opening_angle=20` is the full signal–idler angle in degrees |
 | `iris()` | Iris | Straight-through free space |
 | `LP()` | LP | Linear polarizer; straight-through free space |
 | `HWP()` | HWP | Half-wave plate; straight-through free space |
@@ -87,6 +87,53 @@ Runnable example: [spdc_collinear.py](../examples/spdc_collinear.py).
 Each input still accepts only one connection. Beampath does not track separate
 wavelengths or polarizations through the common path. Unused outputs coincident
 with the selected output do not add separate stubs over that path.
+
+### Induced coherence
+
+Every SPDC crystal also has optional `signal_in` and `idler_in` inputs.
+Each shares its corresponding output's position and propagation direction:
+the incoming ray continues forward through the crystal along the outgoing ray.
+Connect an existing path with `path.connect(crystal.input("idler_in"))`, where
+`crystal` is an `OpticRef` obtained from `.end` or `Setup.add()`.
+Both inputs are always available and remain invisible when unconnected.
+The default pump input `in` is still required. Incompatible incoming headings
+raise `ConnectionError`; incompatible placement constraints raise `LayoutError`.
+
+A basic Zou–Wang–Mandel (ZWM) setup splits a common pump between two crystals,
+sends the first idler through the second crystal, and recombines the two signals
+at a beamsplitter. Only `idler_in` is used here; `signal_in` supports the symmetric
+arrangement. The second crystal's `idler` output is the common downstream path.
+
+<!-- DOCS:BEGIN zwm -->
+```python
+from beampath import beam
+from beampath.components import beamsplitter, fiber_coupler, mirror, spdc
+
+pump = beam() >> beamsplitter("Pump splitter", turn="right")
+c1 = (pump.straight() >> spdc("NL1", opening_angle=60)).end
+c2 = (
+    pump.reflect()
+    >> mirror("Pump mirror", heading="east")
+    >> spdc("NL2", opening_angle=60)
+).end
+
+# The incoming idler continues along NL2's outgoing idler mode.
+c1.out("idler").connect(c2.input("idler_in"))
+
+s1 = c1.out("signal") >> mirror("Signal 1", heading="east")
+s2 = c2.out("signal") >> mirror("Signal 2", heading="north")
+combined = s1.join(s2, beamsplitter("Signal combiner", turn="left"))
+combined.straight() >> fiber_coupler("Signal detection")
+pump.save("zwm.svg")
+```
+<!-- DOCS:END zwm -->
+
+![ZWM setup with a shared pump, idlers aligned through NL2, and recombined signals](../examples/images/zwm.png)
+
+Runnable example: [zwm.py](../examples/zwm.py). The example uses a schematic
+60° opening angle to keep the drawing compact; the default remains 20°.
+Beampath enforces geometrical ray overlap. It does not simulate coherence or
+check wavelength, polarization, or temporal mode matching.
 
 ## Paths and shared optics
 
