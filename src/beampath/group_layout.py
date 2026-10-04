@@ -37,9 +37,7 @@ def _finish(setup, placements, style, children=()):
     fixed_nodes = {ident for child in children for ident in child.placements}
     edges = [edge for edge in setup.connections if edge.medium == "fiber"
              and edge.source in placements and edge.target in placements]
-    beam_edges = [edge for edge in setup.connections if edge.medium == "free_space"
-                  and edge.source in placements and edge.target in placements]
-    _orient_fiber_components(placements, edges, beam_edges, style, fixed_nodes)
+    _orient_fiber_components(placements, edges, setup, style, fixed_nodes)
     segments = _beam_segments(setup, placements, style)
     opens = [fixed_fibers.get(route.id, route) for route in _open_fibers(setup, placements, style)]
 
@@ -88,7 +86,7 @@ def _finish(setup, placements, style, children=()):
 
 def _place_children(scope, setup, style, children):
     blocks = {group.entry: _group(setup, group, style) for group in children}
-    placements = _place(scope, style, blocks)
+    placements = _place(scope, style, blocks, drawing=setup)
     moved = []
     for entry, block in blocks.items():
         a, b = block.placements[entry].position, placements[entry].position

@@ -7,7 +7,7 @@ import math
 from .errors import LayoutError
 from .geometry import add, aligned, overlap, translated, unit
 from .layout import (
-    FiberRoute, PlacedOptic, Segment, _assemble_layout, _beam_segments,
+    FiberRoute, PlacedOptic, Segment, _assemble_layout, _beam_geometry, _beam_segments,
     _labels, _project, _root_origins, _solve_beams, footprint, segment_intersects,
 )
 from .routing import connector_lead, inflate, refine_routes, route_connection
@@ -96,22 +96,23 @@ def _move(placements, delta):
             for ident, p in placements.items()}
 
 
-def _collides(candidate, placed, beam_edges, clearance):
+def _collides(candidate, placed, drawing, style, clearance):
     if any(overlap(a.bounds, b.bounds, clearance) for a in candidate.values() for b in placed.values()):
         return True
     combined = {**placed, **candidate}
-    for edge in beam_edges:
-        if edge.source not in combined or edge.target not in combined:
-            continue
-        a = combined[edge.source].port_position(edge.output)
-        b = combined[edge.target].port_position(edge.input)
+    beams = _beam_geometry(drawing, {ident: p.instance for ident, p in combined.items()}, style,
+                           {ident: p.rotation for ident, p in combined.items()})
+    for beam in beams:
+        segment = beam.placed(combined)
         for p in combined.values():
-            if p.id not in {edge.source, edge.target} and segment_intersects(a, b, p.bounds):
+            if p.id not in {segment.source, segment.target} and segment_intersects(
+                    segment.start, segment.end, p.bounds):
                 return True
     return False
 
 
-def _place(setup, style, blocks=None):
+def _place(setup, style, blocks=None, *, drawing=None):
+    drawing = setup if drawing is None else drawing
     blocks = blocks or {}
     grouped = {ident for block in blocks.values() for ident in block.placements}
     nodes = {n.id: n for n in setup.optics}
@@ -138,7 +139,7 @@ def _place(setup, style, blocks=None):
         if index not in fixed:
             origins[members[0]] = (0, 0)
         local[index] = _solve_beams(subset, [e for e in beam_edges if e.source in subset],
-                                    origins, style, nested)
+                                    origins, style, nested, drawing=drawing)
         if index in fixed:
             hints.update({ident: p.position for ident, p in local[index].items()})
     for index, members in enumerate(sections):
@@ -161,10 +162,10 @@ def _place(setup, style, blocks=None):
                 for rotation in dict.fromkeys((original.rotation, 0, 90, 180, 270)):
                     candidate = replace(original, rotation=rotation,
                                         bounds=translated(footprint(original.instance, rotation), original.position))
-                    if not _collides({ident: candidate}, placed, beam_edges, 0):
+                    if not _collides({ident: candidate}, placed, drawing, style, 0):
                         block = {ident: candidate}
                         break
-        if _collides(block, placed, beam_edges, 0):
+        if _collides(block, placed, drawing, style, 0):
             raise LayoutError(f"{sections[index][0]}: pinned component artwork overlaps or obstructs a beam")
         placed.update(block)
         done.add(index)
@@ -229,18 +230,18 @@ def _place(setup, style, blocks=None):
         candidate = _move(block, delta)
         # Shift an unpinned section to a clear lane, preserving its solved beam
         # geometry. A right-of-all-artwork fallback guarantees finite progress.
-        if _collides(candidate, placed, beam_edges, style.clearance):
+        if _collides(candidate, placed, drawing, style, style.clearance):
             right = max(p.bounds[2] for p in placed.values())
             left = min(p.bounds[0] for p in candidate.values())
             candidate = _move(candidate, (max(style.pitch, right + style.pitch - left), 0))
-        if _collides(candidate, placed, beam_edges, style.clearance):
+        if _collides(candidate, placed, drawing, style, style.clearance):
             raise LayoutError(f"{sections[index][0]}: cannot place fiber-connected section clear of existing optics")
         placed.update(candidate)
         done.add(index)
     return {ident: replace(placed[ident], instance=setup._nodes[ident]) for ident in nodes}
 
 
-def _orient_fiber_components(placements, edges, beam_edges, style, fixed=()):
+def _orient_fiber_components(placements, edges, drawing, style, fixed=()):
     # Select the drawing pose using actual neighboring ports, after placement.
     # The graph's heading remains None and its geometry is never rewritten.
     for ident, original in list(placements.items()):
@@ -256,7 +257,7 @@ def _orient_fiber_components(placements, edges, beam_edges, style, fixed=()):
                 continue
             candidate = replace(original, rotation=rotation, bounds=bounds)
             if _collides({ident: candidate}, {key: p for key, p in placements.items() if key != ident},
-                         beam_edges, 0):
+                         drawing, style, 0):
                 continue
             trial = {**placements, ident: candidate}
             try:
@@ -301,8 +302,7 @@ def mixed_layout(setup, style):
     _validate(setup)
     placements = _place(setup, style)
     edges = [e for e in setup.connections if e.medium == "fiber"]
-    _orient_fiber_components(placements, edges,
-                            [e for e in setup.connections if e.medium == "free_space"], style)
+    _orient_fiber_components(placements, edges, setup, style)
     segments = _beam_segments(setup, placements, style)
     open_routes = _open_fibers(setup, placements, style)
     fibers = [route_connection(edge, placements, style) for edge in edges] + open_routes

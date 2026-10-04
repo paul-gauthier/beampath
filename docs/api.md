@@ -26,7 +26,8 @@ Most diagrams can start from the [examples](gallery.md). Import core tools from
   `at=(x, y)` pins a component reference point. The beam origin places its first
   optic. Pins and distances are required constraints; incompatible ones fail.
   Automatic spacing can stretch free-space paths to separate overlapping optics
-  and clear beams crossing unrelated optics within a free-space section. The
+  and clear beams, including open stubs and incoming leads, crossing unrelated
+  optics within a free-space section. The
   deterministic search tries up to 1,000 candidate states; budget exhaustion is
   reported separately from infeasible constraints. Explicit pins and distances
   are never relaxed.

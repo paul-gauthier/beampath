@@ -1,7 +1,7 @@
 """Resolve fixed headings and globally solve segment lengths with Kiwi."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import Mapping
 import math
@@ -123,6 +123,21 @@ class Segment:
     @property
     def length(self) -> float:
         return math.dist(self.start, self.end)
+
+
+@dataclass(frozen=True)
+class _Beam:
+    """A visible beam with endpoint offsets in fixed component frames."""
+
+    segment: Segment
+    start_owner: str
+    end_owner: str
+    direction: Point
+
+    def placed(self, placements):
+        return replace(self.segment,
+                       start=add(placements[self.start_owner].position, self.segment.start),
+                       end=add(placements[self.end_owner].position, self.segment.end))
 
 
 @dataclass(frozen=True)
@@ -298,7 +313,7 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
             if port.kind == "input" and port.required and not setup._input_used(node.id, port.name):
                 raise LayoutError(f"{node.id}.{port.name}: required input is not connected")
 
-    placements = _solve_beams(nodes, setup.connections, anchors, style)
+    placements = _solve_beams(nodes, setup.connections, anchors, style, drawing=setup)
     return _finish_free_space(setup, placements, style)
 
 
@@ -314,7 +329,7 @@ def _root_origins(setup):
 _BEAM_SEARCH_LIMIT = 1000
 
 
-def _solve_beams(nodes, connections, anchors, style, blocks=None):
+def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing):
     """Continuous spacing for one or more already oriented free-space sections."""
     solver = kiwi.Solver()
     constraints = []
@@ -325,6 +340,7 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None):
     poses = {ident: placed.rotation for block in blocks.values()
              for ident, placed in block.placements.items()}
     footprints = {ident: footprint(node, poses.get(ident)) for ident, node in nodes.items()}
+    beams = _beam_geometry(drawing, nodes, style, poses)
 
     def add_constraint(constraint):
         solver.addConstraint(constraint)
@@ -411,34 +427,29 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None):
                         alternatives.append(coordinates[second.id] - coordinates[first.id]
                                             >= separation)
                 return f"{a.id} and {b.id}: component artwork overlaps", alternatives
-        for edge in connections:
-            source, target = placements[edge.source], placements[edge.target]
-            start, end = source.port_position(edge.output), target.port_position(edge.input)
-            direction = unit(source.port_direction(edge.output))
+        for beam in beams:
+            segment = beam.placed(placements)
             for obstacle in items:
-                if obstacle.id in {edge.source, edge.target} or not segment_intersects(
-                        start, end, obstacle.bounds):
+                if obstacle.id in {segment.source, segment.target} or not segment_intersects(
+                        segment.start, segment.end, obstacle.bounds):
                     continue
                 alternatives = []
                 # Separating-axis theorem for a finite segment and an axis-aligned
                 # box: box axes plus the segment normal. Fixed headings keep all
                 # projected endpoints linear, including displaced optical ports.
-                offset = rotate(source.instance.port(edge.output).position,
-                                source.instance.heading)
-                for axis in ((1, 0), (0, 1), (-direction[1], direction[0])):
-                    beam_start = ((xs[source.id] + offset[0]) * axis[0]
-                                  + (ys[source.id] + offset[1]) * axis[1])
-                    advance = sum(d * a for d, a in zip(direction, axis))
-                    if abs(advance) < EPSILON:
-                        advance = 0.0
-                    beam_end = beam_start + lengths[edge.id] * advance
+                for axis in ((1, 0), (0, 1), (-beam.direction[1], beam.direction[0])):
+                    beam_start, beam_end = (
+                        (xs[owner] + offset[0]) * axis[0] + (ys[owner] + offset[1]) * axis[1]
+                        for owner, offset in ((beam.start_owner, beam.segment.start),
+                                              (beam.end_owner, beam.segment.end)))
+                    advance = sum(d * a for d, a in zip(beam.direction, axis))
                     low, high = ((beam_start, beam_end) if advance >= 0
                                  else (beam_end, beam_start))
                     origin = xs[obstacle.id] * axis[0] + ys[obstacle.id] * axis[1]
                     lo, hi = _project(footprints[obstacle.id], (0, 0), axis)
                     alternatives.extend((origin + lo >= high + style.clearance,
                                          low >= origin + hi + style.clearance))
-                return (f"{edge.id}: beam crosses unrelated optic {obstacle.id}",
+                return (f"{segment.id}: beam crosses unrelated optic {obstacle.id}",
                         alternatives)
         return None
 
@@ -487,17 +498,24 @@ def _finish_free_space(setup, placements, style):
     return _assemble_layout(placements, segments, labels, style)
 
 
-def _beam_segments(setup, placements, style):
-    items = list(placements.values())
-    for index, a in enumerate(items):
-        for b in items[index + 1:]:
-            if overlap(a.bounds, b.bounds):
-                raise LayoutError(f"{a.id} and {b.id}: component artwork overlaps")
-    segments = [Segment(edge.id, placements[edge.source].port_position(edge.output),
-                        placements[edge.target].port_position(edge.input),
-                        edge.source, edge.output, edge.target, edge.input)
-                for edge in setup.connections if edge.medium == "free_space"
-                and edge.source in placements and edge.target in placements]
+def _beam_geometry(setup, nodes, style, poses=None):
+    """Describe beams once for both solving and drawing, using full port occupancy.
+
+    Both endpoints of an open beam move with its owner. A connected beam has
+    one endpoint in each component frame. Scope-only roots must not be supplied
+    here: they anchor placement but do not represent incoming light.
+    """
+    poses = poses or {}
+    placements = {ident: PlacedOptic(node, (0, 0), footprint(node, poses.get(ident)), poses.get(ident))
+                  for ident, node in nodes.items()}
+    beams = []
+    for edge in setup.connections:
+        if edge.medium != "free_space" or edge.source not in nodes or edge.target not in nodes:
+            continue
+        source, target = placements[edge.source], placements[edge.target]
+        segment = Segment(edge.id, source.port_position(edge.output), target.port_position(edge.input),
+                          edge.source, edge.output, edge.target, edge.input)
+        beams.append(_Beam(segment, edge.source, edge.target, unit(source.port_direction(edge.output))))
     for placed in placements.values():
         connected_outputs = [p for p in placed.instance.geometry.ports
                              if p.kind == "output" and p.medium == "free_space"
@@ -515,7 +533,8 @@ def _beam_segments(setup, placements, style):
                 reach = _project(placed.bounds, a, d)[1]
                 length = max(style.open_length, reach + style.clearance)
                 b = a[0] + length * d[0], a[1] + length * d[1]
-                segments.append(Segment(f"stub-{placed.id}-{index:02d}", a, b, placed.id, port.name))
+                segment = Segment(f"stub-{placed.id}-{index:02d}", a, b, placed.id, port.name)
+                beams.append(_Beam(segment, placed.id, placed.id, d))
     for index, root in enumerate(setup._roots):
         if root.input is None or root.optic not in placements:
             continue
@@ -528,8 +547,20 @@ def _beam_segments(setup, placements, style):
         reach = -_project(placed.bounds, b, d)[0]
         length = max(style.open_length, reach + style.clearance)
         a = b[0] - length * d[0], b[1] - length * d[1]
-        segments.append(Segment(f"lead-in-{placed.id}-{index:02d}", a, b,
-                                None, None, placed.id, root.input))
+        segment = Segment(f"lead-in-{placed.id}-{index:02d}", a, b, None, None, placed.id, root.input)
+        beams.append(_Beam(segment, placed.id, placed.id, d))
+    return tuple(beams)
+
+
+def _beam_segments(setup, placements, style):
+    items = list(placements.values())
+    for index, a in enumerate(items):
+        for b in items[index + 1:]:
+            if overlap(a.bounds, b.bounds):
+                raise LayoutError(f"{a.id} and {b.id}: component artwork overlaps")
+    beams = _beam_geometry(setup, {ident: p.instance for ident, p in placements.items()}, style,
+                           {ident: p.rotation for ident, p in placements.items()})
+    segments = [beam.placed(placements) for beam in beams]
     for segment in segments:
         for placed in placements.values():
             if placed.id not in {segment.source, segment.target} and segment_intersects(

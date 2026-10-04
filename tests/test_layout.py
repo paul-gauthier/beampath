@@ -110,6 +110,56 @@ def test_input_stub_crossing_unrelated_optic_fails():
         drawing.layout()
 
 
+def _small_optic(name, ports, default_input="in"):
+    return ComponentSpec(ComponentDefinition(
+        name, "", Artwork((0, 0), (-5, -5, 5, 5),
+                          svg='<svg xmlns="http://www.w3.org/2000/svg"/>'),
+        lambda p: Geometry(ports), default_input=default_input))
+
+
+@pytest.mark.parametrize("direction", [0, 90, 180, 270, 31.7])
+@pytest.mark.parametrize("fixed", [False, True])
+def test_spacing_accounts_for_displaced_open_output(direction, fixed):
+    source = _small_optic("source", (Port("out", "output"),), None)
+    turn = _small_optic("turn", (Port("in", "input", position=(7, 3)),
+                                 Port("out", "output", 90, position=(7, 3))))
+    blocker = _small_optic("blocker", (Port("in", "input", draw_lead_in=False),))
+    drawing = Setup()
+    path = drawing.beam(direction) >> source
+    path.append(turn, distance=190 if fixed else None)
+    drawing.beam(direction, origin=rotate((190, 70), direction)) >> blocker
+    before = drawing.optics, drawing.connections
+    if fixed:
+        with pytest.raises(LayoutError, match="stub-.*beam crosses unrelated optic"):
+            drawing.layout()
+    else:
+        result = drawing.layout()
+        connected = next(s for s in result.segments if s.target == path.end.id)
+        stub = next(s for s in result.segments if s.source == path.end.id)
+        assert connected.length > 190
+        assert stub.length == pytest.approx(result.style.open_length)
+        assert stub.start == pytest.approx(result.placements[path.end.id].port_position("out"))
+        assert not segment_intersects(stub.start, stub.end, result.placements["optic-003"].bounds)
+        repeated = drawing.layout()
+        for ident, placed in result.placements.items():
+            assert placed.position == pytest.approx(repeated.placements[ident].position)
+    assert (drawing.optics, drawing.connections) == before
+
+
+@pytest.mark.parametrize("direction", [0, 90, 37])
+def test_spacing_moves_an_obstacle_clear_of_an_incoming_lead(direction):
+    source = _small_optic("source", (Port("out", "output"),), None)
+    sink = _small_optic("sink", (Port("in", "input"),))
+    drawing = Setup()
+    drawing.beam(direction) >> sink
+    movable = drawing.beam(direction + 90, origin=rotate((-70, -190), direction)) >> source >> sink
+    result = drawing.layout()
+    lead = next(s for s in result.segments if s.source is None)
+    connected = next(s for s in result.segments if s.target == movable.end.id)
+    assert connected.length > 190
+    assert not segment_intersects(lead.start, lead.end, result.placements[movable.end.id].bounds)
+
+
 def test_cage_layout_and_labels():
     p = runpy.run_module("beampath.examples.cage")["setup"]
     result = p.layout()
