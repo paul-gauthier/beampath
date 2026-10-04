@@ -17,6 +17,7 @@ SAVE_CALLS = {
     "hello": 'setup.save("hello.svg")',
     "mzi": 'mzi.save("mzi.svg")',
     "reuse": 'path.save("reuse.svg")',
+    "composition": 'stage.save("stage.svg")\nsetup.save("composition.svg")',
     "rendering": 'path.save("rendering.png", style=STYLE, width=2400, dpi=600)',
     "custom_component": 'fork.save("custom_component.svg")',
     "mixed_fiber": 'setup.save("mixed_fiber.svg")',

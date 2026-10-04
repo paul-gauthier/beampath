@@ -12,7 +12,8 @@ from beampath import (
     Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, Style, beam,
     bandpass_filter, beamsplitter, fiber_launch, fiber_coupler, iris, HWP, QWP, mirror, nd_filter,
 )
-from beampath.examples import cage_system, mzi
+from beampath.examples import cage_system
+from beampath.examples.shared_optic import build as shared_optic
 from beampath.layout import artwork_point
 from beampath.render import artwork_bytes, render_svg, tag
 
@@ -42,7 +43,7 @@ def test_incoming_stub_renders_with_arrow_and_open_source_metadata():
 
 
 def test_each_physical_optic_and_beam_segment_render_once():
-    p = mzi()
+    p = shared_optic()
     layout = p.layout()
     root = ET.fromstring(render_svg(layout))
     groups = root.find(f"{tag('g')}[@id='components']")
@@ -319,7 +320,7 @@ def test_png_matches_svg_raster_and_retains_credits(tmp_path):
         pytest.skip("Optional PNG converter or native Cairo is unavailable")
     from PIL import Image
     from io import BytesIO
-    p = mzi()
+    p = shared_optic()
     path = tmp_path / "mzi.png"
     p.save(path, width=1800, dpi=600)
     actual = Image.open(path)
@@ -343,7 +344,7 @@ def test_pdf_is_vector_with_selectable_labels_page_size_and_credits(tmp_path, wi
     except (ImportError, OSError):
         pytest.skip("Optional PDF converter or native Cairo is unavailable")
 
-    path = mzi()
+    path = shared_optic()
     style = Style(pitch=220, font_size=20, beam_color="#1f77b4")
     dest = tmp_path / ("mzi" + suffix)
     assert path.save(dest, style=style, width=width, dpi=dpi) == dest

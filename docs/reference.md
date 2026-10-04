@@ -96,7 +96,7 @@ Import `Setup`, `beam`, and `chain` from `beampath`.
 |---|---|
 | `beam(direction="east", origin=(0, 0))` | Start a path in a new setup |
 | `drawing = Setup(); drawing.beam(...)` | Start paths belonging to the same setup |
-| `path >> spec` / `path >>= spec` | Append a component or chain and advance the same cursor |
+| `path >> spec` / `path >>= spec` | Append a component, chain, or copy of a built path's setup; advance the same cursor |
 | `path.append(spec, distance=None, at=None)` | Append with spacing or position constraints; return the same cursor |
 | `chain(*specs)` | Compose a reusable sequence of specifications |
 | `path.out(name)` | Select an output with a separate cursor |
@@ -123,6 +123,47 @@ create separate setups; use `Setup.beam()` for multiple roots in one diagram.
 beamsplitter, output names are relative to the **primary** incident beam; the
 secondary incident beam must follow its reflected direction. Both inputs share
 the same two output ports. Saving any path saves the whole setup.
+
+### Copying built paths
+
+`path.append(stage, distance=None, at=None)` accepts a `Path` from another
+setup. It copies that setup's entire graph, including branches and shared
+optics, into the receiving setup with new physical instances and IDs unique
+within that setup. Component specifications are shared as immutable templates.
+The source graph and cursor remain unchanged. The receiver advances in place
+to the copied source cursor's endpoint and selected output, and is returned.
+`>>` and `>>=` perform the same copy without placement arguments.
+
+The source must have a component, an unconsumed cursor, and exactly one initial
+beam root from which every source optic is reachable. Its selected output must
+be unused; terminal endpoints and splitter output groups are also accepted.
+The root's bound input becomes the entry, even if it is not the component's
+default input. Appending within the same setup is rejected. Use `connect()` or
+`join()` for shared physical optics; those methods still require one owner.
+Failed copies leave both graphs and cursors intact.
+
+When appending downstream, the new connection replaces the copied root and
+its incoming stub. An inputless source such as a laser cannot be appended
+downstream. `beam() >> stage` can copy such a source as the first stage; the
+receiving beam supplies the new initial direction and origin.
+
+Free-space attachment inherits the upstream incidence. Fiber attachment keeps
+the stage's launch direction, including one authored with `beam("north")`.
+Explicit component headings continue to constrain the graph. Translation does
+not rotate pins or absolute headings; incompatible directions fail during the
+append, and incompatible positions fail during layout.
+
+The combined setup solves spacing and fiber routes together. `at=` fixes the
+copied entry's reference point and translates every explicit pin by the offset
+from the source root origin to that point. Without `at=`, a downstream copy
+discards its standalone root anchor but retains authored explicit pins at their
+original coordinates. An empty receiver instead translates pins to its beam
+origin, or to `at=` when supplied. `distance=` constrains only the new boundary
+connection; it is unavailable on an empty receiver or a fiber connection.
+Internal distances are preserved.
+
+See [Composing stages](guide.md#composing-stages) for a runnable example with
+independent rendering and repeated insertion.
 
 ## Headings and angles
 

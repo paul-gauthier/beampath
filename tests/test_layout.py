@@ -9,7 +9,7 @@ from beampath import (
     Port, QWP, Setup, Style, beam, beamsplitter, component, fiber_launch, fiber_coupler, iris,
     mirror, register_component,
 )
-from beampath.examples import cage_system, mzi
+from beampath.examples import cage_system
 from beampath.layout import segment_intersects
 
 
@@ -147,7 +147,13 @@ def test_multiline_label_bounds_cover_longest_line_and_all_rows(direction, font_
 
 
 def test_unequal_mzi_closes_shared_optic_by_stretching():
-    p = mzi()
+    # Keep this unequal-arm fixture independent of the presentation example.
+    p = fiber_launch() >> beamsplitter("NPBS1", turn="right")
+    a = p.straight() >> HWP() >> mirror(heading="south")
+    b = p.reflect() >> LP() >> QWP() >> mirror(heading="east")
+    recombined = a.join(b, beamsplitter("NPBS2", turn="left"))
+    recombined.reflect() >> fiber_coupler()
+    recombined.straight() >> iris()
     result = p.layout()
     combined = next(o for o in result.placements.values() if o.instance.spec.label == "NPBS2")
     incident = [s for s in result.segments if s.source is not None and s.target == combined.id]

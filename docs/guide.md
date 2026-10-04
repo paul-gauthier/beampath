@@ -4,7 +4,8 @@
 
 Contents: [Building a diagram](#building-a-diagram) ·
 [Branching](#branching-and-shared-optics) · [Fiber](#fiber-connections) ·
-[Reuse and positioning](#reuse-and-positioning) · [Export](#styling-and-export) ·
+[Reuse and positioning](#reuse-and-positioning) · [Composing stages](#composing-stages) ·
+[Export](#styling-and-export) ·
 [Examples](#more-examples)
 
 ## Building a diagram
@@ -129,6 +130,54 @@ reference point. These are required constraints, so incompatible choices raise
 See [spacing rules](reference.md#spacing-and-positioning) for origins, clearance,
 and how constraints apply to a chain.
 
+## Composing stages
+
+Build each stage with an ordinary function returning a path. Append that path
+with `>>` or `.append(stage, at=...)` to insert an independent copy of its whole
+setup, including branches and shared optics. Return the output cursor where
+the combined setup should continue:
+
+<!-- DOCS:BEGIN composition -->
+```python
+from beampath import beam
+from beampath.components import *
+
+
+def build_stage():
+    split = (
+        fiber_launch("Input") >> HWP() >> fiber_coupler("Output")
+        >> fiber_splitter("99:1", turn="left")
+    )
+    split.turn() >> fiber_power_meter("Monitor")
+    return split.straight()
+
+stage = build_stage()
+setup = beam() >> fiber_laser("Laser")
+setup.append(stage, at=(300, 0))
+setup.append(stage, at=(300, 600))
+setup >> fiber_power_meter("Final power")
+stage.save("stage.svg")
+setup.save("composition.svg")
+```
+<!-- DOCS:END composition -->
+
+![Two copies of a polarization stage with independent monitor branches](../examples/images/composition.png)
+
+Runnable example: [composition.py](../examples/composition.py).
+
+The original `stage` remains independently renderable after both insertions.
+As with component appends, `setup` advances in place. Use `beam() >> stage` to
+start a fresh copy before making further edits. A stage ending at a splitter
+can return the splitter's output group instead, letting the caller choose
+`.straight()`, `.turn()`, or `.reflect()` after insertion.
+
+Stages need one initial beam root, with every optic connected to it. The
+combined diagram solves spacing and fiber routes together. `at=` pins the
+stage entry and translates its explicit pins; it does not freeze its layout.
+See the [composition reference](reference.md#copying-built-paths) for heading,
+positioning, and source requirements. `chain()` remains useful for reusable
+linear lists of component specifications.
+
 ## Styling and export
 
 Pass a `Style` to layout or export to change spacing, labels, and appearance.
@@ -209,5 +258,6 @@ See [example commands](development.md#running-examples) for all CLI options.
 | [spdc.py](../examples/spdc.py) | SPDC pump, signal, and idler branches | [Image](../examples/images/spdc.png) |
 | [spdc_collinear.py](../examples/spdc_collinear.py) | Collinear SPDC with shared downstream optics | [Image](../examples/images/spdc_collinear.png) |
 | [reuse.py](../examples/reuse.py) | Reusable chains and spacing constraints | [Image](../examples/images/reuse.png) |
+| [composition.py](../examples/composition.py) | Independently renderable stages with copied branches | [Image](../examples/images/composition.png) |
 | [rendering.py](../examples/rendering.py) | Styling and export | [Image](../examples/images/rendering.png) |
 | [custom_component.py](../examples/custom_component.py) | Custom artwork and named ports | [Image](../examples/images/custom_component.png) |
