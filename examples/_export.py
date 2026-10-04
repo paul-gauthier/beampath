@@ -1,5 +1,4 @@
 """Shared command-line export options for the example scripts."""
-import argparse
 from pathlib import Path
 
 
@@ -25,10 +24,3 @@ def export_setup(setup, name, args, *, style=None):
         pdf = args.output_dir / f"{name}.pdf"
         setup.save(pdf, style=style)
         print(f"Created {pdf}")
-
-
-def run_example(factory, name, *, style=None):
-    parser = argparse.ArgumentParser(description=factory.__doc__)
-    add_export_arguments(parser)
-    args = parser.parse_args()
-    export_setup(factory(), name, args, style=style)

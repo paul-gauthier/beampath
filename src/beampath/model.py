@@ -96,6 +96,7 @@ class InputRef:
 
 @dataclass(frozen=True)
 class OpticRef:
+    """A stable reference to a physical optic, used to select its inputs or outputs."""
     setup: Setup
     id: str
 
@@ -104,6 +105,7 @@ class OpticRef:
         return self.setup._nodes[self.id]
 
     def input(self, name: str | None = None) -> InputRef:
+        """Select a named input, or the component default when omitted, for path.connect()."""
         name = name if name is not None else self.instance.spec.definition.default_input
         if name is None:
             raise ConnectionError(f"{self.id}: this optic has no default input")
@@ -111,6 +113,7 @@ class OpticRef:
         return InputRef(self, name)
 
     def out(self, name: str) -> Path:
+        """Select an unused output of this physical optic and return a path cursor."""
         self.instance.port(name, "output")
         if self.setup._output_used(self.id, name):
             raise ConnectionError(f"{self.id}.{name}: output is already connected")
@@ -127,7 +130,7 @@ class OpticRef:
 
 
 class Setup:
-    """An owned graph. Public views are immutable; editing uses paths or refs."""
+    """Own a diagram containing paths, branches, and shared physical optics."""
 
     def __init__(self):
         self._nodes: dict[str, OpticInstance] = {}
@@ -166,9 +169,11 @@ class Setup:
             self._layout_groups += children
 
     def beam(self, direction: str | float = "east", *, origin: Point = (0, 0)) -> Path:
+        """Start another path in this setup, with the given heading and first-optic origin."""
         return Path(self, initial_heading=heading(direction), origin=point(origin))
 
     def add(self, spec: ComponentSpec, *, at: Point | None = None) -> OpticRef:
+        """Create a physical optic for explicit shared-input connections; return its reference."""
         if not isinstance(spec, ComponentSpec):
             raise ConnectionError("add() needs a component specification")
         at = point(at) if at is not None else None
@@ -289,16 +294,22 @@ class Setup:
         self._nodes = nodes
 
     def layout(self, *, style: Style | None = None) -> Layout:
+        """Solve positions and return an immutable snapshot of placements, beams, fibers, and labels."""
         from .layout import layout
         return layout(self, style=style)
 
     def to_svg(self, *, style: Style | None = None) -> str:
+        """Return editable SVG text for the whole diagram without writing a file."""
         from .render import render_svg
         return render_svg(self.layout(style=style))
 
     def save(self, filename: str | FilePath, *, style: Style | None = None,
              width: int | None = None, dpi: float = 96) -> FilePath:
-        """Save SVG, PNG, or vector PDF, choosing the format by filename suffix."""
+        """Save the whole diagram as SVG, PNG, or vector PDF, selected by the filename suffix.
+
+        Return the output file path. PNG width is in pixels; PDF page width is
+        width / dpi inches. SVG rejects width. PNG and PDF need their optional
+        converter dependencies and native Cairo."""
         from .render import save
         return save(self, filename, style=style, width=width, dpi=dpi)
 
@@ -313,7 +324,7 @@ def _distance(value: float | None) -> float | None:
 
 
 class Path:
-    """A mutable cursor in a Setup, either at an output or an output group."""
+    """A mutable cursor in a setup. Appending advances this same object; assignment does not copy it."""
 
     def __init__(self, setup: Setup, end: str | None = None, port: str | None = None,
                  *, initial_heading: float = 0, origin: Point = (0, 0)):
@@ -330,6 +341,7 @@ class Path:
 
     @property
     def end(self) -> OpticRef:
+        """Return a stable reference to the current physical optic, retained when this cursor advances."""
         if self._end is None:
             raise ConnectionError("This path has no first component yet")
         return OpticRef(self.setup, self._end)
@@ -349,12 +361,13 @@ class Path:
 
     def append(self, spec: ComponentSpec | Chain | Path, *, distance: float | None = None,
                at: Point | None = None) -> Path:
-        """Append a specification, chain, or independent copy of a path's setup.
+        """Append a component, chain, or independent copy of a built path; advance and return this cursor.
 
-        A copied path exposes its setup's sole root as the entry and keeps its
-        selected endpoint. ``at`` translates explicit pins with that entry;
-        ``distance`` constrains only the new incoming connection.
-        """
+        distance fixes the new free-space gap between ports. at pins the
+        component reference point. Both apply to the first optic of a chain.
+        A copied path includes its entire setup, branches, and shared optics.
+        It needs one connected root; the source remains unchanged. at moves
+        the entry and its explicit pins together. See rows() for stacked stages."""
         self._check()
         if not isinstance(spec, (ComponentSpec, Chain, Path)):
             raise ConnectionError("append() needs a component specification, chain, or path")
@@ -463,6 +476,7 @@ class Path:
         return self.append(spec)
 
     def out(self, name: str) -> Path:
+        """Select a named output using a new cursor; choose before continuing from a splitter."""
         self._check()
         return self.end.out(name)
 
@@ -476,6 +490,7 @@ class Path:
         return self.out("reflect")
 
     def connect(self, target: InputRef, *, distance: float | None = None) -> OpticRef:
+        """Connect to an existing optic input in the same setup; consume this cursor and return its optic reference."""
         self._check()
         if not isinstance(target, InputRef):
             raise ConnectionError("connect() needs an optic.input(name) reference")
@@ -494,6 +509,7 @@ class Path:
         return target.optic
 
     def join(self, other: Path, spec: ComponentSpec, *, at: Point | None = None) -> Path:
+        """Join two paths in the same setup at a new two-input optic; consume both cursors and return its output cursor."""
         self._check()
         if not isinstance(other, Path) or other.setup is not self.setup:
             raise ConnectionError("Joined paths must belong to the same setup")

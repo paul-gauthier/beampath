@@ -1,5 +1,5 @@
-"""Render a branched stage independently and insert two copies into a setup."""
-# DOCS:BEGIN
+"""Build a reusable branched stage and connect two copies in stacked rows."""
+
 from beampath import rows
 from beampath.components import *
 
@@ -11,20 +11,9 @@ def build_stage():
     )
     split.turn() >> fiber_power_meter("Monitor")
     return split.straight()
-# DOCS:END
-from beampath.examples import run_example
 
 
-def build():
-    """Connect two stages as rows, including their monitor branches."""
-    # DOCS:BEGIN
-    stage = build_stage()
-    cleanup = fiber_laser("Laser") >> stage
-    setup = rows(cleanup, stage)
-    setup >> fiber_power_meter("Final power")
-    # DOCS:END
-    return setup
-
-
-if __name__ == "__main__":
-    run_example(build, "composition")
+stage = build_stage()
+cleanup = fiber_laser("Laser") >> stage
+setup = rows(cleanup, stage)
+setup >> fiber_power_meter("Final power")

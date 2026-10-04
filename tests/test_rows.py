@@ -1,3 +1,4 @@
+import runpy
 """Stage groups retain topology and defer row placement until rendering."""
 from dataclasses import replace
 
@@ -10,7 +11,6 @@ from beampath import (
 )
 from beampath.geometry import envelope, overlap
 from beampath.layout import segment_intersects
-from beampath.examples.mzi import build as build_mzi
 
 
 def stage(label="Stage", *, monitor=True, direction="east", origin=(0, 0)):
@@ -188,7 +188,7 @@ def test_single_row_and_group_endpoint_keep_normal_path_semantics():
 
 
 def test_shared_optics_are_copied_once_inside_a_row():
-    mzi = build_mzi()
+    mzi = runpy.run_module("beampath.examples.mzi")["setup"]
     result = rows(fiber_laser() >> inline_power_meter(), mzi)
     assert len(result.setup.optics) == len(mzi.setup.optics) + 2
     recombiner, = [n for n in result.setup.optics if n.spec.label == "NPBS2"]

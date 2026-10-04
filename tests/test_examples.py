@@ -1,3 +1,4 @@
+import runpy
 from pathlib import Path
 import json
 import subprocess
@@ -6,8 +7,12 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
+from beampath.examples._discovery import example_names
 
-EXAMPLES = {
+EXAMPLES = example_names()
+
+
+EXPECTED_COUNTS = {
     "hello": 5,
     "cage": 13,
     "mirror_heading": 3,
@@ -28,10 +33,34 @@ EXAMPLES = {
 SVG = "{http://www.w3.org/2000/svg}"
 
 
-def test_franson_analyzers_have_matching_nonzero_arm_imbalance():
-    from beampath.examples.franson import build
+def test_importing_all_examples_only_constructs_diagrams(tmp_path):
+    code = '''
+from importlib import import_module
+import sys
+from beampath import Path, Setup
+from beampath.definitions import _registry
+from beampath.examples._discovery import example_names
 
-    path = build()
+def no_render(*args, **kwargs):
+    raise AssertionError("Examples must not render or save on import")
+
+Setup.layout = Setup.to_svg = Setup.save = no_render
+Path.layout = Path.to_svg = Path.save = no_render
+registered = dict(_registry)
+sys.argv = ["example", "--not-a-cli"]
+for name in example_names():
+    module = import_module("beampath.examples." + name)
+    assert isinstance(module.setup, (Path, Setup))
+assert _registry == registered
+'''
+    result = subprocess.run([sys.executable, "-c", code], cwd=tmp_path,
+                            check=True, capture_output=True, text=True)
+    assert result.stdout == result.stderr == ""
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_franson_analyzers_have_matching_nonzero_arm_imbalance():
+    path = runpy.run_module("beampath.examples.franson")["setup"]
     layout = path.layout()
     nodes = {optic.id: optic for optic in path.setup.optics}
     incoming, outgoing = {}, {}
@@ -72,9 +101,7 @@ def test_franson_analyzers_have_matching_nonzero_arm_imbalance():
 
 
 def test_zwm_overlaps_idlers_and_recombines_separate_signals():
-    from beampath.examples.zwm import build
-
-    path = build()
+    path = runpy.run_module("beampath.examples.zwm")["setup"]
     layout = path.layout()
     crystals = [node for node in path.setup.optics if node.spec.definition.name == "spdc"]
     c1, c2 = crystals
@@ -108,18 +135,20 @@ def test_zwm_overlaps_idlers_and_recombines_separate_signals():
     assert signal_inputs == {"primary", "secondary"}
 
 
-@pytest.mark.parametrize("name,count", EXAMPLES.items())
-def test_example_scripts_run_from_another_directory(tmp_path, name, count):
+@pytest.mark.parametrize("name", EXAMPLES)
+def test_example_runner_works_from_another_directory(tmp_path, name):
     project = Path(__file__).resolve().parents[1]
     destination = tmp_path / "output"
     subprocess.run(
-        [sys.executable, str(project / "examples" / f"{name}.py"),
+        [sys.executable, "-m", "beampath.examples", "--diagram", name,
          "--output-dir", str(destination)],
         cwd=tmp_path, check=True, capture_output=True, text=True,
     )
     assert sorted(p.name for p in destination.iterdir()) == [f"{name}.svg"]
     root = ET.parse(destination / f"{name}.svg").getroot()
-    assert len(root.find(f"{SVG}g[@id='components']")) == count
+    assert len(root.find(f"{SVG}g[@id='components']")) > 0
+    if name in EXPECTED_COUNTS:
+        assert len(root.find(f"{SVG}g[@id='components']")) == EXPECTED_COUNTS[name]
     assert root.find(f"{SVG}g[@id='optical-path']").get("stroke") == (
         "#1f77b4" if name == "rendering" else "#CC0000"
     )
@@ -139,26 +168,27 @@ def test_all_examples_export_png_with_requested_width_and_credits(tmp_path):
     )
     assert {p.stem for p in tmp_path.glob("*.svg")} == set(EXAMPLES)
     assert {p.stem for p in tmp_path.glob("*.png")} == set(EXAMPLES)
-    for name, count in EXAMPLES.items():
+    for name in EXAMPLES:
         with Image.open(tmp_path / f"{name}.png") as image:
             assert image.width == 640
             assert image.info["dpi"] == pytest.approx((600, 600), abs=.02)
             manifest = json.loads(image.info["beampath-attribution"])
-            assert len(manifest["optics"]) == count
+            assert len(manifest["optics"]) > 0
+            if name in EXPECTED_COUNTS:
+                assert len(manifest["optics"]) == EXPECTED_COUNTS[name]
             assert all(asset["attribution"] for asset in manifest["assets"])
 
 
-@pytest.mark.parametrize("entry_point", ["script", "module"])
-def test_examples_export_pdf_with_vector_artwork_and_credits(tmp_path, entry_point):
+@pytest.mark.parametrize("diagram", ["hello", "all"])
+def test_examples_export_pdf_with_vector_artwork_and_credits(tmp_path, diagram):
     pypdf = pytest.importorskip("pypdf")
     try:
         import cairosvg
     except (ImportError, OSError):
         pytest.skip("Optional PDF converter or native Cairo is unavailable")
     project = Path(__file__).resolve().parents[1]
-    command = ([str(project / "examples" / "hello.py")] if entry_point == "script"
-               else ["-m", "beampath.examples", "--diagram", "all"])
-    names = {"hello"} if entry_point == "script" else set(EXAMPLES)
+    command = ["-m", "beampath.examples", "--diagram", diagram]
+    names = {"hello"} if diagram == "hello" else set(EXAMPLES)
     subprocess.run(
         [sys.executable, *command, "--pdf", "--png", "--width", "640",
          "--output-dir", str(tmp_path)],

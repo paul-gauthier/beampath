@@ -1,15 +1,11 @@
 """Define inline artwork and three named output ports for a custom component."""
-# DOCS:BEGIN
+
 from beampath import (
-    Artwork, ComponentDefinition, Geometry, Port,
-    beam, component, register_component,
+    Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, beam,
 )
 from beampath.components import *
-# DOCS:END
-from beampath.examples import run_example
 
 
-# DOCS:BEGIN
 def fork_geometry(parameters):
     return Geometry((
         Port("in", "input", 0, (-10, 0)),
@@ -19,7 +15,7 @@ def fork_geometry(parameters):
     ))
 
 
-register_component(ComponentDefinition(
+fork_spec = ComponentSpec(ComponentDefinition(
     name="fork",
     default_label="Fork",
     artwork=Artwork(
@@ -31,19 +27,8 @@ register_component(ComponentDefinition(
     ),
     resolve=fork_geometry,
 ))
-# DOCS:END
 
-
-def build():
-    """Connect different optics to a custom component's three outputs."""
-    # DOCS:BEGIN
-    fork = beam() >> component("fork")
-    fork.out("forward") >> LP()
-    fork.out("up") >> HWP()
-    fork.out("down") >> QWP()
-    # DOCS:END
-    return fork
-
-
-if __name__ == "__main__":
-    run_example(build, "custom_component")
+setup = beam() >> fork_spec
+setup.out("forward") >> LP()
+setup.out("up") >> HWP()
+setup.out("down") >> QWP()

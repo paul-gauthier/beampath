@@ -18,6 +18,14 @@ from .model import OpticInstance, Setup
 
 @dataclass(frozen=True)
 class Style:
+    """Control spacing, labels, beam appearance, and fiber routing.
+
+    pitch sets the minimum automatic port gap; clearance reserves artwork
+    space; margin surrounds the canvas; open_length sets nominal open stubs.
+    font_size, font_family, and label_gap control labels. beam_color and
+    beam_width control free space; fiber_color, fiber_width, and fiber_radius
+    control cables; background sets the canvas color. Dimensions are diagram
+    units. Numeric options must be positive, except fiber_radius may be zero."""
     pitch: float = 190
     clearance: float = 20
     margin: float = 80
@@ -163,6 +171,7 @@ class Label:
 
 @dataclass(frozen=True)
 class Layout:
+    """An immutable rendered snapshot with placements, segments, fibers, labels, bounds, and style."""
     placements: Mapping[str, PlacedOptic]
     segments: tuple[Segment, ...]
     labels: tuple[Label, ...]

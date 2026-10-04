@@ -7,11 +7,11 @@ from io import StringIO
 import json
 import keyword
 from pathlib import Path
-import re
+import ast
 import tokenize
 import xml.etree.ElementTree as ET
 
-from beampath.examples.hello import build
+from beampath.examples.hello import setup
 from beampath.render import _png_metadata, element, number, tag
 
 
@@ -21,12 +21,10 @@ WIDTH, HEIGHT = 2640, 1260
 
 def build_social_svg():
     """Preserve the original optics and add editable, highlighted SVG text."""
-    readme = (PROJECT / "README.md").read_text(encoding="utf-8")
-    code = re.search(
-        r"<!-- DOCS:BEGIN hello -->\n```python\n(.*?)\n```",
-        readme, re.DOTALL,
-    ).group(1)
-    root = ET.fromstring(build().to_svg())
+    source = (PROJECT / "examples/hello.py").read_text(encoding="utf-8")
+    docstring = ast.parse(source).body[0]
+    code = "".join(source.splitlines(keepends=True)[docstring.end_lineno:]).strip()
+    root = ET.fromstring(setup.to_svg())
     x, y, _, height = map(float, root.get("viewBox").split())
     width = height * WIDTH / HEIGHT
     root.set("width", str(WIDTH))

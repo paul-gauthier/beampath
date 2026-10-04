@@ -1,3 +1,4 @@
+import runpy
 import builtins
 from hashlib import sha256
 from importlib import resources
@@ -12,8 +13,6 @@ from beampath import (
     Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, Style, beam,
     bandpass_filter, beamsplitter, fiber_launch, fiber_coupler, iris, HWP, QWP, mirror, nd_filter,
 )
-from beampath.examples import cage_system
-from beampath.examples.shared_optic import build as shared_optic
 from beampath.layout import artwork_point
 from beampath.render import artwork_bytes, render_svg, tag
 
@@ -43,7 +42,7 @@ def test_incoming_stub_renders_with_arrow_and_open_source_metadata():
 
 
 def test_each_physical_optic_and_beam_segment_render_once():
-    p = shared_optic()
+    p = runpy.run_module("beampath.examples.shared_optic")["setup"]
     layout = p.layout()
     root = ET.fromstring(render_svg(layout))
     groups = root.find(f"{tag('g')}[@id='components']")
@@ -71,7 +70,7 @@ def test_namespaces_and_internal_svg_references():
 
 
 def test_bundled_primitives_and_provenance_are_retained():
-    p = cage_system()
+    p = runpy.run_module("beampath.examples.cage")["setup"]
     root = ET.fromstring(p.to_svg())
     manifest = json.loads(root.find(f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text)
     assert len(manifest["assets"]) == 7
@@ -126,7 +125,7 @@ def test_npbs_cube_surface_matches_beam_geometry(initial, turn):
 
 
 def test_fiber_transition_orientation_and_mirror_backing():
-    layout = cage_system().layout()
+    layout = runpy.run_module("beampath.examples.cage")["setup"].layout()
     nodes = list(layout.placements.values())
     launch, couple = nodes[0].instance, nodes[-1].instance
     assert artwork_point(launch, (85, 27))[0] < 0
@@ -320,7 +319,7 @@ def test_png_matches_svg_raster_and_retains_credits(tmp_path):
         pytest.skip("Optional PNG converter or native Cairo is unavailable")
     from PIL import Image
     from io import BytesIO
-    p = shared_optic()
+    p = runpy.run_module("beampath.examples.shared_optic")["setup"]
     path = tmp_path / "mzi.png"
     p.save(path, width=1800, dpi=600)
     actual = Image.open(path)
@@ -344,7 +343,7 @@ def test_pdf_is_vector_with_selectable_labels_page_size_and_credits(tmp_path, wi
     except (ImportError, OSError):
         pytest.skip("Optional PDF converter or native Cairo is unavailable")
 
-    path = shared_optic()
+    path = runpy.run_module("beampath.examples.shared_optic")["setup"]
     style = Style(pitch=220, font_size=20, beam_color="#1f77b4")
     dest = tmp_path / ("mzi" + suffix)
     assert path.save(dest, style=style, width=width, dpi=dpi) == dest

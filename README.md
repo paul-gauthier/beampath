@@ -5,21 +5,20 @@ beampath arrange them, and save editable SVG artwork, vector PDFs, or PNGs.
 
 ## Install
 
-Python 3.11 or later is required. Install from GitHub:
+Python 3.11 or later:
 
 ```sh
 pip install 'beampath @ git+https://github.com/paul-gauthier/beampath.git'
 ```
 
-SVG export works with the base installation. For PNG or PDF, see
-[export dependencies and Cairo setup](docs/reference.md#rendering).
+SVG export works with the base installation. For PNG/PDF, install the
+[optional exporters and Cairo](docs/api.md#export).
 
 ## Hello, beampath
 
-Start with a fiber launch, two mirrors, a half-wave plate, and a fiber coupler.
-`>>` connects them in beam order:
+<!-- HELLO:BEGIN -->
+![A fiber path folded by two mirrors, with a half-wave plate.](examples/images/hello.png)
 
-<!-- DOCS:BEGIN hello -->
 ```python
 from beampath.components import *
 
@@ -30,40 +29,27 @@ setup = (
     >> mirror(turn="left")
     >> fiber_coupler()
 )
-setup.save("hello.svg")
 ```
-<!-- DOCS:END hello -->
+<!-- HELLO:END -->
 
-![A fiber launch and fiber coupler connected through two mirrors and a half-wave plate](examples/images/hello.png)
+Save the diagram with `setup.save("hello.svg")`. Open the SVG in a browser or
+vector editor; labels remain editable. To render a bundled example:
 
-Runnable example: [hello.py](examples/hello.py).
-
-Save the code as `hello.py` and run it with Python to create `hello.svg`.
-Open the SVG in a browser or vector editor. Component labels remain editable.
-
-## What you can build
-
-- Free-space chains with mirrors, polarizers, waveplates, filters, and apertures.
-- Branching paths and interferometers with shared physical optics.
-- Fiber paths with lasers, splitters, power meters, and free-space transitions.
-- Reusable chains and custom components with your own SVG artwork and ports.
-
-Layout preserves beam headings and solves spacing, with optional position and
-distance constraints. Fiber connections route around components and labels.
-Styles control labels, colors, spacing, and cable appearance.
-
-beampath draws schematic diagrams; it does not simulate optical power or
-polarization. Connections must be acyclic: closed cavities and repeated passes
-through the same optic are unsupported. Incompatible geometry or unresolved
-overlaps produce an error identifying a nearby component or port.
+```sh
+python -m beampath.examples --diagram hello
+```
 
 ## Documentation
 
-- [User guide](docs/guide.md)
-- [Practical reference](docs/reference.md)
-- [Example index](docs/guide.md#more-examples)
-- [Rendering reference](docs/reference.md#rendering)
-- [Development notes](docs/development.md)
+- **[Example gallery](docs/gallery.md):** pictures and complete code for setups,
+  branching, fiber connections, reusable stages, and custom components.
+- **[Components](docs/components.md):** every builtin, with a minimal demo and API.
+- **[API and conventions](docs/api.md):** construction, layout, styling, and export.
+- **[Development](docs/development.md):** setup, checks, and documentation generation.
+
+beampath draws schematics; it does not simulate optical power, polarization, or
+coherence. Connections must be acyclic; closed cavities and repeated passes
+through one physical optic are unsupported.
 
 ## Artwork credits
 

@@ -171,6 +171,7 @@ def _freeze(value):
 
 @dataclass(frozen=True)
 class ComponentSpec:
+    """An immutable component template. Inserting it repeatedly creates independent physical optics."""
     definition: ComponentDefinition
     label: str | None = None
     parameters: Mapping = field(default_factory=dict)
@@ -230,6 +231,7 @@ class ComponentSpec:
 
 @dataclass(frozen=True)
 class Chain:
+    """A reusable sequence of component templates; each insertion creates independent optics."""
     specs: tuple[ComponentSpec, ...]
 
     def __post_init__(self):
@@ -244,6 +246,7 @@ class Chain:
 
 
 def chain(*specs: ComponentSpec | Chain) -> Chain:
+    """Combine component specifications or existing chains into a reusable linear sequence."""
     items = []
     for spec in specs:
         if isinstance(spec, Chain):
@@ -261,6 +264,7 @@ _registry: dict[str, ComponentDefinition] = {}
 
 
 def register_component(definition: ComponentDefinition) -> None:
+    """Register a uniquely named component definition for use through component()."""
     if not isinstance(definition, ComponentDefinition):
         raise ComponentError("Expected a ComponentDefinition")
     if definition.name in _registry:
@@ -269,6 +273,7 @@ def register_component(definition: ComponentDefinition) -> None:
 
 
 def component(name: str, label: str | None = None, **parameters) -> ComponentSpec:
+    """Create a specification from a registered component name, optional label, and component parameters."""
     try:
         definition = _registry[name]
     except KeyError as exc:

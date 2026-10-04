@@ -19,6 +19,7 @@ def test_built_wheel_resources_work_without_checkout(tmp_path):
         assert "beampath/assets/fs-detector.svg" in archive.namelist()
         assert "beampath/assets/fs-beam-block.svg" in archive.namelist()
         assert "beampath/py.typed" in archive.namelist()
+        assert "beampath/components/mirror.py" in archive.namelist()
         assert "beampath/examples/hello.py" in archive.namelist()
         assert "beampath/examples/custom_component.py" in archive.namelist()
         assert "beampath/examples/composition.py" in archive.namelist()
@@ -26,19 +27,25 @@ def test_built_wheel_resources_work_without_checkout(tmp_path):
     code = """
 import sys
 import runpy
+from importlib import import_module
 from pathlib import Path
 sys.path.insert(0, sys.argv[1])
 import beampath
-from beampath.examples import cage_system, mzi
+from beampath.examples._discovery import example_names
 from beampath import nd_filter, bandpass_filter, fiber_laser, fiber_launch, fiber_coupler, fiber_power_meter
 from beampath import beam_block, detector
-from beampath.examples.mixed_fiber import build as mixed_fiber
-from beampath.examples.fiber_bends import build as fiber_bends
-from beampath.examples.fiber_splitter import build as fiber_splitter
+from beampath import components
+
+def example(name):
+    return runpy.run_module("beampath.examples." + name)["setup"]
+
 assert Path(beampath.__file__).is_relative_to(Path(sys.argv[1]))
 assert 'cairosvg' not in sys.modules
 assert 'pypdf' not in sys.modules
-for setup in (cage_system(), mzi(), nd_filter() >> bandpass_filter(), mixed_fiber(), fiber_bends(), fiber_splitter(),
+for name in components.__all__:
+    module = import_module(getattr(components, name).__module__)
+    assert module.demo().to_svg()
+for setup in (example("cage"), example("mzi"), nd_filter() >> bandpass_filter(), example("mixed_fiber"), example("fiber_bends"), example("fiber_splitter"),
               fiber_laser() >> fiber_power_meter(),
               fiber_laser() >> fiber_launch() >> fiber_coupler() >> fiber_power_meter(),
               fiber_launch() >> detector(), fiber_launch() >> beam_block()):
@@ -47,16 +54,13 @@ for setup in (cage_system(), mzi(), nd_filter() >> bandpass_filter(), mixed_fibe
     assert 'data-component' in svg
 assert 'cairosvg' not in sys.modules
 assert 'pypdf' not in sys.modules
-for name, factory in (("cage", cage_system), ("mzi", mzi)):
+for name in ("cage", "mzi"):
     sys.argv = ["beampath.examples", "--diagram", name, "--output-dir", "examples"]
     runpy.run_module("beampath.examples", run_name="__main__")
-    assert Path("examples", name + ".svg").read_text() == factory().to_svg()
+    assert Path("examples", name + ".svg").read_text() == example(name).to_svg()
 sys.argv = ["beampath.examples", "--diagram", "all", "--output-dir", "all-examples"]
 runpy.run_module("beampath.examples", run_name="__main__")
-assert {p.stem for p in Path("all-examples").glob("*.svg")} == {
-    "hello", "cage", "mirror_heading", "mzi", "franson", "shared_optic", "reuse", "composition", "rendering", "custom_component",
-    "mixed_fiber", "fiber_bends", "fiber_splitter", "spdc", "spdc_collinear", "zwm",
-}
+assert {p.stem for p in Path("all-examples").glob("*.svg")} == set(example_names())
 assert 'cairosvg' not in sys.modules
 assert 'pypdf' not in sys.modules
 """

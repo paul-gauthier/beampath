@@ -1,3 +1,4 @@
+import runpy
 from dataclasses import FrozenInstanceError
 import math
 from uuid import uuid4
@@ -9,7 +10,6 @@ from beampath import (
     Port, QWP, Setup, Style, beam, beamsplitter, component, fiber_launch, fiber_coupler, iris,
     mirror, register_component,
 )
-from beampath.examples import cage_system
 from beampath.layout import segment_intersects
 
 
@@ -110,7 +110,7 @@ def test_input_stub_crossing_unrelated_optic_fails():
 
 
 def test_cage_layout_and_labels():
-    p = cage_system()
+    p = runpy.run_module("beampath.examples.cage")["setup"]
     result = p.layout()
     grid = [(0, 0), (1, 0), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1),
             (6, 1), (7, 1), (8, 1), (9, 1), (9, 0), (10, 0)]

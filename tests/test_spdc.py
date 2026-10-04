@@ -1,3 +1,4 @@
+import runpy
 import math
 import xml.etree.ElementTree as ET
 
@@ -168,9 +169,8 @@ def test_spdc_artwork_is_only_the_crystal_body_with_user_label(label, expected):
 
 
 def test_noncollinear_example_preserves_full_opening_angle_in_layout():
-    from beampath.examples.spdc import build
 
-    setup = build()
+    setup = runpy.run_module("beampath.examples.spdc")["setup"]
     layout = setup.layout()
     source = layout.placements[setup.end.id]
     assert source.port_direction("pump") == 0

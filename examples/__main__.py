@@ -3,22 +3,19 @@ import argparse
 from importlib import import_module
 
 from ._export import add_export_arguments, export_setup
-
-EXAMPLES = (
-    "hello", "cage", "mirror_heading", "mzi", "franson", "shared_optic", "reuse", "composition", "rendering",
-    "custom_component", "mixed_fiber", "fiber_bends", "fiber_splitter", "spdc", "spdc_collinear", "zwm",
-)
+from ._discovery import example_names
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--diagram", choices=(*EXAMPLES, "all"), default="cage")
+    names = example_names()
+    parser.add_argument("--diagram", choices=(*names, "all"), default="cage")
     add_export_arguments(parser)
     args = parser.parse_args()
-    names = EXAMPLES if args.diagram == "all" else (args.diagram,)
+    names = names if args.diagram == "all" else (args.diagram,)
     for name in names:
         example = import_module(f"beampath.examples.{name}")
-        export_setup(example.build(), name, args, style=getattr(example, "STYLE", None))
+        export_setup(example.setup, name, args, style=getattr(example, "style", None))
 
 
 if __name__ == "__main__":

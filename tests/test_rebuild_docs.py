@@ -1,13 +1,18 @@
+from importlib import import_module
 from pathlib import Path
+import inspect
 import json
 import re
 import shutil
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 
 import pytest
 
-from scripts import rebuild_docs
+from beampath import Style, components
+from beampath.examples._discovery import example_names
+from scripts import rebuild_docs as docs
 
 
 PROJECT = Path(__file__).resolve().parents[1]
@@ -17,240 +22,219 @@ PROJECT = Path(__file__).resolve().parents[1]
 def checkout(tmp_path):
     project = tmp_path / "checkout"
     project.mkdir()
-    for name in rebuild_docs.DOCUMENTS:
-        destination = project / name
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        # Stale blocks make premature writes on a later failure observable.
-        text = (PROJECT / name).read_text()
-        text = re.sub(r"^(<!-- DOCS:BEGIN \w+ -->)$.*?^(<!-- DOCS:END \w+ -->)$",
-                      r"\1\nstale snippet\n\2", text, flags=re.DOTALL | re.MULTILINE)
-        destination.write_text(text)
     shutil.copytree(PROJECT / "examples", project / "examples",
-                    ignore=shutil.ignore_patterns("images", "__pycache__"))
-    images = project / "examples" / "images"
-    images.mkdir()
-    for name in rebuild_docs.EXAMPLES:
-        (images / f"{name}.png").write_bytes(f"old {name}".encode())
+                    ignore=shutil.ignore_patterns("__pycache__"))
+    shutil.copytree(PROJECT / "docs", project / "docs")
+    shutil.copy(PROJECT / "README.md", project / "README.md")
     return project
 
 
-def output_snapshot(project):
-    paths = [*(project / name for name in rebuild_docs.DOCUMENTS),
-             *sorted((project / "examples" / "images").glob("*.png"))]
-    return {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in paths}
+def snapshot(project):
+    return {p.relative_to(project): (p.read_bytes(), p.stat().st_mtime_ns)
+            for p in project.rglob("*") if p.is_file() and "build" not in p.parts
+            and "__pycache__" not in p.parts}
 
 
-def test_extract_multiple_regions_preserves_internal_indentation():
-    source = '''ignored = True
-# DOCS:BEGIN
-def helper():
-    return 1
-# DOCS:END
+def fake_preview(diagram, destination, **kwargs):
+    destination.write_bytes(f"preview {diagram.slug}".encode())
 
-def build():
-    """Do not include this wrapper."""
-    # DOCS:BEGIN
-    values = (
-        helper(),
-        2,
-    )
-    # DOCS:END
-    return values
-'''
-    assert rebuild_docs.extract_snippet(source, "example.py") == (
-        "def helper():\n    return 1\n\nvalues = (\n    helper(),\n    2,\n)"
-    )
+
+def normalize_svg(svg):
+    # Layout solves may differ at floating-point roundoff in metadata.
+    root = ET.fromstring(svg)
+    for element in root.iter():
+        if element.get("id") == "asset-attribution-manifest":
+            def rounded(value):
+                if isinstance(value, float):
+                    return round(value, 7)
+                if isinstance(value, list):
+                    return [rounded(v) for v in value]
+                if isinstance(value, dict):
+                    return {k: rounded(v) for k, v in value.items()}
+                return value
+            element.text = json.dumps(rounded(json.loads(element.text)), sort_keys=True)
+    return ET.tostring(root)
+
+
+def test_example_source_is_verbatim_except_leading_docstring():
+    code = '# Keep this comment.\nfrom beampath import beam\n\ndef stage():\n    return beam()\n\nsetup = stage()'
+    description, actual = docs.example_source('"""A description.\n\nMore detail."""\n\n' + code + '\n')
+    assert description == "A description.\n\nMore detail."
+    assert actual == code
+
+
+@pytest.mark.parametrize("source", ["setup = None", '""""""\nsetup = None', '"""Only prose."""'])
+def test_incomplete_example_reports_filename(source):
+    with pytest.raises(ValueError, match="broken.py"):
+        docs.example_source(source, "broken.py")
+
+
+def test_discovery_uses_only_public_python_basenames(tmp_path):
+    for name in ("zeta.py", "hello.py", "alpha.py", "_helper.py", "README.md"):
+        (tmp_path / name).touch()
+    assert example_names(tmp_path) == ("hello", "alpha", "zeta")
+
+
+def test_every_published_example_code_reproduces_its_setup():
+    entries = docs.examples()
+    assert [d.slug for d in entries] == list(example_names())
+    for diagram in entries:
+        namespace = {}
+        exec(compile(diagram.code, str(diagram.source), "exec"), namespace)
+        assert normalize_svg(namespace["setup"].to_svg(style=namespace.get("style"))) == normalize_svg(
+            diagram.setup.to_svg(style=diagram.style)), diagram.slug
+        assert "# DOCS:" not in diagram.code
+        assert "run_example" not in diagram.code
+
+
+def test_all_public_components_have_standalone_matching_demos():
+    entries = docs.component_demos()
+    assert {d.slug for d in entries} == set(components.__all__)
+    for diagram in entries:
+        namespace = {}
+        exec(diagram.code, namespace)
+        assert normalize_svg(namespace["setup"].to_svg()) == normalize_svg(diagram.setup.to_svg())
+        assert len(diagram.setup.setup.optics) == 1
+        assert diagram.setup.setup.optics[0].spec.definition.name == diagram.slug
+
+
+@pytest.mark.parametrize("missing", ["docstring", "demo"])
+def test_missing_component_documentation_is_an_error(monkeypatch, missing):
+    module = import_module(components.HWP.__module__)
+    if missing == "docstring":
+        monkeypatch.setattr(components.HWP, "__doc__", None)
+    else:
+        monkeypatch.delattr(module, "demo")
+    with pytest.raises(ValueError, match="HWP"):
+        docs.component_demos()
+
+
+def test_invalid_demo_contract_is_an_error():
+    def demo():
+        return None
+    with pytest.raises(ValueError, match="return setup"):
+        docs.demo_source(demo)
+
+
+def test_api_summaries_and_style_defaults_come_from_python(monkeypatch):
+    monkeypatch.setattr(components.HWP, "__doc__", "A revised waveplate description.")
+    page = docs.components_page(docs.component_demos())
+    assert "A revised waveplate description." in page
+    assert docs.signature(components.HWP) in page
+    summary = docs.api_summary()
+    assert f'| `pitch` | `{inspect.signature(Style).parameters["pitch"].default!r}` |' in summary
+    assert "Setup.save(filename, *, style=None, width=None, dpi=96)" in summary
+
+
+def test_success_check_mode_and_idempotence(checkout, monkeypatch):
+    monkeypatch.setattr(docs, "render_preview", fake_preview)
+    before = snapshot(checkout)
+    assert docs.rebuild_docs(checkout, check=True)
+    assert snapshot(checkout) == before
+    assert docs.rebuild_docs(checkout)
+    first = snapshot(checkout)
+    assert docs.rebuild_docs(checkout) == []
+    assert docs.rebuild_docs(checkout, check=True) == []
+    assert snapshot(checkout) == first
+    assert list((checkout / "build").iterdir()) == []
+
+
+def test_new_example_appears_without_registration_and_obsolete_previews_are_removed(checkout, monkeypatch):
+    monkeypatch.setattr(docs, "render_preview", fake_preview)
+    (checkout / "examples/new_optic.py").write_text('"""A new example."""\nfrom beampath import beam, iris\nsetup = beam() >> iris()\n')
+    obsolete = checkout / "examples/images/removed.png"
+    obsolete.write_bytes(b"obsolete")
+    social = checkout / "examples/images/hello-social.png"
+    social.write_bytes(b"keep social")
+    assert "examples/images/removed.png" in docs.rebuild_docs(checkout, check=True)
+    assert obsolete.exists()
+    docs.rebuild_docs(checkout)
+    assert "## new_optic" in (checkout / "docs/gallery.md").read_text()
+    assert (checkout / "examples/images/new_optic.png").read_bytes() == b"preview new_optic"
+    assert not obsolete.exists()
+    assert social.read_bytes() == b"keep social"
 
 
 @pytest.mark.parametrize("source", [
-    "value = 1\n",
-    "# DOCS:END\n",
-    "# DOCS:BEGIN\nvalue = 1\n",
-    "# DOCS:BEGIN\n# DOCS:BEGIN\n# DOCS:END\n",
-    "# DOCS:BEGIN\n\n# DOCS:END\n",
-    "# DOCS:START\nvalue = 1\n# DOCS:END\n",
+    '"""Broken."""\nsetup = None\n',
+    '"""Broken."""\nfrom beampath import beam, iris\nsetup = beam() >> iris()\nstyle = 123\n',
+    '"""Broken."""\nsetup = )\n',
 ])
-def test_invalid_source_regions_report_filename(source):
-    with pytest.raises(ValueError, match="example.py"):
-        rebuild_docs.extract_snippet(source, "example.py")
+def test_invalid_example_does_not_render_or_replace_outputs(checkout, monkeypatch, source):
+    (checkout / "examples/broken.py").write_text(source)
+    before = snapshot(checkout)
+    monkeypatch.setattr(docs, "render_preview", lambda *a, **k: pytest.fail("rendered invalid sources"))
+    with pytest.raises((ValueError, SyntaxError)):
+        docs.rebuild_docs(checkout)
+    assert snapshot(checkout) == before
 
 
-def test_real_snippets_include_supporting_code_and_match_documents():
-    assert set(rebuild_docs.SAVE_CALLS) < set(rebuild_docs.EXAMPLES)
-    for name in rebuild_docs.DOCUMENTS:
-        document = (PROJECT / name).read_text(encoding="utf-8")
-        assert rebuild_docs.update_document(document, PROJECT, name) == document
-    rendering = rebuild_docs.extract_snippet(
-        (PROJECT / "examples" / "rendering.py").read_text(), "rendering.py")
-    assert 'STYLE = Style(' in rendering
-    assert 'layout = path.layout(style=STYLE)' in rendering
-    assert 'def build' not in rendering
-    custom = rebuild_docs.extract_snippet(
-        (PROJECT / "examples" / "custom_component.py").read_text(), "custom_component.py")
-    assert 'def fork_geometry' in custom
-    assert 'register_component(ComponentDefinition(' in custom
-    assert 'fork.out("down") >> QWP()' in custom
-    assert 'run_example' not in custom
-
-
-@pytest.mark.parametrize("filename,name", [
-    ("README.md", "hello"), ("docs/guide.md", "mzi"),
-    ("docs/reference.md", "custom_component"),
-])
-def test_update_preserves_prose_links_and_unmarked_code(checkout, filename, name):
-    marker = f"<!-- DOCS:BEGIN {name} -->"
-    end = f"<!-- DOCS:END {name} -->"
-    original = (checkout / filename).read_text()
-    before, rest = original.split(marker, 1)
-    _, after = rest.split(end, 1)
-    stale = before + marker + "\nobsolete snippet\n" + end + after
-    updated = rebuild_docs.update_document(stale, checkout, filename)
-    pattern = r"(<!-- DOCS:BEGIN \w+ -->).*?(<!-- DOCS:END \w+ -->)"
-    assert re.sub(pattern, r"\1\2", updated, flags=re.DOTALL) == (
-        re.sub(pattern, r"\1\2", stale, flags=re.DOTALL)
-    )
-    assert "obsolete snippet" not in updated
-
-
-def test_documents_can_select_examples_independently_or_have_no_blocks(checkout):
-    block = "<!-- DOCS:BEGIN hello -->\nold\n<!-- DOCS:END hello -->\n"
-    for filename in ("README.md", "docs/guide.md"):
-        updated = rebuild_docs.update_document(block, checkout, filename)
-        assert 'setup.save("hello.svg")' in updated
-        assert rebuild_docs.update_document(updated, checkout, filename) == updated
-    prose = "# Notes\n\nA document without generated code.\n"
-    assert rebuild_docs.update_document(prose, checkout, "notes.md") == prose
-
-
-@pytest.mark.parametrize("replacement", [
-    "<!-- DOCS:BEGIN unknown -->",
-    "<!-- DOCS:BEGIN -->",
-    "<!-- DOCS:END hello -->",
-    "<!-- DOCS:BEGIN hello -->\n<!-- DOCS:BEGIN mzi -->",
-    "",
-])
-@pytest.mark.parametrize("filename,name", [
-    ("README.md", "hello"), ("docs/guide.md", "mzi"),
-    ("docs/reference.md", "custom_component"),
-])
-def test_invalid_document_never_renders_or_replaces_outputs(checkout, monkeypatch, replacement, filename, name):
-    document = checkout / filename
-    document.write_text(document.read_text().replace(
-        f"<!-- DOCS:BEGIN {name} -->", replacement.replace("hello", name), 1))
-    before = output_snapshot(checkout)
-    monkeypatch.setattr(rebuild_docs, "render_examples", lambda *args: pytest.fail("rendered invalid document"))
-    with pytest.raises(ValueError, match=re.escape(filename)):
-        rebuild_docs.rebuild_docs(checkout)
-    assert output_snapshot(checkout) == before
-    assert not (checkout / "build").exists()
-
-
-@pytest.mark.parametrize("name", ["hello", "custom_component"])
-def test_invalid_source_never_renders_or_replaces_outputs(checkout, monkeypatch, name):
-    source = checkout / "examples" / f"{name}.py"
-    source.write_text(source.read_text().replace("# DOCS:END", "# DOCS:BAD", 1))
-    before = output_snapshot(checkout)
-    monkeypatch.setattr(rebuild_docs, "render_examples", lambda *args: pytest.fail("rendered invalid source"))
-    with pytest.raises(ValueError, match=f"{name}.py"):
-        rebuild_docs.rebuild_docs(checkout)
-    assert output_snapshot(checkout) == before
-
-
-def test_invalid_extracted_python_never_replaces_outputs(checkout, monkeypatch):
-    source = checkout / "examples" / "hello.py"
-    source.write_text(source.read_text().replace('    setup = (', '    setup = )', 1))
-    before = output_snapshot(checkout)
-    monkeypatch.setattr(rebuild_docs, "render_examples", lambda *args: pytest.fail("rendered invalid snippet"))
-    with pytest.raises(ValueError, match="invalid documentation snippet"):
-        rebuild_docs.rebuild_docs(checkout)
-    assert output_snapshot(checkout) == before
-
-
-def test_render_failure_keeps_all_outputs_and_cleans_staging(checkout, monkeypatch):
-    before = output_snapshot(checkout)
-
-    def fail_after_one_image(project, output):
-        (output / "hello.png").write_bytes(b"partial render")
+def test_render_failure_keeps_existing_outputs_and_cleans_staging(checkout, monkeypatch):
+    before = snapshot(checkout)
+    def fail(diagram, destination, **kwargs):
+        destination.write_bytes(b"partial preview")
         raise RuntimeError("Cairo unavailable")
-
-    monkeypatch.setattr(rebuild_docs, "render_examples", fail_after_one_image)
-    with pytest.raises(RuntimeError, match="Cairo unavailable"):
-        rebuild_docs.rebuild_docs(checkout)
-    assert output_snapshot(checkout) == before
+    monkeypatch.setattr(docs, "render_preview", fail)
+    with pytest.raises(RuntimeError, match="Cairo"):
+        docs.rebuild_docs(checkout)
+    assert snapshot(checkout) == before
     assert list((checkout / "build").iterdir()) == []
 
 
-def test_incomplete_render_keeps_all_outputs(checkout, monkeypatch):
-    before = output_snapshot(checkout)
-
-    def incomplete_render(project, output):
-        for name in rebuild_docs.EXAMPLES:
-            if name != "cage":
-                (output / f"{name}.png").write_bytes(b"new preview")
-
-    monkeypatch.setattr(rebuild_docs, "render_examples", incomplete_render)
-    with pytest.raises(FileNotFoundError, match="cage.png"):
-        rebuild_docs.rebuild_docs(checkout)
-    assert output_snapshot(checkout) == before
+def test_malformed_generated_block_does_not_render(checkout, monkeypatch):
+    path = checkout / "README.md"
+    path.write_text(path.read_text().replace("<!-- HELLO:END -->", ""))
+    before = snapshot(checkout)
+    monkeypatch.setattr(docs, "render_preview", lambda *a, **k: pytest.fail("rendered invalid README"))
+    with pytest.raises(ValueError, match="README.md"):
+        docs.rebuild_docs(checkout)
+    assert snapshot(checkout) == before
 
 
-def test_success_updates_all_outputs_and_preserves_mtimes_on_second_run(checkout, monkeypatch):
-    calls = []
-
-    def render(project, output):
-        calls.append(output)
-        for name in rebuild_docs.EXAMPLES:
-            (output / f"{name}.png").write_bytes(f"new {name}".encode())
-
-    monkeypatch.setattr(rebuild_docs, "render_examples", render)
-    rebuild_docs.rebuild_docs(checkout)
-    snapshot = output_snapshot(checkout)
-    for filename in rebuild_docs.DOCUMENTS:
-        text = (checkout / filename).read_text()
-        assert "stale snippet" not in text
-        assert rebuild_docs.update_document(text, checkout, filename) == text
-    for name in rebuild_docs.EXAMPLES:
-        assert (checkout / "examples" / "images" / f"{name}.png").read_bytes() == f"new {name}".encode()
-    rebuild_docs.rebuild_docs(checkout)
-    assert output_snapshot(checkout) == snapshot
-    assert len(calls) == 2
-
-
-def test_renderer_reports_cause_without_child_traceback(monkeypatch, tmp_path):
-    def fail(command, **kwargs):
-        return subprocess.CompletedProcess(command, 1, stdout="", stderr=(
-            "Traceback (most recent call last):\n"
-            "RuntimeError: PNG export requires beampath[png] and native Cairo\n"
-        ))
-
-    monkeypatch.setattr(rebuild_docs.subprocess, "run", fail)
-    with pytest.raises(RuntimeError, match="beampath\\[png\\]") as error:
-        rebuild_docs.render_examples(tmp_path, tmp_path)
-    assert "Traceback" not in str(error.value)
-    assert "macOS library-path" in str(error.value)
-
-
-def test_cli_rebuilds_all_previews_from_another_directory_and_is_idempotent(checkout, tmp_path):
+def test_cli_rebuilds_from_another_directory_and_checks_without_rewriting(checkout, tmp_path):
     try:
         import cairosvg
     except (ImportError, OSError):
-        pytest.skip("Optional PNG converter or native Cairo is unavailable")
-    from PIL import Image
-
+        pytest.skip("PNG export requires native Cairo")
     scripts = checkout / "scripts"
     scripts.mkdir()
-    helper = scripts / "rebuild_docs.py"
-    shutil.copy(PROJECT / "scripts" / "rebuild_docs.py", helper)
-    command = [sys.executable, str(helper)]
-    first = subprocess.run(command, cwd=tmp_path, check=True, capture_output=True, text=True)
-    assert f"{len(rebuild_docs.DOCUMENTS)} documentation pages" in first.stdout
-    assert f"{len(rebuild_docs.EXAMPLES)} previews" in first.stdout
-    snapshot = output_snapshot(checkout)
+    shutil.copy(PROJECT / "scripts/rebuild_docs.py", scripts)
+    command = [sys.executable, str(scripts / "rebuild_docs.py")]
     subprocess.run(command, cwd=tmp_path, check=True, capture_output=True, text=True)
-    assert output_snapshot(checkout) == snapshot
-    assert list((checkout / "build").iterdir()) == []
-    for name in rebuild_docs.EXAMPLES:
-        with Image.open(checkout / "examples" / "images" / f"{name}.png") as image:
-            assert image.width == 2400
-            assert image.info["dpi"] == pytest.approx((600, 600), abs=.02)
-            assert json.loads(image.info["beampath-attribution"])["assets"]
+    before = snapshot(checkout)
+    subprocess.run(command + ["--check"], cwd=tmp_path, check=True, capture_output=True, text=True)
+    assert snapshot(checkout) == before
+    from PIL import Image
+    for relative, width in (("examples/images", 2400), ("docs/images/components", 960)):
+        for path in (checkout / relative).glob("*.png"):
+            if path.stem == "hello-social":
+                continue
+            with Image.open(path) as image:
+                assert image.width == width
+                assert image.info["dpi"] == pytest.approx((600, 600), abs=.02)
+                assert json.loads(image.info["beampath-attribution"])["assets"]
+    (checkout / "docs/gallery.md").write_text("stale")
+    before = snapshot(checkout)
+    result = subprocess.run(command + ["--check"], cwd=tmp_path, capture_output=True, text=True)
+    assert result.returncode == 1
+    assert "docs/gallery.md" in result.stdout
+    assert snapshot(checkout) == before
+
+
+def test_documentation_links_resolve():
+    files = [PROJECT / "README.md", *sorted((PROJECT / "docs").glob("*.md")),
+             PROJECT / "examples/README.md", PROJECT / "src/beampath/components/README.md"]
+    for path in files:
+        text = path.read_text()
+        links = re.findall(r'\]\(([^)]+)\)|src="([^"]+)"', text)
+        for markdown, html in links:
+            link = markdown or html
+            if "://" in link:
+                continue
+            target, _, anchor = link.partition("#")
+            destination = path.parent / target if target else path
+            assert destination.exists(), (path, link)
+            if anchor and destination.suffix == ".md":
+                headings = re.findall(r"^#+ (.+)$", destination.read_text(), re.MULTILINE)
+                anchors = {re.sub(r"[^\w\- ]", "", h.lower()).replace(" ", "-") for h in headings}
+                assert anchor in anchors, (path, link)
