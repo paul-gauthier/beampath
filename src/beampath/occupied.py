@@ -87,7 +87,7 @@ class _Scene:
     boxes: tuple[_Box, ...]
     lines: tuple[_Line, ...]
 
-    def conflict(self, placements, style, artwork_clearance=0, across=None):
+    def conflict(self, placements, style, across=None):
         def consider(a, b):
             if a.frame is not None and a.frame == b.frame:
                 return False  # This immutable child was already measured and checked.
@@ -101,7 +101,9 @@ class _Scene:
         for i, (a, bounds_a) in enumerate(boxes):
             for b, bounds_b in boxes[i + 1:]:
                 artwork = a.kind == b.kind == "artwork"
-                padding = artwork_clearance if artwork else 3
+                # Detect near misses too, including when label placement moves
+                # optics that were previously clear of one another.
+                padding = style.clearance if artwork else 3
                 if not consider(a, b):
                     continue
                 if {a.kind, b.kind} == {"artwork", "label"}:
@@ -119,7 +121,8 @@ class _Scene:
                 if not overlap(bounds_a, bounds_b, padding):
                     continue
                 if artwork:
-                    context = f"{a.owner} and {b.owner}: component artwork overlaps"
+                    problem = "overlaps" if overlap(bounds_a, bounds_b) else "has insufficient clearance"
+                    context = f"{a.owner} and {b.owner}: component artwork {problem}"
                 elif a.kind == b.kind == "label":
                     context = f"{a.owner}: stage labels overlap"
                 else:

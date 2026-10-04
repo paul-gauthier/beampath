@@ -499,8 +499,9 @@ def _beam_segments(setup, placements, style):
     items = list(placements.values())
     for index, a in enumerate(items):
         for b in items[index + 1:]:
-            if overlap(a.bounds, b.bounds):
-                raise LayoutError(f"{a.id} and {b.id}: component artwork overlaps")
+            if overlap(a.bounds, b.bounds, style.clearance):
+                problem = "overlaps" if overlap(a.bounds, b.bounds) else "has insufficient clearance"
+                raise LayoutError(f"{a.id} and {b.id}: component artwork {problem}")
     beams = _beam_geometry(setup, {ident: p.instance for ident, p in placements.items()}, style,
                            {ident: p.rotation for ident, p in placements.items()})
     segments = [beam.placed(placements) for beam in beams]

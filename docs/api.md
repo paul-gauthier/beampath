@@ -25,9 +25,10 @@ Most diagrams can start from the [examples](gallery.md). Import core tools from
   between ports; it cannot be used on a first component or a fiber connection.
   `at=(x, y)` pins a component reference point. The beam origin places its first
   optic. Pins and distances are required constraints; incompatible ones fail.
-  Automatic spacing can stretch free-space paths to separate overlapping optics
-  and clear beams, including open stubs and incoming leads, crossing unrelated
-  optics within a free-space section. The
+  Automatic spacing can stretch free-space paths to keep component artwork at
+  least `Style.clearance` apart, including optics on different branches, and clear
+  beams, including open stubs and incoming leads, crossing unrelated optics within
+  a free-space section. Label-driven repositioning preserves that clearance. The
   deterministic search tries up to 1,000 candidate states; budget exhaustion is
   reported separately from infeasible constraints. Explicit pins and distances
   are never relaxed.

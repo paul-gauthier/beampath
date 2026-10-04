@@ -206,16 +206,18 @@ def solve_spacing(drawing, style, blocks, initial,
         if signature in seen:
             return
         seen.add(signature)
-        if attempts >= limit:
-            raise LayoutError(f"{context}: automatic label spacing search budget exhausted "
-                              f"({limit} candidate states)")
-        attempts += 1
         trial = kiwi.Solver()
         try:
             for constraint in (*constraints, *branch):
                 trial.addConstraint(constraint)
         except kiwi.UnsatisfiableConstraint:
             return
+        # Contradictory separating axes cannot become search states. Reject
+        # them before spending the budget needed to explore feasible choices.
+        if attempts >= limit:
+            raise LayoutError(f"{context}: automatic label spacing search budget exhausted "
+                              f"({limit} candidate states)")
+        attempts += 1
         trial.updateVariables()
         length = round(sum(value.value() for value in lengths.values()), 7)
         displacement = round(sum(abs(xs[ident].value() - p.position[0])

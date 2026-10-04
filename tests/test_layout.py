@@ -248,7 +248,7 @@ def test_position_hint_and_subpitch_explicit_distance():
     assert q.layout().segments[0].length == pytest.approx(420)
 
 
-def parallel_detector_inputs(direction):
+def parallel_detector_inputs(direction, separation=40):
     source = ComponentSpec(ComponentDefinition(
         "small_source", "", Artwork((0, 0), (-5, -5, 5, 5),
                                    svg='<svg xmlns="http://www.w3.org/2000/svg"/>'),
@@ -256,23 +256,26 @@ def parallel_detector_inputs(direction):
     ))
     drawing = Setup()
     paths = [drawing.beam(direction, origin=rotate((0, y), direction)) >> source
-             for y in (0, 40)]
+             for y in (0, separation)]
     return drawing, paths
 
 
 @pytest.mark.parametrize("direction", [0, 90, 180, 270])
+@pytest.mark.parametrize("separation,clearance", [(40, 20), (70, 20), (70, 35)])
 @pytest.mark.parametrize("fixed,kind", [(None, None), (0, "distance"), (1, "distance"),
                                        (0, "pin"), (1, "pin")])
-def test_overlapping_branch_optics_separate_without_changing_hard_constraints(direction, fixed, kind):
-    drawing, paths = parallel_detector_inputs(direction)
-    pins = [rotate((212, y), direction) for y in (0, 40)]
+def test_crowded_branch_optics_separate_without_changing_hard_constraints(direction, separation, clearance,
+                                                                        fixed, kind):
+    # The 60-unit detector housings can overlap or merely violate clearance.
+    drawing, paths = parallel_detector_inputs(direction, separation)
+    pins = [rotate((212, y), direction) for y in (0, separation)]
     for index, path in enumerate(paths):
         hints = {}
         if index == fixed:
             hints = {"at": pins[index]} if kind == "pin" else {"distance": 190}
         path.append(detector(""), **hints)
     before = drawing.optics, drawing.connections
-    result = drawing.layout()
+    result = drawing.layout(style=Style(clearance=clearance))
     targets = [result.placements[path.end.id] for path in paths]
     assert not overlap(targets[0].bounds, targets[1].bounds, result.style.clearance)
     lengths = [next(segment.length for segment in result.segments if segment.target == path.end.id)
@@ -284,16 +287,44 @@ def test_overlapping_branch_optics_separate_without_changing_hard_constraints(di
     elif kind == "pin":
         assert targets[fixed].position == pytest.approx(pins[fixed])
     assert (drawing.optics, drawing.connections) == before
-    for source, y in zip((drawing.optics[0], drawing.optics[1]), (0, 40)):
+    for source, y in zip((drawing.optics[0], drawing.optics[1]), (0, separation)):
         assert result.placements[source.id].position == pytest.approx(rotate((0, y), direction))
 
 
-def test_overlapping_branch_optics_with_fixed_distances_still_fail():
-    drawing, paths = parallel_detector_inputs(0)
+@pytest.mark.parametrize("separation,message", [(40, "artwork overlaps"), (70, "insufficient clearance")])
+def test_crowded_branch_optics_with_fixed_distances_still_fail(separation, message):
+    drawing, paths = parallel_detector_inputs(0, separation)
     for path in paths:
         path.append(detector(""), distance=190)
-    with pytest.raises(LayoutError, match="artwork overlaps"):
+    with pytest.raises(LayoutError, match=message):
         drawing.layout()
+
+
+@pytest.mark.parametrize("clearance", [10, 20, 35])
+def test_swapping_respects_artwork_clearance(clearance):
+    setup = runpy.run_module("beampath.examples.swapping")["setup"]
+    result = setup.layout(style=Style(clearance=clearance))
+    optics = list(result.placements.values())
+    for index, a in enumerate(optics):
+        for b in optics[index + 1:]:
+            assert not overlap(a.bounds, b.bounds, clearance), (a.id, b.id)
+
+
+@pytest.mark.parametrize("medium", ["free_space", "fiber"])
+@pytest.mark.parametrize("gap", [19, 20])
+def test_fixed_artwork_must_respect_clearance(medium, gap):
+    spec = _small_optic("fixed", (Port("in", "input", medium=medium, draw_lead_in=False),))
+    setup = Setup()
+    setup.beam() >> spec
+    setup.beam(origin=(10 + gap, 0)) >> spec
+    before = setup.optics, setup.connections
+    if gap < 20:
+        with pytest.raises(LayoutError, match="insufficient clearance"):
+            setup.layout()
+    else:
+        result = setup.layout()
+        assert [p.position for p in result.placements.values()] == [(0, 0), (10 + gap, 0)]
+    assert (setup.optics, setup.connections) == before
 
 
 @pytest.mark.parametrize("hints", [{"distance": 10}, {"at": (0, 100)}, {"distance": 200, "at": (300, 0)}])

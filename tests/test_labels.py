@@ -13,6 +13,7 @@ from beampath import (
 from beampath.examples._discovery import example_names
 from beampath.geometry import add, overlap, rotate
 from beampath.layout import segment_intersects
+from beampath.labels import space_labels
 
 
 def distance(a, b):
@@ -69,6 +70,23 @@ def test_reported_labels_stay_at_the_normal_gap(name, text, kind):
     assert_labels_clear(layout)
 
 
+@pytest.mark.parametrize("clearance", [20, 35])
+def test_label_spacing_rechecks_artwork_clearance(clearance):
+    setup = runpy.run_module("beampath.examples.swapping")["setup"].setup
+    initial = setup.layout(style=Style(clearance=1))
+    optics = list(initial.placements.values())
+    # Exercise label spacing independently of the initial component solver.
+    assert any(overlap(a.bounds, b.bounds, clearance)
+               for index, a in enumerate(optics) for b in optics[index + 1:])
+    style = Style(clearance=clearance)
+    placements, labels = space_labels(setup, initial.placements, style)
+    optics = list(placements.values())
+    for index, a in enumerate(optics):
+        for b in optics[index + 1:]:
+            assert not overlap(a.bounds, b.bounds, clearance), (a.id, b.id)
+    assert len(labels) == len(initial.labels)
+
+
 def box(label="", bounds=(-5, -5, 5, 5), anchor=None):
     return ComponentSpec(ComponentDefinition(
         "label-fixture", "", Artwork((0, 0), bounds, svg='<svg xmlns="http://www.w3.org/2000/svg"/>'),
@@ -118,8 +136,8 @@ def test_only_automatic_gaps_expand_and_fixed_distance_and_pin_survive(direction
 def crowded_fixed_setup():
     setup = Setup()
     setup.beam() >> box("Label that needs room")
-    for position, bounds in [((0, 50), (-200, -5, 200, 5)),
-                             ((0, -50), (-200, -5, 200, 5)),
+    for position, bounds in [((0, 50), (-65, -5, 65, 5)),
+                             ((0, -50), (-65, -5, 65, 5)),
                              ((90, 0), (-5, -40, 5, 40)),
                              ((-90, 0), (-5, -40, 5, 40))]:
         setup.beam(origin=position) >> box(bounds=bounds)

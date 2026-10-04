@@ -269,7 +269,7 @@ def test_unconnected_fiber_components_and_conflicting_pins_fail_clearly():
         setup.layout()
     p = beam().append(fiber_laser())
     p.append(inline_power_meter(), at=(0, 0))
-    with pytest.raises(LayoutError, match="pinned component artwork overlaps"):
+    with pytest.raises(LayoutError, match="pinned placement.*component artwork overlaps"):
         p.layout()
 
 

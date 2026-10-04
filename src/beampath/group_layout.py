@@ -144,7 +144,7 @@ def _group(setup, group, style):
             measured = _translate(measured, delta)
             bounds = translated(bounds, delta)
             blocks = {next(iter(item.placements)): item for item in (*children, measured)}
-            if _collides(measured.placements, placements, setup, style, 0, blocks):
+            if _collides(measured.placements, placements, setup, style, blocks):
                 # Keep the entry x coordinate and minimum content gap. Extend
                 # the row only when boundary connector space requires it.
                 combined = {**placements, **measured.placements}
