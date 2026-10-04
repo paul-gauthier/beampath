@@ -130,8 +130,8 @@ def components_page(diagrams):
     page = GENERATED + "# Components\n\n" + NAV
     page += ("Import factories from `beampath.components` (also available from `beampath`).\n"
              "The optional first argument is the label: `None` uses the default, `\"\"` hides\n"
-             "it, and `\\n` creates multiple lines. Labels describe optics; they do not\n"
-             "set simulated properties. Each demo shows the component's open beam or fiber ports.\n\n")
+             "it, and `\\n` creates multiple lines. Each demo shows the component's open\n"
+             "beam or fiber ports.\n\n")
     page += " · ".join(f"[{d.slug}](#{d.slug.lower()})" for d in diagrams) + "\n\n"
     for diagram in diagrams:
         source = f"../src/beampath/components/{diagram.source.name}"

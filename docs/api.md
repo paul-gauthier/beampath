@@ -27,7 +27,7 @@ Most diagrams can start from the [examples](gallery.md). Import core tools from
   optic. Pins and distances are required constraints; incompatible ones fail.
   Use `rows()` for explicit stage boundaries; it preserves local pins and headings.
 - **Drawing:** crossings do not imply connections. Open ports have stubs, replaced
-  when connected. Fiber lengths are drawing lengths, not physical cable lengths.
+  when connected.
   Labels do not expand component spacing inside a stage; allow room when pinning.
 
 ## API summary
@@ -159,5 +159,4 @@ from `BeampathError` (`ValueError`). Export arguments may raise `ValueError`;
 missing converters raise `RuntimeError`.
 
 Connections must be acyclic. Closed cavities and repeated passes through one
-physical optic are unsupported. No optical power, polarization, or coherence
-simulation is performed.
+physical optic are unsupported.

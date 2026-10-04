@@ -36,7 +36,7 @@ def fiber_splitter(label: str | None = None, *, turn: str = "left"):
 
     turn selects the side of the branch relative to its drawing pose.
     Select outputs with straight() and turn(), or out("straight"/"turn").
-    A split ratio can be included in the label; optical power is not simulated.
+    A split ratio can be included in the label.
     """
     return component("fiber_splitter", label, turn=turn)
 

@@ -22,7 +22,7 @@ def detector(label: str | None = None):
     """A generic detector with one free-space input that ends the beam path.
 
     The flat face follows the incoming beam. Detector type (such as a
-    single-photon detector) belongs in the label; detection is not simulated.
+    single-photon detector) belongs in the label.
     """
     return component("detector", label)
 

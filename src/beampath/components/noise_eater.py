@@ -14,7 +14,7 @@ register_component(ComponentDefinition(
 
 
 def noise_eater(label: str | None = None):
-    """A straight-through NEL03A noise-eater schematic with no control leads."""
+    """A straight-through NEL03A noise eater."""
     return component("noise_eater", label)
 
 

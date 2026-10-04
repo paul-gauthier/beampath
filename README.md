@@ -47,9 +47,8 @@ python -m beampath.examples --diagram hello
 - **[API and conventions](docs/api.md):** construction, layout, styling, and export.
 - **[Development](docs/development.md):** setup, checks, and documentation generation.
 
-beampath draws schematics; it does not simulate optical power, polarization, or
-coherence. Connections must be acyclic; closed cavities and repeated passes
-through one physical optic are unsupported.
+Connections must be acyclic; closed cavities and repeated passes through one
+physical optic are unsupported.
 
 ## Artwork credits
 

@@ -6,8 +6,8 @@
 
 Import factories from `beampath.components` (also available from `beampath`).
 The optional first argument is the label: `None` uses the default, `""` hides
-it, and `\n` creates multiple lines. Labels describe optics; they do not
-set simulated properties. Each demo shows the component's open beam or fiber ports.
+it, and `\n` creates multiple lines. Each demo shows the component's open
+beam or fiber ports.
 
 [bandpass_filter](#bandpass_filter) · [beam_block](#beam_block) · [beamsplitter](#beamsplitter) · [detector](#detector) · [fiber_coupler](#fiber_coupler) · [fiber_laser](#fiber_laser) · [fiber_launch](#fiber_launch) · [fiber_power_meter](#fiber_power_meter) · [fiber_splitter](#fiber_splitter) · [HWP](#hwp) · [inline_power_meter](#inline_power_meter) · [iris](#iris) · [LP](#lp) · [mirror](#mirror) · [nd_filter](#nd_filter) · [noise_eater](#noise_eater) · [QWP](#qwp) · [spdc](#spdc)
 
@@ -80,7 +80,7 @@ detector(label=None)
 A generic detector with one free-space input that ends the beam path.
 
 The flat face follows the incoming beam. Detector type (such as a
-single-photon detector) belongs in the label; detection is not simulated.
+single-photon detector) belongs in the label.
 
 <img src="images/components/detector.png" alt="detector demo" width="420">
 
@@ -179,7 +179,7 @@ A continuous fiber with a curved branch ending at a perpendicular output.
 
 turn selects the side of the branch relative to its drawing pose.
 Select outputs with straight() and turn(), or out("straight"/"turn").
-A split ratio can be included in the label; optical power is not simulated.
+A split ratio can be included in the label.
 
 <img src="images/components/fiber_splitter.png" alt="fiber_splitter demo" width="420">
 
@@ -316,7 +316,7 @@ setup = beam() >> nd_filter()
 noise_eater(label=None)
 ```
 
-A straight-through NEL03A noise-eater schematic with no control leads.
+A straight-through NEL03A noise eater.
 
 <img src="images/components/noise_eater.png" alt="noise_eater demo" width="420">
 
@@ -363,7 +363,7 @@ Select a path with out("pump"), out("signal"), or out("idler").
 The default input "in" is the required pump. Optional "signal_in" and
 "idler_in" inputs continue along their corresponding output rays; use
 path.connect(crystal.input("idler_in")) to overlap an incoming idler.
-Unconnected optional inputs are not drawn. Overlap is geometrical only.
+Unconnected optional inputs are not drawn.
 Crystal material and polarization type belong in the optional label.
 
 <img src="images/components/spdc.png" alt="spdc demo" width="420">

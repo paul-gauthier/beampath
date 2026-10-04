@@ -39,7 +39,7 @@ def spdc(label: str | None = None, *, opening_angle: float = 20):
     The default input "in" is the required pump. Optional "signal_in" and
     "idler_in" inputs continue along their corresponding output rays; use
     path.connect(crystal.input("idler_in")) to overlap an incoming idler.
-    Unconnected optional inputs are not drawn. Overlap is geometrical only.
+    Unconnected optional inputs are not drawn.
     Crystal material and polarization type belong in the optional label.
     """
     return component("spdc", label, opening_angle=opening_angle)

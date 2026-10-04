@@ -177,8 +177,6 @@ setup.turn() >> fiber_power_meter("Power monitor")
 
 A Franson interferometer with SPDC and two matched unequal-arm analyzers.
 
-The SPDC angle is exaggerated for readability; distances are schematic.
-
 ![franson diagram](../examples/images/franson.png)
 
 ```python
@@ -187,9 +185,9 @@ from beampath.components import beam_block, beamsplitter, detector, fiber_launch
 setup = fiber_launch("CW pump") >> spdc(opening_angle=60)
 setup.out("pump") >> beam_block("Pump dump")
 
-# Mirror the analyzers about the pump axis. The SPDC angle is exaggerated
-# for clarity. Each straight short arm has length 600; its long arm adds
-# two 300-unit legs, giving the same nonzero imbalance in both analyzers.
+# Mirror the analyzers about the pump axis. Each straight short arm has length
+# 600; its long arm adds two 300-unit legs, giving the same nonzero imbalance
+# in both analyzers.
 for channel, suffix, outward, inward, return_heading in (
     ("signal", "s", "left", "right", "south"),
     ("idler", "i", "right", "left", "north"),
