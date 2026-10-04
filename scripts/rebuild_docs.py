@@ -4,11 +4,13 @@ import ast
 from dataclasses import dataclass, fields
 from importlib import import_module
 import inspect
+import json
 from pathlib import Path
 import runpy
 import sys
 from tempfile import TemporaryDirectory
 from textwrap import dedent
+import zlib
 
 import beampath
 from beampath import Path as BeamPath, Setup, Style
@@ -197,6 +199,32 @@ def render_preview(diagram, destination, *, width):
         ) from exc
 
 
+def output_signature(data):
+    """Compare PNG metadata at SVG precision, retaining every other PNG byte."""
+    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return data
+    cursor = 8
+    prefix = b"beampath-attribution\0\0\0\0\0"
+    while cursor + 12 <= len(data):
+        length = int.from_bytes(data[cursor:cursor + 4], "big")
+        end = cursor + length + 12
+        if end > len(data):
+            return data
+        kind = data[cursor + 4:cursor + 8]
+        payload = data[cursor + 8:end - 4]
+        if kind == b"iTXt" and payload.startswith(prefix):
+            if zlib.crc32(kind + payload) != int.from_bytes(data[end - 4:end], "big"):
+                return data
+            try:
+                metadata = json.loads(payload[len(prefix):],
+                                      parse_float=lambda value: float(f"{float(value):.12g}"))
+            except (ValueError, UnicodeDecodeError):
+                return data
+            return data[:cursor], metadata, data[end:]
+        cursor = end
+    return data
+
+
 def rebuild_docs(project=PROJECT, *, check=False):
     project = project.resolve()
     example_diagrams = examples(project)
@@ -226,7 +254,8 @@ def rebuild_docs(project=PROJECT, *, check=False):
     old_images.discard(project / "examples/images/hello-social.png")
     old_images.update((project / "docs/images/components").glob("*.png"))
     obsolete = old_images - outputs.keys()
-    changed = [path for path, data in outputs.items() if not path.exists() or path.read_bytes() != data]
+    changed = [path for path, data in outputs.items() if not path.exists()
+               or output_signature(path.read_bytes()) != output_signature(data)]
     stale = sorted(set(changed) | obsolete)
     if not check:
         for path in changed:

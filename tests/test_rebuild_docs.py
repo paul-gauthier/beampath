@@ -1,4 +1,5 @@
 from importlib import import_module
+from io import BytesIO
 from pathlib import Path
 import inspect
 import json
@@ -219,6 +220,29 @@ def test_cli_rebuilds_from_another_directory_and_checks_without_rewriting(checko
     assert result.returncode == 1
     assert "docs/gallery.md" in result.stdout
     assert snapshot(checkout) == before
+
+
+def test_preview_comparison_ignores_only_metadata_roundoff():
+    from PIL import Image
+    from PIL.PngImagePlugin import PngInfo
+
+    def png(y, *, color="white", credit="Original artwork", dpi=600):
+        info = PngInfo()
+        info.add_itxt("beampath-attribution", json.dumps({
+            "optics": [{"position": [190, y]}], "assets": [{"attribution": credit}],
+        }))
+        output = BytesIO()
+        Image.new("RGB", (2, 2), color).save(output, format="PNG", pnginfo=info, dpi=(dpi, dpi))
+        return output.getvalue()
+
+    original = png(125.41016151377531)
+    repeated = png(125.41016151377532)
+    assert original != repeated
+    assert docs.output_signature(original) == docs.output_signature(repeated)
+    for changed in (png(125.42), png(125.41016151377531, color="red"),
+                    png(125.41016151377531, credit="Different credit"),
+                    png(125.41016151377531, dpi=300)):
+        assert docs.output_signature(original) != docs.output_signature(changed)
 
 
 def test_documentation_links_resolve():

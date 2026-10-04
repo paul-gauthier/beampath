@@ -29,7 +29,9 @@ Edit sources, regenerate, inspect the Markdown and PNGs, and commit both. The
 builder stages all previews before replacing outputs; failed rendering leaves
 existing docs intact. Unchanged files are not rewritten. `--check` reports stale
 or obsolete generated outputs without replacing them. Both commands work from
-any directory when the script is invoked by its path.
+any directory when the script is invoked by its path. Preview comparisons ignore
+floating-point metadata differences below SVG precision; pixels and attribution
+text must still match.
 
 Keep usage examples in the gallery, component-specific details in docstrings,
 and essential cross-cutting conventions in the API page. Avoid duplicate guides
