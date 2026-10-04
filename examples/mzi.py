@@ -6,16 +6,16 @@ from beampath.examples._export import run_example
 
 
 def build():
-    """Split two arms and recombine them with join()."""
+    """Split two arms and recombine them to create an MZI."""
     # DOCS:BEGIN
-    split = fiber_launch() >> beamsplitter("NPBS1", turn="right")
-    a = split.straight() >> HWP() >> mirror(heading="south")
-    b = split.reflect() >> LP() >> QWP() >> mirror(heading="east")
-    combined = a.join(b, beamsplitter("NPBS2", turn="left"))
+    mzi = fiber_launch() >> beamsplitter("NPBS1", turn="left")
+    lower = mzi.straight() >> HWP() >> mirror(heading="north")
+    upper = mzi.reflect() >> mirror(heading="east") >> HWP()
+    combined = lower.join(upper, beamsplitter("NPBS2", turn="right"))
     combined.reflect() >> fiber_coupler()
-    combined.straight() >> iris()
+    combined.straight() >> fiber_coupler()
     # DOCS:END
-    return split
+    return mzi
 
 
 if __name__ == "__main__":
