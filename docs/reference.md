@@ -19,6 +19,7 @@ Import components from `beampath.components`; they are also exported from
 | `fiber_coupler()` | Fiber coupler | Free space in → fiber out; follows incidence, optional `heading` constrains the section |
 | `mirror()` | Mirror | Free space in/out; requires exactly one of `angle`, `heading`, or `turn` |
 | `beamsplitter()` | NPBS | Free space inputs `primary` and optional `secondary`; outputs `straight` and `reflect`; `turn="left"` (default) or `"right"` |
+| `spdc()` | SPDC | Free space input `in`; outputs `pump`, `signal`, `idler`; `opening_angle=20` is the full signal–idler angle in degrees |
 | `iris()` | Iris | Straight-through free space |
 | `LP()` | LP | Linear polarizer; straight-through free space |
 | `HWP()` | HWP | Half-wave plate; straight-through free space |
@@ -31,11 +32,61 @@ Import components from `beampath.components`; they are also exported from
 | `fiber_power_meter()` | Fiber power meter | Fiber input only; ends a path |
 | `fiber_splitter()` | Fiber splitter | Fiber input; `straight` and `turn` outputs; `turn="left"` (default) or `"right"` |
 
-Except for the named splitter ports, inputs are `in` and outputs are `out`.
+Except for the named splitter and SPDC ports, inputs are `in` and outputs are `out`.
 Fiber splitter turns describe connector arrangement in the drawing pose, not
 optical headings. Put descriptive values in labels, such as
 `nd_filter("ND 2.0")`, `bandpass_filter("980 nm")`, or
 `fiber_splitter("90:10 splitter")`; these do not introduce simulation parameters.
+
+### SPDC sources
+
+`spdc()` represents a generic downconversion crystal. `opening_angle` accepts
+finite values from 0 to 180 degrees, inclusive, and defaults to 20 degrees.
+The transmitted pump continues straight. Signal turns by `-opening_angle / 2`
+and idler by `+opening_angle / 2`, relative to pump incidence. For an eastward
+pump, signal goes above and idler below the pump. The pair of paths represents
+selected modes with symmetric angles, not the full emission cones.
+
+Choose each output with `.out("pump")`, `.out("signal")`, or `.out("idler")`.
+Use a label such as `spdc("BBO, Type I", opening_angle=20)` for material or
+polarization information; the default label is simply `SPDC`.
+
+<!-- DOCS:BEGIN spdc -->
+```python
+from beampath.components import *
+
+source = fiber_launch("Pump input") >> spdc()
+# Small opening angles need longer paths to separate downstream optics.
+source.out("pump").append(iris("Transmitted pump"), distance=800)
+source.out("signal").append(fiber_coupler("Signal"), distance=500)
+source.out("idler").append(fiber_coupler("Idler"), distance=500)
+source.save("spdc.svg")
+```
+<!-- DOCS:END spdc -->
+
+Runnable example: [spdc.py](../examples/spdc.py).
+Small opening angles may require longer distances to keep downstream optics
+clear of each other and of the neighboring beams.
+
+With `opening_angle=0`, all three named outputs have the same position and
+direction. To draw shared downstream optics, select one output and draw the
+common path once:
+
+<!-- DOCS:BEGIN spdc_collinear -->
+```python
+from beampath.components import *
+
+source = fiber_launch("Pump input") >> spdc(opening_angle=0)
+# Select one output to draw the common path through shared optics once.
+source.out("signal") >> HWP() >> fiber_coupler("Collinear output")
+source.save("spdc_collinear.svg")
+```
+<!-- DOCS:END spdc_collinear -->
+
+Runnable example: [spdc_collinear.py](../examples/spdc_collinear.py).
+Each input still accepts only one connection. Beampath does not track separate
+wavelengths or polarizations through the common path. Unused outputs coincident
+with the selected output do not add separate stubs over that path.
 
 ## Paths and shared optics
 

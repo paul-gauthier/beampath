@@ -366,9 +366,17 @@ def _beam_segments(setup, placements, style):
                         edge.source, edge.output, edge.target, edge.input)
                 for edge in setup.connections if edge.medium == "free_space"]
     for placed in placements.values():
+        connected_outputs = [p for p in placed.instance.geometry.ports
+                             if p.kind == "output" and p.medium == "free_space"
+                             and setup._output_used(placed.id, p.name)]
         for index, port in enumerate(placed.instance.geometry.ports):
             if (port.kind == "output" and port.medium == "free_space" and port.draw_open
                     and not setup._output_used(placed.id, port.name)):
+                # Collinear modes share a drawn path. An unused coincident port
+                # must not add a second arrow or a stub past the next optic.
+                if any(port.position == other.position and aligned(port.direction, other.direction)
+                       for other in connected_outputs):
+                    continue
                 a = placed.port_position(port.name)
                 d = unit(placed.port_direction(port.name))
                 reach = _project(placed.bounds, a, d)[1]

@@ -15,6 +15,7 @@ def test_built_wheel_resources_work_without_checkout(tmp_path):
         archive.extractall(installation)
         assert "beampath/assets/LICENSE" in archive.namelist()
         assert "beampath/assets/f-power-meter.svg" in archive.namelist()
+        assert "beampath/assets/fs-spdc.svg" in archive.namelist()
         assert "beampath/py.typed" in archive.namelist()
         assert "beampath/examples/hello.py" in archive.namelist()
         assert "beampath/examples/custom_component.py" in archive.namelist()
@@ -48,7 +49,7 @@ sys.argv = ["beampath.examples", "--diagram", "all", "--output-dir", "all-exampl
 runpy.run_module("beampath.examples", run_name="__main__")
 assert {p.stem for p in Path("all-examples").glob("*.svg")} == {
     "hello", "cage", "mirror_heading", "mzi", "shared_optic", "reuse", "rendering", "custom_component",
-    "mixed_fiber", "fiber_bends", "fiber_splitter",
+    "mixed_fiber", "fiber_bends", "fiber_splitter", "spdc", "spdc_collinear",
 }
 assert 'cairosvg' not in sys.modules
 assert 'pypdf' not in sys.modules

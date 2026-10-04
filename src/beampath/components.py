@@ -10,7 +10,7 @@ from .geometry import aligned, finite, heading, reflection
 __all__ = [
     "fiber_launch", "fiber_coupler", "mirror", "beamsplitter", "iris", "LP", "HWP", "QWP", "noise_eater",
     "nd_filter", "bandpass_filter", "fiber_laser", "inline_power_meter", "fiber_splitter",
-    "fiber_power_meter",
+    "fiber_power_meter", "spdc",
 ]
 
 REVISION = "7e44e14341489b067d7c8e1390af87b9c423103e"
@@ -169,6 +169,16 @@ def _splitter(parameters):
                     artwork_rotation=0 if left else -90)
 
 
+def _spdc(parameters):
+    _parameters(parameters, ("opening_angle",))
+    angle = finite(parameters.get("opening_angle", 20), "SPDC opening_angle")
+    if not 0 <= angle <= 180:
+        raise ComponentError("SPDC opening_angle must be between 0 and 180 degrees")
+    return Geometry((Port("in", "input"), Port("pump", "output"),
+                     Port("signal", "output", -angle / 2),
+                     Port("idler", "output", angle / 2)))
+
+
 _FIBER_TRANSITION_ARTWORK = _art(
     "f-fiber-launch.svg", "fiber-optics/flat_2d/svg/11_beam_delivery",
     (46.5, 27), (41, 10, 111, 44), 2.4, remove_axes=True,
@@ -240,6 +250,15 @@ register_component(ComponentDefinition(
          (60, 45), (39, 24, 81, 66), 1.6, source_filename="fs-bs-cube.svg"),
     _splitter, default_input="primary"))
 register_component(ComponentDefinition(
+    "spdc", "SPDC",
+    _art("fs-spdc.svg", "free-space-optics/flat_2d/svg/31_quantum_sources",
+         (75.5, 37), (57.5, 13.5, 93.5, 60.5), 1.5,
+         source_filename="fs-spdc-type1.svg",
+         adaptations="Only the crystal body is retained; BBO, Type I, source captions, "
+                     "and all demonstration beams are removed. Pump, signal, and idler "
+                     "paths are generated from the component ports."),
+    _spdc))
+register_component(ComponentDefinition(
     "noise_eater", "Noise eater",
     Artwork((54, 60), (30, 9, 68, 111), 1.5,
             package_resource="fs-noise-eater.svg",
@@ -305,6 +324,18 @@ def beamsplitter(label: str | None = None, *, turn: str = "left"):
     primary incoming beam. Select outputs with straight() and reflect().
     """
     return component("beamsplitter", label, turn=turn)
+
+
+def spdc(label: str | None = None, *, opening_angle: float = 20):
+    """A generic SPDC crystal with pump, signal, and idler output ports.
+
+    opening_angle is the full signal-idler angle in degrees, from 0 to 180.
+    The pump continues straight; signal and idler turn by -/+ half the angle.
+    Zero makes all three outputs collinear, retaining their distinct names.
+    Select a path with out("pump"), out("signal"), or out("idler").
+    Crystal material and polarization type belong in the optional label.
+    """
+    return component("spdc", label, opening_angle=opening_angle)
 
 
 def iris(label: str | None = None):

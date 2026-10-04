@@ -20,6 +20,8 @@ SAVE_CALLS = {
     "rendering": 'path.save("rendering.png", style=STYLE, width=2400, dpi=600)',
     "custom_component": 'fork.save("custom_component.svg")',
     "mixed_fiber": 'setup.save("mixed_fiber.svg")',
+    "spdc": 'source.save("spdc.svg")',
+    "spdc_collinear": 'source.save("spdc_collinear.svg")',
 }
 DOCS_MARKER = re.compile(r"<!-- DOCS:(BEGIN|END) ([a-z][a-z0-9_]*) -->")
 

@@ -183,6 +183,8 @@ See [example commands](development.md#running-examples) for all CLI options.
 | [mixed_fiber.py](../examples/mixed_fiber.py) | Fiber/free-space transitions | [Image](../examples/images/mixed_fiber.png) |
 | [fiber_bends.py](../examples/fiber_bends.py) | A pinned fiber device | [Image](../examples/images/fiber_bends.png) |
 | [fiber_splitter.py](../examples/fiber_splitter.py) | A fiber monitor branch | [Image](../examples/images/fiber_splitter.png) |
+| [spdc.py](../examples/spdc.py) | SPDC pump, signal, and idler branches | [Image](../examples/images/spdc.png) |
+| [spdc_collinear.py](../examples/spdc_collinear.py) | Collinear SPDC with shared downstream optics | [Image](../examples/images/spdc_collinear.png) |
 | [reuse.py](../examples/reuse.py) | Reusable chains and spacing constraints | [Image](../examples/images/reuse.png) |
 | [rendering.py](../examples/rendering.py) | Styling and export | [Image](../examples/images/rendering.png) |
 | [custom_component.py](../examples/custom_component.py) | Custom artwork and named ports | [Image](../examples/images/custom_component.png) |

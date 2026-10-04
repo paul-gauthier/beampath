@@ -19,6 +19,8 @@ EXAMPLES = {
     "mixed_fiber": 6,
     "fiber_bends": 6,
     "fiber_splitter": 4,
+    "spdc": 5,
+    "spdc_collinear": 4,
 }
 SVG = "{http://www.w3.org/2000/svg}"
 
