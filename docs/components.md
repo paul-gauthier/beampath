@@ -9,7 +9,7 @@ The optional first argument is the label: `None` uses the default, `""` hides
 it, and `\n` creates multiple lines. Each demo shows the component's open
 beam or fiber ports.
 
-[bandpass_filter](#bandpass_filter) · [beam_block](#beam_block) · [beamsplitter](#beamsplitter) · [detector](#detector) · [fiber_coupler](#fiber_coupler) · [fiber_laser](#fiber_laser) · [fiber_launch](#fiber_launch) · [fiber_power_meter](#fiber_power_meter) · [fiber_splitter](#fiber_splitter) · [HWP](#hwp) · [inline_power_meter](#inline_power_meter) · [iris](#iris) · [LP](#lp) · [mirror](#mirror) · [nd_filter](#nd_filter) · [noise_eater](#noise_eater) · [QWP](#qwp) · [spdc](#spdc)
+[bandpass_filter](#bandpass_filter) · [beam_block](#beam_block) · [beamsplitter](#beamsplitter) · [detector](#detector) · [fiber_coupler](#fiber_coupler) · [fiber_laser](#fiber_laser) · [fiber_launch](#fiber_launch) · [fiber_power_meter](#fiber_power_meter) · [fiber_splitter](#fiber_splitter) · [HWP](#hwp) · [inline_power_meter](#inline_power_meter) · [iris](#iris) · [laser](#laser) · [LP](#lp) · [mirror](#mirror) · [nd_filter](#nd_filter) · [noise_eater](#noise_eater) · [QWP](#qwp) · [spdc](#spdc)
 
 ## bandpass_filter
 
@@ -248,6 +248,28 @@ setup = beam() >> iris()
 ```
 
 [Source](../src/beampath/components/iris.py)
+
+## laser
+
+```python
+laser(label=None)
+```
+
+A generic laser with one free-space output and no input.
+
+The beam starts at the nozzle. Set its direction with beam(direction=...).
+Laser type and wavelength belong in the label.
+
+<img src="images/components/laser.png" alt="laser demo" width="420">
+
+```python
+from beampath import beam
+from beampath.components import laser
+
+setup = beam() >> laser()
+```
+
+[Source](../src/beampath/components/laser.py)
 
 ## LP
 
