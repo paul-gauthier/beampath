@@ -5,11 +5,12 @@ separate leaves empty space inside a stage available to surrounding content.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 
-from .geometry import Bounds, add, envelope, overlap, translated, unit
+from .geometry import Bounds, EPSILON, add, envelope, overlap, translated, unit
 from .layout import _Beam, _beam_geometry, _project, Segment, footprint, segment_intersects
+from .labels import ASSOCIATION_MARGIN, boundary_leads, bounds_distance
 from .routing import connector_lead, inflate, straight_connection
 
 
@@ -36,6 +37,7 @@ class _Line:
     padding: float = 0
     frame: str | None = None
     active: bool = True
+    labels_only: bool = False
 
     @property
     def anchors(self):
@@ -94,11 +96,27 @@ class _Scene:
                                       and any(o not in across for o in owners))
 
         boxes = [(box, box.placed(placements)) for box in self.boxes]
+        artwork_bounds = {box.owner: bounds for box, bounds in boxes if box.kind == "artwork"}
+        ambiguity = None
         for i, (a, bounds_a) in enumerate(boxes):
             for b, bounds_b in boxes[i + 1:]:
                 artwork = a.kind == b.kind == "artwork"
                 padding = artwork_clearance if artwork else 3
-                if not consider(a, b) or not overlap(bounds_a, bounds_b, padding):
+                if not consider(a, b):
+                    continue
+                if {a.kind, b.kind} == {"artwork", "label"}:
+                    label, art = (a, b) if a.kind == "label" else (b, a)
+                    label_bounds = bounds_a if a.kind == "label" else bounds_b
+                    if label.owner == art.owner:
+                        padding = 0
+                    else:
+                        separation = bounds_distance(label_bounds, artwork_bounds[label.owner]) + ASSOCIATION_MARGIN
+                        if bounds_distance(bounds_a, bounds_b) + EPSILON < separation:
+                            context = (f"{label.owner}: stage label overlaps component artwork {art.owner}"
+                                       if overlap(bounds_a, bounds_b, 3) else
+                                       f"{label.owner}: label is ambiguous near component {art.owner}")
+                            ambiguity = ambiguity or _Conflict(a, b, separation, context)
+                if not overlap(bounds_a, bounds_b, padding):
                     continue
                 if artwork:
                     context = f"{a.owner} and {b.owner}: component artwork overlaps"
@@ -108,11 +126,15 @@ class _Scene:
                     label, art = (a, b) if a.kind == "label" else (b, a)
                     context = f"{label.owner}: stage label overlaps component artwork {art.owner}"
                 return _Conflict(a, b, style.clearance if artwork else 3, context)
+        if ambiguity is not None:
+            return ambiguity
         for line in self.lines:
             if not line.active:
                 continue
             segment = line.geometry.placed(placements)
             for box, bounds in boxes:
+                if line.labels_only and box.kind != "label":
+                    continue
                 if not consider(line, box):
                     continue
                 if box.kind == "artwork" and box.owner in {segment.source, segment.target}:
@@ -135,7 +157,10 @@ class _Scene:
         for box in self.boxes:
             if within is not None and box.anchor not in within:
                 continue
-            x0, y0, x1, y1 = box.placed(placements)
+            bounds = box.placed(placements)
+            if box.kind == "label":
+                bounds = inflate(bounds, bounds_distance(bounds, placements[box.owner].bounds) + ASSOCIATION_MARGIN)
+            x0, y0, x1, y1 = bounds
             points.extend(((x0, y0), (x1, y1)))
         for line in self.lines:
             if within is not None and not all(owner in within for owner in line.anchors):
@@ -147,7 +172,7 @@ class _Scene:
         return envelope(points)
 
 
-def occupied_geometry(drawing, placements, style, blocks=None):
+def occupied_geometry(drawing, placements, style, blocks=None, *, labels=(), reserve_labels=False):
     """Freeze child content in its frame; derive current boundary port escapes.
 
     Only actual graph connections reserve escapes. Full-graph occupancy keeps
@@ -175,9 +200,12 @@ def occupied_geometry(drawing, placements, style, blocks=None):
                                  entry, entry, unit(angle))
                 lines.append(_Line(geometry, "fiber", frame=entry))
 
-    # Ungrouped layouts have no frozen labels or cables to reserve here. Their
-    # router chooses poses and connector escapes before placing new labels.
-    if blocks:
+    boxes.extend(_Box(label.optic, translated(label.bounds, tuple(-v for v in placements[label.optic].position)),
+                      label.optic, "label") for label in labels)
+
+    # Moving optics to accommodate labels must preserve routable attachments,
+    # just as moving measured stages must. Cable interiors remain movable.
+    if blocks or reserve_labels:
         clearance = max(style.clearance, style.fiber_width)
         obstacles = [(box.owner if box.kind == "artwork" else f"label-{box.owner}", box.placed(placements))
                      for box in boxes]
@@ -203,4 +231,38 @@ def occupied_geometry(drawing, placements, style, blocks=None):
                     segment = Segment(f"lead-{ident}-{port}", begin, b, ident, port)
                     lines.append(_Line(_Beam(segment, ident, ident, direction), "connector", padding,
                                        frames.get(ident), active=not direct))
+    if reserve_labels:
+        # Cable interiors can be rerouted. Their attachments and open ends cannot.
+        from .fiber_layout import _open_fibers
+
+        for segment in boundary_leads(drawing, placements, style):
+            ident = segment.source
+            offset = tuple(-v for v in placements[ident].position)
+            a, b = add(segment.start, offset), add(segment.end, offset)
+            direction = unit(math.degrees(math.atan2(b[1] - a[1], b[0] - a[0])))
+            geometry = _Beam(replace(segment, start=a, end=b), ident, ident, direction)
+            lines.append(_Line(geometry, labels_only=True))
+        for route in _open_fibers(drawing, placements, style):
+            ident = route.source or route.target
+            offset = tuple(-v for v in placements[ident].position)
+            for leg in route.legs:
+                a, b = add(leg.start, offset), add(leg.end, offset)
+                direction = unit(math.degrees(math.atan2(b[1] - a[1], b[0] - a[0])))
+                geometry = _Beam(Segment(leg.id, a, b, leg.source, leg.output, leg.target, leg.input),
+                                 ident, ident, direction)
+                lines.append(_Line(geometry, "fiber", labels_only=True))
+        for edge in drawing.connections:
+            if edge.medium != "fiber":
+                continue
+            for ident, port in ((edge.source, edge.output), (edge.target, edge.input)):
+                if ident not in placements:
+                    continue
+                placed = placements[ident]
+                a, b = connector_lead(placed, port, max(style.clearance, style.fiber_width))
+                offset = tuple(-v for v in placed.position)
+                clearance = max(style.clearance, style.fiber_width)
+                for begin, padding in ((a, style.fiber_width / 2), (b, clearance)):
+                    segment = Segment(f"lead-{ident}-{port}", add(begin, offset), add(b, offset), ident, port)
+                    lines.append(_Line(_Beam(segment, ident, ident, unit(placed.port_exit_direction(port))),
+                                       "connector", padding, labels_only=True))
     return _Scene(tuple(boxes), tuple(lines))

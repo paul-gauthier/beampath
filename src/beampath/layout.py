@@ -229,67 +229,9 @@ def segment_intersects(start: Point, end: Point, bounds: Bounds) -> bool:
 
 def _labels(placements: Mapping[str, PlacedOptic], segments: list[Segment], style: Style,
             fixed: tuple[Label, ...] = (), exclusions: tuple[Bounds, ...] = ()) -> tuple[Label, ...]:
-    result: list[Label] = list(fixed)
-    labeled = {label.optic for label in fixed}
-    center_bounds = envelope([p.position for p in placements.values()])
-    middle = ((center_bounds[0] + center_bounds[2]) / 2, (center_bounds[1] + center_bounds[3]) / 2)
-    for placed in placements.values():
-        if placed.id in labeled:
-            continue
-        text = placed.instance.spec.display_label
-        if not text:
-            continue
-        # Conservative text metrics keep SVG generation independent of a font
-        # installation or raster backend. Actual labels remain editable text.
-        width, height = _text_size(text, style.font_size)
-        art_anchor = placed.instance.spec.definition.label_anchor
-        anchor = (add(placed.position, artwork_point(placed.instance, art_anchor, placed.rotation))
-                  if art_anchor is not None else placed.position)
-        x0, y0, x1, y1 = placed.bounds
-        candidates = {
-            "top": (anchor[0], y0 - style.label_gap - height / 2),
-            "bottom": (anchor[0], y1 + style.label_gap + height / 2),
-            "left": (x0 - style.label_gap - width / 2, anchor[1]),
-            "right": (x1 + style.label_gap + width / 2, anchor[1]),
-            "top_left": (x0 - style.label_gap - width / 2, y0 - style.label_gap - height / 2),
-            "top_right": (x1 + style.label_gap + width / 2, y0 - style.label_gap - height / 2),
-            "bottom_left": (x0 - style.label_gap - width / 2, y1 + style.label_gap + height / 2),
-            "bottom_right": (x1 + style.label_gap + width / 2, y1 + style.label_gap + height / 2),
-        }
-        h = placed.rotation % 180
-        if 45 < h < 135:
-            preferred = "left" if placed.position[0] < middle[0] else "right"
-        else:
-            preferred = "top" if placed.position[1] < middle[1] else "bottom"
-        order = [preferred] + [side for side in ("bottom", "top", "right", "left") if side != preferred]
-        corners = ("bottom_right", "bottom_left", "top_right", "top_left")
-        order += [side for side in corners if preferred in side] + [side for side in corners if preferred not in side]
-        # Preserve immediate placements first, then search a bounded set of
-        # outward rings. Tight branch layouts can surround all eight neighbors.
-        positions = []
-        for ring in range(9):
-            gap = ring * style.font_size * 1.25
-            for side in order:
-                cx, cy = candidates[side]
-                cx += gap * (("right" in side) - ("left" in side))
-                cy += gap * (("bottom" in side) - ("top" in side))
-                positions.append((cx, cy))
-        for cx, cy in positions:
-            box = (cx - width / 2, cy - height / 2, cx + width / 2, cy + height / 2)
-            if any(overlap(box, p.bounds, 3) for p in placements.values()):
-                continue
-            if any(overlap(box, bounds) for bounds in exclusions):
-                continue
-            if any(overlap(box, label.bounds, 3) for label in result):
-                continue
-            if any(segment_intersects(s.start, s.end, box) for s in segments):
-                continue
-            baseline = cy + style.font_size * .35 - (height - style.font_size * 1.25) / 2
-            result.append(Label(placed.id, text, (cx, baseline), box))
-            break
-        else:
-            raise LayoutError(f"{placed.id} ({text}): no clear position for its label")
-    return tuple(result)
+    from .labels import place_labels
+
+    return place_labels(placements, segments, style, fixed, exclusions)
 
 
 def layout(setup: Setup, *, style: Style | None = None) -> Layout:
@@ -313,7 +255,7 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
             if port.kind == "input" and port.required and not setup._input_used(node.id, port.name):
                 raise LayoutError(f"{node.id}.{port.name}: required input is not connected")
 
-    placements = _solve_beams(nodes, setup.connections, anchors, style, drawing=setup)
+    placements, _ = _solve_beams(nodes, setup.connections, anchors, style, drawing=setup)
     return _finish_free_space(setup, placements, style)
 
 
@@ -329,7 +271,7 @@ def _root_origins(setup):
 _BEAM_SEARCH_LIMIT = 1000
 
 
-def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing):
+def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing, initial=None):
     """Continuous spacing for one or more already oriented free-space sections."""
     solver = kiwi.Solver()
     constraints = []
@@ -339,6 +281,8 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing):
     blocks = blocks or {}
     poses = {ident: placed.rotation for block in blocks.values()
              for ident, placed in block.placements.items()}
+    if initial is not None:
+        poses.update({ident: p.rotation for ident, p in initial.items()})
     footprints = {ident: footprint(node, poses.get(ident)) for ident, node in nodes.items()}
 
     def add_constraint(constraint):
@@ -401,6 +345,26 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing):
                 and len(incoming.get(node.id, [])) == len(outgoing.get(node.id, [])) == 1):
             a, b = incoming[node.id][0], outgoing[node.id][0]
             add_constraint((lengths[a.id] == lengths[b.id]) | kiwi.strength.medium)
+    if initial is not None:
+        # Keep unrelated sections in place while a crowded region opens up.
+        # Pins remain required; these are only preferences for automatic poses.
+        for ident, placed in initial.items():
+            add_constraint((xs[ident] == placed.position[0]) | kiwi.strength.weak)
+            add_constraint((ys[ident] == placed.position[1]) | kiwi.strength.weak)
+        for edge in drawing.connections:
+            if edge.medium != "fiber" or edge.source not in initial or edge.target not in initial:
+                continue
+            source, target = initial[edge.source], initial[edge.target]
+            start, end = source.port_position(edge.output), target.port_position(edge.input)
+            gap = math.dist(start, end)
+            if gap < EPSILON:
+                continue
+            direction = tuple((end[i] - start[i]) / gap for i in (0, 1))
+            delta = (xs[edge.target] - xs[edge.source], ys[edge.target] - ys[edge.source])
+            offset = tuple(end[i] - target.position[i] - start[i] + source.position[i] for i in (0, 1))
+            # Open up the existing arrangement without collapsing connector
+            # gaps or reversing the order of fiber-connected sections.
+            required(sum((delta[i] + offset[i]) * direction[i] for i in (0, 1)) >= gap, edge.id)
     solver.updateVariables()
 
     def placements_now():
@@ -420,6 +384,12 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing):
             return collision.context, collision.alternatives(xs, ys)
         return None
 
+    if initial is not None:
+        from .labels import solve_spacing
+
+        return solve_spacing(drawing, style, blocks, initial,
+                             constraints, xs, ys, lengths, placements_now, _BEAM_SEARCH_LIMIT)
+
     # A greedy separation can block a later collision. Explore alternatives with
     # backtracking; each branch permanently separates the selected conflict.
     # Rebuild every candidate solver because rejected Kiwi constraints can leave
@@ -433,7 +403,7 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing):
         placements = placements_now()
         collision = conflict(placements)
         if collision is None:
-            return placements
+            return placements, ()
         context, alternatives = collision
         first_error = first_error or context
         candidates = []
@@ -461,7 +431,13 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing):
 
 def _finish_free_space(setup, placements, style):
     segments = _beam_segments(setup, placements, style)
-    labels = _labels(placements, segments, style)
+    from .labels import LabelPlacementError, space_labels
+
+    try:
+        labels = _labels(placements, segments, style)
+    except LabelPlacementError:
+        placements, labels = space_labels(setup, placements, style)
+        segments = _beam_segments(setup, placements, style)
     return _assemble_layout(placements, segments, labels, style)
 
 

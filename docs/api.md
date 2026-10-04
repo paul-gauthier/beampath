@@ -37,9 +37,13 @@ Most diagrams can start from the [examples](gallery.md). Import core tools from
   surrounding content; fixed positions and distances remain required constraints.
 - **Drawing:** crossings do not imply connections. Open ports have stubs, replaced
   when connected.
-  Labels do not expand component spacing inside a stage. If adjacent label
-  positions are obstructed, placement tries eight additional outward rings;
-  allow room when pinning.
+  Labels stay beside their components, with their own artwork at least three
+  diagram units closer than any other component. Placement tries the eight
+  adjacent positions jointly, expanding automatic spacing when needed to clear
+  labels, artwork, and paths. Explicit pins and distances remain fixed;
+  incompatible constraints raise a label-specific layout error instead of
+  displacing the label farther away. Label searches are deterministic and
+  bounded, with budget exhaustion reported separately from infeasibility.
 - **Fiber routing:** prefer fewer crossings, touches, and overlapping runs before
   minimizing bends and length. Routes may take longer detours to avoid contacts;
   artwork and labels remain clear. Centering and corner rounding also consider

@@ -12,6 +12,7 @@ from .layout import (
 )
 from .routing import connector_lead, inflate, refine_routes, route_connection
 from .occupied import occupied_geometry
+from .labels import LabelPlacementError, space_labels
 
 
 def _validate(setup):
@@ -130,7 +131,7 @@ def _place(setup, style, blocks=None, *, drawing=None):
         origins = {ident: anchors[ident] for ident in members if ident in anchors}
         if index not in fixed:
             origins[members[0]] = (0, 0)
-        local[index] = _solve_beams(subset, [e for e in beam_edges if e.source in subset],
+        local[index], _ = _solve_beams(subset, [e for e in beam_edges if e.source in subset],
                                     origins, style, nested, drawing=drawing)
         if index in fixed:
             hints.update({ident: p.position for ident, p in local[index].items()})
@@ -306,7 +307,7 @@ def mixed_layout(setup, style):
     fibers = [route_connection(edge, placements, style) for edge in edges] + open_routes
     try:
         labels = _labels(placements, segments + [leg for r in fibers for leg in r.legs], style)
-    except LayoutError:
+    except LabelPlacementError:
         # Reserve the straight connector leads while trying label positions,
         # then route cable interiors around the resulting label obstacles.
         leads = [leg for r in open_routes for leg in r.legs]
@@ -314,7 +315,12 @@ def mixed_layout(setup, style):
             for ident, name in ((edge.source, edge.output), (edge.target, edge.input)):
                 a, b = connector_lead(placements[ident], name, max(style.clearance, style.fiber_width))
                 leads.append(Segment(f"lead-{ident}-{name}", a, b, ident, name))
-        labels = _labels(placements, segments + leads, style)
+        try:
+            labels = _labels(placements, segments + leads, style)
+        except LabelPlacementError:
+            placements, labels = space_labels(setup, placements, style)
+            segments = _beam_segments(setup, placements, style)
+            open_routes = _open_fibers(setup, placements, style)
         fibers = [route_connection(edge, placements, style, labels) for edge in edges] + open_routes
     fibers = refine_routes(edges, placements, style, labels, fibers)
     return _assemble_layout(placements, segments, labels, style, fibers)
