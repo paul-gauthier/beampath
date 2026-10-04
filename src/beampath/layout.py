@@ -203,11 +203,15 @@ def segment_intersects(start: Point, end: Point, bounds: Bounds) -> bool:
     return True
 
 
-def _labels(placements: Mapping[str, PlacedOptic], segments: list[Segment], style: Style) -> tuple[Label, ...]:
-    result: list[Label] = []
+def _labels(placements: Mapping[str, PlacedOptic], segments: list[Segment], style: Style,
+            fixed: tuple[Label, ...] = (), exclusions: tuple[Bounds, ...] = ()) -> tuple[Label, ...]:
+    result: list[Label] = list(fixed)
+    labeled = {label.optic for label in fixed}
     center_bounds = envelope([p.position for p in placements.values()])
     middle = ((center_bounds[0] + center_bounds[2]) / 2, (center_bounds[1] + center_bounds[3]) / 2)
     for placed in placements.values():
+        if placed.id in labeled:
+            continue
         text = placed.instance.spec.display_label
         if not text:
             continue
@@ -241,6 +245,8 @@ def _labels(placements: Mapping[str, PlacedOptic], segments: list[Segment], styl
             box = (cx - width / 2, cy - height / 2, cx + width / 2, cy + height / 2)
             if any(overlap(box, p.bounds, 3) for p in placements.values()):
                 continue
+            if any(overlap(box, bounds) for bounds in exclusions):
+                continue
             if any(overlap(box, label.bounds, 3) for label in result):
                 continue
             if any(segment_intersects(s.start, s.end, box) for s in segments):
@@ -261,6 +267,9 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
     if not nodes:
         raise LayoutError("The setup has no components")
     anchors = _root_origins(setup)
+    if setup._layout_groups:
+        from .group_layout import grouped_layout
+        return grouped_layout(setup, style)
     if any(p.medium == "fiber" for n in nodes.values() for p in n.geometry.ports):
         from .fiber_layout import mixed_layout
         return mixed_layout(setup, style)
@@ -284,13 +293,16 @@ def _root_origins(setup):
     return origins
 
 
-def _solve_beams(nodes, connections, anchors, style):
+def _solve_beams(nodes, connections, anchors, style, blocks=None):
     """Continuous spacing for one or more already oriented free-space sections."""
     solver = kiwi.Solver()
     xs = {ident: kiwi.Variable(f"{ident}.x") for ident in nodes}
     ys = {ident: kiwi.Variable(f"{ident}.y") for ident in nodes}
     lengths = {edge.id: kiwi.Variable(f"{edge.id}.length") for edge in connections}
-    footprints = {ident: footprint(node) for ident, node in nodes.items()}
+    blocks = blocks or {}
+    poses = {ident: placed.rotation for block in blocks.values()
+             for ident, placed in block.placements.items()}
+    footprints = {ident: footprint(node, poses.get(ident)) for ident, node in nodes.items()}
 
     def required(constraint, context):
         try:
@@ -305,6 +317,14 @@ def _solve_beams(nodes, connections, anchors, style):
         if node.at is not None:
             required(xs[node.id] == node.at[0], node.id)
             required(ys[node.id] == node.at[1], node.id)
+
+    # A nested group has already solved its internal geometry in this render.
+    # Its frame can translate while participating in surrounding beam equations.
+    for entry, block in blocks.items():
+        origin = block.placements[entry].position
+        for ident, placed in block.placements.items():
+            required(xs[ident] - xs[entry] == placed.position[0] - origin[0], ident)
+            required(ys[ident] - ys[entry] == placed.position[1] - origin[1], ident)
 
     for edge in connections:
         source, target = nodes[edge.source], nodes[edge.target]
@@ -345,7 +365,7 @@ def _solve_beams(nodes, connections, anchors, style):
     placements = {}
     for ident, node in nodes.items():
         position = clean(xs[ident].value()), clean(ys[ident].value())
-        placements[ident] = PlacedOptic(node, position, translated(footprints[ident], position))
+        placements[ident] = PlacedOptic(node, position, translated(footprints[ident], position), poses.get(ident))
     return placements
 
 
@@ -364,7 +384,8 @@ def _beam_segments(setup, placements, style):
     segments = [Segment(edge.id, placements[edge.source].port_position(edge.output),
                         placements[edge.target].port_position(edge.input),
                         edge.source, edge.output, edge.target, edge.input)
-                for edge in setup.connections if edge.medium == "free_space"]
+                for edge in setup.connections if edge.medium == "free_space"
+                and edge.source in placements and edge.target in placements]
     for placed in placements.values():
         connected_outputs = [p for p in placed.instance.geometry.ports
                              if p.kind == "output" and p.medium == "free_space"
@@ -384,7 +405,7 @@ def _beam_segments(setup, placements, style):
                 b = a[0] + length * d[0], a[1] + length * d[1]
                 segments.append(Segment(f"stub-{placed.id}-{index:02d}", a, b, placed.id, port.name))
     for index, root in enumerate(setup._roots):
-        if root.input is None:
+        if root.input is None or root.optic not in placements:
             continue
         placed = placements[root.optic]
         port = placed.instance.port(root.input, "input")

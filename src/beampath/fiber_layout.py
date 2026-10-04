@@ -34,12 +34,17 @@ def _validate(setup):
                 raise LayoutError(f"{node.id}.{port.name}: required input is not connected")
 
 
-def _sections(nodes, edges):
+def _sections(nodes, edges, blocks=None):
     neighbors = {ident: [] for ident in nodes}
     for edge in edges:
         if edge.medium == "free_space":
             neighbors[edge.source].append(edge.target)
             neighbors[edge.target].append(edge.source)
+    for entry, block in (blocks or {}).items():
+        for ident in block.placements:
+            if ident != entry:
+                neighbors[entry].append(ident)
+                neighbors[ident].append(entry)
     sections, membership = [], {}
     for ident in nodes:
         if ident in membership:
@@ -106,11 +111,17 @@ def _collides(candidate, placed, beam_edges, clearance):
     return False
 
 
-def _place(setup, style):
+def _place(setup, style, blocks=None):
+    blocks = blocks or {}
+    grouped = {ident for block in blocks.values() for ident in block.placements}
     nodes = {n.id: n for n in setup.optics}
+    # Interior pins belong to the group's frame. Only its entry can pin that
+    # frame in the enclosing scope; all interior offsets are solved below.
+    nodes = {ident: replace(n, at=None) if ident in grouped and ident not in blocks else n
+             for ident, n in nodes.items()}
     beam_edges = [e for e in setup.connections if e.medium == "free_space"]
     fiber_edges = [e for e in setup.connections if e.medium == "fiber"]
-    sections, membership = _sections(nodes, setup.connections)
+    sections, membership = _sections(nodes, setup.connections, blocks)
     anchors = _root_origins(setup)
     hints = {**anchors, **{n.id: n.at for n in nodes.values() if n.at is not None}}
     local, fixed = {}, set()
@@ -120,12 +131,14 @@ def _place(setup, style):
         subset = {ident: nodes[ident] for ident in members}
         if any(ident in hints for ident in members):
             fixed.add(index)
-        if all(nodes[ident].heading is None for ident in members):
+        nested = {entry: block for entry, block in blocks.items() if entry in subset}
+        if not nested and all(nodes[ident].heading is None for ident in members):
             continue
         origins = {ident: anchors[ident] for ident in members if ident in anchors}
         if index not in fixed:
             origins[members[0]] = (0, 0)
-        local[index] = _solve_beams(subset, [e for e in beam_edges if e.source in subset], origins, style)
+        local[index] = _solve_beams(subset, [e for e in beam_edges if e.source in subset],
+                                    origins, style, nested)
         if index in fixed:
             hints.update({ident: p.position for ident, p in local[index].items()})
     for index, members in enumerate(sections):
@@ -144,7 +157,7 @@ def _place(setup, style):
         block = local[index]
         if len(block) == 1:
             ident, original = next(iter(block.items()))
-            if original.instance.heading is None:
+            if original.instance.heading is None and ident not in grouped:
                 for rotation in dict.fromkeys((original.rotation, 0, 90, 180, 270)):
                     candidate = replace(original, rotation=rotation,
                                         bounds=translated(footprint(original.instance, rotation), original.position))
@@ -179,7 +192,7 @@ def _place(setup, style):
             lane = branches.index(edge)
             lane = ((lane + 1) // 2) * (1 if lane % 2 else -1) if lane else 0
             target_component = block[edge.target]
-            if len(block) == 1 and target_component.instance.heading is None:
+            if len(block) == 1 and target_component.instance.heading is None and edge.target not in grouped:
                 # Orient an unpinned fiber device before positioning its input.
                 # Rotating an offset input after placement creates a needless
                 # sideways jog and changes the intended connector-to-connector gap.
@@ -224,14 +237,14 @@ def _place(setup, style):
             raise LayoutError(f"{sections[index][0]}: cannot place fiber-connected section clear of existing optics")
         placed.update(candidate)
         done.add(index)
-    return {ident: placed[ident] for ident in nodes}
+    return {ident: replace(placed[ident], instance=setup._nodes[ident]) for ident in nodes}
 
 
-def _orient_fiber_components(placements, edges, beam_edges, style):
+def _orient_fiber_components(placements, edges, beam_edges, style, fixed=()):
     # Select the drawing pose using actual neighboring ports, after placement.
     # The graph's heading remains None and its geometry is never rewritten.
     for ident, original in list(placements.items()):
-        if original.instance.heading is not None:
+        if original.instance.heading is not None or ident in fixed:
             continue
         incident = [e for e in edges if ident in {e.source, e.target}]
         if not incident:

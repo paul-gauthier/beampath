@@ -61,6 +61,34 @@ class Root:
 
 
 @dataclass(frozen=True)
+class _LayoutGroup:
+    """A local coordinate frame, optionally arranging its children as rows."""
+
+    entry: str
+    origin: Point
+    members: frozenset[str]
+    children: tuple[_LayoutGroup, ...] = ()
+    rows: bool = False
+    gap: float | None = None
+
+    def remap(self, mapping: dict[str, str], delta: Point) -> _LayoutGroup:
+        return replace(self, entry=mapping[self.entry],
+                       origin=(self.origin[0] + delta[0], self.origin[1] + delta[1]),
+                       members=frozenset(mapping[ident] for ident in self.members),
+                       children=tuple(child.remap(mapping, delta) for child in self.children))
+
+    def extend(self, upstream: str, members: frozenset[str],
+               children: tuple[_LayoutGroup, ...]) -> _LayoutGroup:
+        if upstream not in self.members:
+            return self
+        if any(upstream in child.members for child in self.children):
+            nested = tuple(child.extend(upstream, members, children) for child in self.children)
+        else:
+            nested = self.children + children
+        return replace(self, members=self.members | members, children=nested)
+
+
+@dataclass(frozen=True)
 class InputRef:
     optic: OpticRef
     name: str
@@ -108,6 +136,7 @@ class Setup:
         # A copied fiber input loses its root but still starts the same oriented
         # free-space section. These seeds carry orientation, never placement.
         self._heading_seeds: dict[str, float] = {}
+        self._layout_groups: tuple[_LayoutGroup, ...] = ()
 
     @property
     def optics(self) -> tuple[OpticInstance, ...]:
@@ -120,12 +149,21 @@ class Setup:
     @contextmanager
     def _transaction(self):
         snapshot = (self._nodes.copy(), self._connections.copy(), self._roots.copy(),
-                    self._heading_seeds.copy())
+                    self._heading_seeds.copy(), self._layout_groups)
         try:
             yield
         except Exception:
-            self._nodes, self._connections, self._roots, self._heading_seeds = snapshot
+            (self._nodes, self._connections, self._roots, self._heading_seeds,
+             self._layout_groups) = snapshot
             raise
+
+    def _inherit_group(self, upstream: str | None, members: frozenset[str],
+                       children: tuple[_LayoutGroup, ...] = ()):
+        if any(upstream in group.members for group in self._layout_groups):
+            self._layout_groups = tuple(group.extend(upstream, members, children)
+                                        for group in self._layout_groups)
+        else:
+            self._layout_groups += children
 
     def beam(self, direction: str | float = "east", *, origin: Point = (0, 0)) -> Path:
         return Path(self, initial_heading=heading(direction), origin=point(origin))
@@ -146,7 +184,7 @@ class Setup:
                 or any(r.optic == optic and r.input == port for r in self._roots))
 
     def _connect(self, source: str, output: str, target: str, input_name: str,
-                 distance: float | None, *, resolve: bool = True):
+                 distance: float | None, *, resolve: bool = True, inherit: bool = True):
         outgoing = self._nodes[source].port(output, "output")
         incoming = self._nodes[target].port(input_name, "input")
         if outgoing.medium != incoming.medium:
@@ -169,6 +207,8 @@ class Setup:
                 todo.extend(c.target for c in self._connections if c.source == node)
         self._connections.append(Connection(f"segment-{len(self._connections) + 1:03d}",
                                             source, output, target, input_name, distance, outgoing.medium))
+        if inherit and not any(target in group.members for group in self._layout_groups):
+            self._inherit_group(source, frozenset((target,)))
         if resolve:
             self._resolve_headings()
 
@@ -351,7 +391,8 @@ class Path:
         outputs = [p.name for p in spec.geometry.ports if p.kind == "output"]
         self._end, self._port = ref.id, outputs[0] if len(outputs) == 1 else None
 
-    def _append_path(self, source: Path, distance: float | None, at: Point | None):
+    def _append_path(self, source: Path, distance: float | None, at: Point | None,
+                     *, inherit: bool = True):
         source._check()
         if source.setup is self.setup:
             raise ConnectionError("Cannot append a path from the same setup")
@@ -400,7 +441,7 @@ class Path:
                 p.medium == "free_space" for p in source.setup._nodes[root.optic].geometry.ports
             ):
                 self.setup._heading_seeds[entry] = root.direction
-            self.setup._connect(*frontier, entry, root.input, distance, resolve=False)
+            self.setup._connect(*frontier, entry, root.input, distance, resolve=False, inherit=False)
         # Clone edges in source order after the boundary, then resolve the whole
         # graph once: a partial branch or join can imply a different orientation.
         for edge in source.setup._connections:
@@ -409,6 +450,11 @@ class Path:
                 source=mapping[edge.source], target=mapping[edge.target]))
         self.setup._resolve_headings()
         self._end, self._port = mapping[source._end], source._port
+        if inherit:
+            groups = tuple(group.remap(mapping, delta) for group in source.setup._layout_groups)
+            self.setup._inherit_group(frontier[0] if frontier else None,
+                                      frozenset(mapping.values()), groups)
+        return mapping
 
     def __rshift__(self, spec):
         return self.append(spec)
@@ -486,3 +532,38 @@ def beam(direction: str | float = "east", *, origin: Point = (0, 0)) -> Path:
     origin locates the first optic, not the open end of the incoming beam.
     """
     return Setup().beam(direction, origin=origin)
+
+
+def rows(*stages: Path, gap: float | None = None) -> Path:
+    """Copy and fiber-connect stages in vertically stacked, entry-aligned rows.
+
+    Each stage includes its entire setup. Sources remain unchanged; the result
+    selects the last stage's endpoint. Pins are local to their stage, and later
+    appends extend the row of their upstream optic. Row contents are measured
+    at render time, with a minimum clear gap (default: the style's pitch).
+    """
+    if not stages or any(not isinstance(stage, Path) for stage in stages):
+        raise ConnectionError("rows() needs one or more Path stages")
+    if gap is not None:
+        gap = finite(gap, "gap")
+        if gap <= 0:
+            raise ConnectionError("Row gap must be positive")
+    # _append_path validates roots, reachability and cursor state. Read the
+    # first root only to preserve its frame rather than supplying beam defaults.
+    roots = stages[0].setup._roots
+    result = beam(roots[0].direction, origin=roots[0].origin) if len(roots) == 1 else beam()
+    children = []
+    for index, stage in enumerate(stages):
+        if index:
+            ident, output = result._frontier()
+            if result.setup._nodes[ident].port(output).medium != "fiber":
+                raise ConnectionError("rows() requires fiber connections between stages")
+        mapping = result._append_path(stage, None, None, inherit=False)
+        root, = stage.setup._roots
+        children.append(_LayoutGroup(
+            mapping[root.optic], root.origin, frozenset(mapping.values()),
+            tuple(group.remap(mapping, (0, 0)) for group in stage.setup._layout_groups)))
+    result.setup._layout_groups = (_LayoutGroup(
+        children[0].entry, children[0].origin, frozenset(result.setup._nodes),
+        tuple(children), rows=True, gap=gap),)
+    return result
