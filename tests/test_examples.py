@@ -18,16 +18,12 @@ EXPECTED_COUNTS = {
     "mirror_heading": 3,
     "mzi": 9,
     "franson": 17,
-    "shared_optic": 10,
     "reuse": 8,
-    "composition": 12,
     "rendering": 3,
     "custom_component": 4,
     "mixed_fiber": 6,
-    "fiber_bends": 6,
     "fiber_splitter": 4,
     "spdc": 5,
-    "spdc_collinear": 4,
     "zwm": 8,
 }
 SVG = "{http://www.w3.org/2000/svg}"

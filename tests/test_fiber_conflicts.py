@@ -3,7 +3,10 @@ from dataclasses import replace
 
 import pytest
 
-from beampath import FiberRoute, beam, fiber_coupler, fiber_laser, fiber_launch, inline_power_meter
+from beampath import (
+    FiberRoute, HWP, beam, fiber_coupler, fiber_laser, fiber_launch,
+    fiber_power_meter, fiber_splitter, inline_power_meter, rows,
+)
 from beampath import group_layout, routing
 from beampath.errors import LayoutError
 from beampath.fiber_conflicts import conflict_score, route_contacts, route_set_score
@@ -58,7 +61,15 @@ def test_search_contact_cost_does_not_depend_on_grid_subdivision():
 
 
 def test_composition_removes_crossing_without_moving_optics_or_adding_bends(monkeypatch):
-    from beampath.examples.composition import setup
+    split = (
+        fiber_launch("Input") >> HWP() >> fiber_coupler("Output")
+        >> fiber_splitter("99:1", turn="left")
+    )
+    split.turn() >> fiber_power_meter("Monitor")
+    stage = split.straight()
+    cleanup = fiber_laser("Laser") >> stage
+    setup = rows(cleanup, stage)
+    setup >> fiber_power_meter("Final power")
 
     def old_refinement(edges, placements, style, labels, fibers, fixed=()):
         return [r if r.id in fixed else routing.center_route(r, placements, style, labels) for r in fibers]

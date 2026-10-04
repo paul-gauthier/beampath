@@ -11,10 +11,23 @@ import pytest
 
 from beampath import (
     Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, Style, beam,
-    bandpass_filter, beamsplitter, fiber_launch, fiber_coupler, iris, HWP, QWP, mirror, nd_filter,
+    bandpass_filter, beamsplitter, fiber_launch, fiber_coupler, iris, HWP, LP, QWP, mirror, nd_filter,
 )
 from beampath.layout import artwork_point
 from beampath.render import artwork_bytes, render_svg, tag
+
+
+@pytest.fixture
+def shared_optic_setup():
+    setup = fiber_launch() >> beamsplitter("NPBS1", turn="right")
+    a = setup.straight() >> HWP() >> mirror(heading="south")
+    b = setup.reflect() >> LP() >> QWP() >> mirror(heading="east")
+    npbs2 = setup.setup.add(beamsplitter("NPBS2", turn="left"))
+    b.connect(npbs2.input("secondary"))
+    a.connect(npbs2.input("primary"))
+    npbs2.reflect() >> fiber_coupler()
+    npbs2.straight() >> iris()
+    return setup
 
 
 def test_incoming_stub_renders_with_arrow_and_open_source_metadata():
@@ -41,8 +54,8 @@ def test_incoming_stub_renders_with_arrow_and_open_source_metadata():
     assert len(manifest["optics"]) == 3
 
 
-def test_each_physical_optic_and_beam_segment_render_once():
-    p = runpy.run_module("beampath.examples.shared_optic")["setup"]
+def test_each_physical_optic_and_beam_segment_render_once(shared_optic_setup):
+    p = shared_optic_setup
     layout = p.layout()
     root = ET.fromstring(render_svg(layout))
     groups = root.find(f"{tag('g')}[@id='components']")
@@ -312,14 +325,14 @@ def test_missing_export_dependency_has_clear_error(tmp_path, monkeypatch, suffix
     assert dest.read_bytes() == b"existing export"
 
 
-def test_png_matches_svg_raster_and_retains_credits(tmp_path):
+def test_png_matches_svg_raster_and_retains_credits(tmp_path, shared_optic_setup):
     try:
         import cairosvg
     except (ImportError, OSError):
         pytest.skip("Optional PNG converter or native Cairo is unavailable")
     from PIL import Image
     from io import BytesIO
-    p = runpy.run_module("beampath.examples.shared_optic")["setup"]
+    p = shared_optic_setup
     path = tmp_path / "mzi.png"
     p.save(path, width=1800, dpi=600)
     actual = Image.open(path)
@@ -336,14 +349,14 @@ def test_png_matches_svg_raster_and_retains_credits(tmp_path):
 
 @pytest.mark.parametrize("width,dpi", [(None, 96), (None, 192), (960, 96), (1800, 600)])
 @pytest.mark.parametrize("suffix", [".pdf", ".PDF"])
-def test_pdf_is_vector_with_selectable_labels_page_size_and_credits(tmp_path, width, dpi, suffix):
+def test_pdf_is_vector_with_selectable_labels_page_size_and_credits(tmp_path, width, dpi, suffix, shared_optic_setup):
     pypdf = pytest.importorskip("pypdf")
     try:
         import cairosvg
     except (ImportError, OSError):
         pytest.skip("Optional PDF converter or native Cairo is unavailable")
 
-    path = runpy.run_module("beampath.examples.shared_optic")["setup"]
+    path = shared_optic_setup
     style = Style(pitch=220, font_size=20, beam_color="#1f77b4")
     dest = tmp_path / ("mzi" + suffix)
     assert path.save(dest, style=style, width=width, dpi=dpi) == dest

@@ -15,7 +15,7 @@ Outputs go to `build/examples/`. Use `--diagram all` for every example;
 add `--pdf` for PDF. PNG/PDF need the [export dependencies](api.md#export).
 When an example defines `style`, pass it to `setup.save(..., style=style)`.
 
-[hello](#hello) · [cage](#cage) · [composition](#composition) · [custom_component](#custom_component) · [fiber_bends](#fiber_bends) · [fiber_splitter](#fiber_splitter) · [franson](#franson) · [mirror_heading](#mirror_heading) · [mixed_fiber](#mixed_fiber) · [mzi](#mzi) · [rendering](#rendering) · [reuse](#reuse) · [shared_optic](#shared_optic) · [spdc](#spdc) · [spdc_collinear](#spdc_collinear) · [zwm](#zwm)
+[hello](#hello) · [cage](#cage) · [custom_component](#custom_component) · [fiber_splitter](#fiber_splitter) · [franson](#franson) · [mirror_heading](#mirror_heading) · [mixed_fiber](#mixed_fiber) · [mzi](#mzi) · [rendering](#rendering) · [reuse](#reuse) · [spdc](#spdc) · [zwm](#zwm)
 
 ## hello
 
@@ -65,34 +65,6 @@ setup = (
 
 [Source](../examples/cage.py)
 
-## composition
-
-Build a reusable branched stage and connect two copies in stacked rows.
-
-![composition diagram](../examples/images/composition.png)
-
-```python
-from beampath import rows
-from beampath.components import *
-
-
-def build_stage():
-    split = (
-        fiber_launch("Input") >> HWP() >> fiber_coupler("Output")
-        >> fiber_splitter("99:1", turn="left")
-    )
-    split.turn() >> fiber_power_meter("Monitor")
-    return split.straight()
-
-
-stage = build_stage()
-cleanup = fiber_laser("Laser") >> stage
-setup = rows(cleanup, stage)
-setup >> fiber_power_meter("Final power")
-```
-
-[Source](../examples/composition.py)
-
 ## custom_component
 
 Define inline artwork and three named output ports for a custom component.
@@ -135,27 +107,6 @@ setup.out("down") >> QWP()
 ```
 
 [Source](../examples/custom_component.py)
-
-## fiber_bends
-
-Pin a fiber monitor above a beam section and let the cable router connect it.
-
-![fiber_bends diagram](../examples/images/fiber_bends.png)
-
-```python
-from beampath.components import *
-
-setup = (
-    fiber_laser("Tunable laser")
-    >> inline_power_meter("Input power")
-    >> fiber_launch()
-    >> HWP()
-    >> fiber_coupler()
-)
-setup.append(inline_power_meter("Output power"), at=(1900, -400))
-```
-
-[Source](../examples/fiber_bends.py)
 
 ## fiber_splitter
 
@@ -296,27 +247,6 @@ setup.append(mirror(turn="right"), at=(2000, 0))
 
 [Source](../examples/reuse.py)
 
-## shared_optic
-
-The MZI connected through named inputs on a shared physical optic.
-
-![shared_optic diagram](../examples/images/shared_optic.png)
-
-```python
-from beampath.components import *
-
-setup = fiber_launch() >> beamsplitter("NPBS1", turn="right")
-a = setup.straight() >> HWP() >> mirror(heading="south")
-b = setup.reflect() >> LP() >> QWP() >> mirror(heading="east")
-npbs2 = setup.setup.add(beamsplitter("NPBS2", turn="left"))
-b.connect(npbs2.input("secondary"))
-a.connect(npbs2.input("primary"))
-npbs2.reflect() >> fiber_coupler()
-npbs2.straight() >> iris()
-```
-
-[Source](../examples/shared_optic.py)
-
 ## spdc
 
 A generic SPDC crystal with pump, signal, and idler branches.
@@ -334,22 +264,6 @@ setup.out("idler").append(fiber_coupler("Idler"), distance=500)
 ```
 
 [Source](../examples/spdc.py)
-
-## spdc_collinear
-
-Draw a collinear SPDC source and its common downstream optical path.
-
-![spdc_collinear diagram](../examples/images/spdc_collinear.png)
-
-```python
-from beampath.components import *
-
-setup = fiber_launch("Pump input") >> spdc(opening_angle=0)
-# Select one output to draw the common path through shared optics once.
-setup.out("signal") >> HWP() >> fiber_coupler("Collinear output")
-```
-
-[Source](../examples/spdc_collinear.py)
 
 ## zwm
 

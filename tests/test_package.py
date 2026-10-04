@@ -22,8 +22,10 @@ def test_built_wheel_resources_work_without_checkout(tmp_path):
         assert "beampath/components/mirror.py" in archive.namelist()
         assert "beampath/examples/hello.py" in archive.namelist()
         assert "beampath/examples/custom_component.py" in archive.namelist()
-        assert "beampath/examples/composition.py" in archive.namelist()
+        assert "beampath/examples/reuse.py" in archive.namelist()
         assert "beampath/examples/zwm.py" in archive.namelist()
+        for name in ("spdc_collinear", "shared_optic", "fiber_bends", "composition"):
+            assert f"beampath/examples/{name}.py" not in archive.namelist()
     code = """
 import sys
 import runpy
@@ -45,7 +47,7 @@ assert 'pypdf' not in sys.modules
 for name in components.__all__:
     module = import_module(getattr(components, name).__module__)
     assert module.demo().to_svg()
-for setup in (example("cage"), example("mzi"), nd_filter() >> bandpass_filter(), example("mixed_fiber"), example("fiber_bends"), example("fiber_splitter"),
+for setup in (example("cage"), example("mzi"), nd_filter() >> bandpass_filter(), example("mixed_fiber"), example("fiber_splitter"),
               fiber_laser() >> fiber_power_meter(),
               fiber_laser() >> fiber_launch() >> fiber_coupler() >> fiber_power_meter(),
               fiber_launch() >> detector(), fiber_launch() >> beam_block()):
