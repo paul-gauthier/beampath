@@ -207,6 +207,17 @@
       ],
       "center_basis": "Center of the rectangular absorber on its input axis.",
       "design_basis": "Original dark beam block symbol from the Franson example. The beam meets its left face at (-10, 0)."
+    },
+    {
+      "file": "fs-pbs-cube.svg",
+      "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/15_polarizing/fs-pbs-cube.svg",
+      "sha256": "2ad4d44d535ba1cfeed3ba00dd9eeba60b3c1789639d0f20bc76897ad1069f43",
+      "center": [
+        60,
+        45
+      ],
+      "center_basis": "Center of the cube rectangle x=40..80, y=25..65, at the midpoint of its splitting diagonal.",
+      "adaptations": "Source asset retained intact; demonstration beams and captions are omitted by the rendering selector."
     }
   ]
 }

@@ -60,6 +60,20 @@ def _straight(parameters):
     return Geometry((Port("in", "input"), Port("out", "output")))
 
 
+def _cube_splitter(parameters):
+    _parameters(parameters, ("turn",))
+    turn = parameters.get("turn", "left")
+    if not isinstance(turn, str) or turn.lower() not in {"left", "right"}:
+        raise ComponentError("Beamsplitter turn must be 'left' or 'right'")
+    left = turn.lower() == "left"
+    reflected = 270 if left else 90
+    # The retained cube diagonal reflects left; rotate it for a right turn.
+    return Geometry((Port("primary", "input"),
+                     Port("secondary", "input", reflected, required=False),
+                     Port("straight", "output"), Port("reflect", "output", reflected)),
+                    artwork_rotation=0 if left else -90)
+
+
 def _fiber_transition(parameters, *, launch):
     _parameters(parameters, ("heading",))
     if launch:

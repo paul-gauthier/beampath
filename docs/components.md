@@ -9,7 +9,7 @@ The optional first argument is the label: `None` uses the default, `""` hides
 it, and `\n` creates multiple lines. Each demo shows the component's open
 beam or fiber ports.
 
-[bandpass_filter](#bandpass_filter) · [beam_block](#beam_block) · [beamsplitter](#beamsplitter) · [detector](#detector) · [fiber_coupler](#fiber_coupler) · [fiber_laser](#fiber_laser) · [fiber_launch](#fiber_launch) · [fiber_power_meter](#fiber_power_meter) · [fiber_splitter](#fiber_splitter) · [HWP](#hwp) · [inline_power_meter](#inline_power_meter) · [iris](#iris) · [laser](#laser) · [LP](#lp) · [mirror](#mirror) · [nd_filter](#nd_filter) · [noise_eater](#noise_eater) · [QWP](#qwp) · [spdc](#spdc) · [Custom components](#custom-components)
+[bandpass_filter](#bandpass_filter) · [beam_block](#beam_block) · [beamsplitter](#beamsplitter) · [detector](#detector) · [fiber_coupler](#fiber_coupler) · [fiber_laser](#fiber_laser) · [fiber_launch](#fiber_launch) · [fiber_power_meter](#fiber_power_meter) · [fiber_splitter](#fiber_splitter) · [HWP](#hwp) · [inline_power_meter](#inline_power_meter) · [iris](#iris) · [laser](#laser) · [LP](#lp) · [mirror](#mirror) · [nd_filter](#nd_filter) · [noise_eater](#noise_eater) · [PBS](#pbs) · [QWP](#qwp) · [spdc](#spdc) · [Custom components](#custom-components)
 
 ## bandpass_filter
 
@@ -350,6 +350,36 @@ setup = beam() >> noise_eater()
 ```
 
 [Source](../src/beampath/components/noise_eater.py)
+
+## PBS
+
+```python
+PBS(label=None, *, turn='left')
+```
+
+A polarizing cube beamsplitter, labeled PBS by default.
+
+The cube transmits p polarization and reflects s polarization. For the
+primary input, straight() selects transmission and reflect() selects
+the orthogonal output, 90° left (default) or right according to turn.
+Inputs are "primary" (required and default) and "secondary" (optional).
+Use join() or connect() to combine two incoming paths at one cube.
+
+Output names describe geometry relative to primary incidence: for the
+secondary input, transmission exits reflect and reflection exits straight.
+They are not universal H/V labels when both inputs are occupied. Polarization
+conventions are descriptive; beampath does not simulate polarization.
+
+<img src="images/components/PBS.png" alt="PBS demo" width="420">
+
+```python
+from beampath import beam
+from beampath.components import PBS
+
+setup = beam() >> PBS()
+```
+
+[Source](../src/beampath/components/pbs.py)
 
 ## QWP
 
