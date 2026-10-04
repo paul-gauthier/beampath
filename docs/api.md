@@ -29,6 +29,12 @@ Most diagrams can start from the [examples](gallery.md). Import core tools from
 - **Drawing:** crossings do not imply connections. Open ports have stubs, replaced
   when connected.
   Labels do not expand component spacing inside a stage; allow room when pinning.
+- **Fiber routing:** prefer fewer crossings, touches, and overlapping runs before
+  minimizing bends and length. Routes may take longer detours to avoid contacts;
+  artwork and labels remain clear. Centering and corner rounding also consider
+  neighboring fibers. Open stubs and measured child-stage routes stay fixed.
+  Refinement is deterministic and bounded, rather than a global optimization:
+  remaining fiber contacts are allowed and do not create optical junctions.
 
 ## API summary
 

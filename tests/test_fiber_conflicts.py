@@ -125,13 +125,17 @@ def test_unavoidable_lead_contact_keeps_a_valid_route(monkeypatch, failed_search
     assert len(calls) == 1  # Stop after the first sweep cannot improve anything.
 
 
-def test_straight_shortcut_considers_peers_and_can_take_a_longer_route():
+@pytest.mark.parametrize("contact", ["crossing", "overlap", "touch"])
+def test_straight_shortcut_considers_peers_and_can_take_a_longer_route(contact):
     path = fiber_laser("") >> inline_power_meter("")
     layout = path.layout()
     edge, = path.setup.connections
     straight = routing.route_connection(edge, layout.placements, layout.style)
     x = (straight.start[0] + straight.end[0]) / 2
-    peer = cable("fixed", ((x, -200), (x, 200)))
+    points = {"crossing": ((x, -200), (x, 200)),
+              "overlap": ((x - 10, 0), (x + 10, 0)),
+              "touch": ((x, 0), (x, 200))}[contact]
+    peer = cable("fixed", points)
     replacement = routing.route_connection(edge, layout.placements, layout.style, layout.labels, (peer,))
     assert conflict_score(straight, (peer,))[0] == 1
     assert conflict_score(replacement, (peer,))[0] == 0
