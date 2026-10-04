@@ -46,7 +46,7 @@ upper = mzi.reflect() >> mirror(heading="east") >> HWP()
 combined = lower.join(upper, beamsplitter("NPBS2", turn="right"))
 combined.reflect() >> fiber_coupler()
 combined.straight() >> fiber_coupler()
-split.save("mzi.svg")
+mzi.save("mzi.svg")
 ```
 <!-- DOCS:END mzi -->
 

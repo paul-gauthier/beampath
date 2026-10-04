@@ -15,7 +15,7 @@ DOCUMENTS = ("README.md", "docs/guide.md", "docs/reference.md", "docs/developmen
 # Only examples embedded in documentation need a standalone export statement.
 SAVE_CALLS = {
     "hello": 'setup.save("hello.svg")',
-    "mzi": 'split.save("mzi.svg")',
+    "mzi": 'mzi.save("mzi.svg")',
     "reuse": 'path.save("reuse.svg")',
     "rendering": 'path.save("rendering.png", style=STYLE, width=2400, dpi=600)',
     "custom_component": 'fork.save("custom_component.svg")',
