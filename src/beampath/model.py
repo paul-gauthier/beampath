@@ -159,7 +159,7 @@ class Setup:
 
     def _inherit_group(self, upstream: str | None, members: frozenset[str],
                        children: tuple[_LayoutGroup, ...] = ()):
-        if any(upstream in group.members for group in self._layout_groups):
+        if upstream is not None and any(upstream in group.members for group in self._layout_groups):
             self._layout_groups = tuple(group.extend(upstream, members, children)
                                         for group in self._layout_groups)
         else:

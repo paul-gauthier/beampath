@@ -1,6 +1,6 @@
 """Render a branched stage independently and insert two copies into a setup."""
 # DOCS:BEGIN
-from beampath import beam
+from beampath import rows
 from beampath.components import *
 
 
@@ -16,12 +16,11 @@ from beampath.examples import run_example
 
 
 def build():
-    """Connect two independently positioned copies, including their monitors."""
+    """Connect two stages as rows, including their monitor branches."""
     # DOCS:BEGIN
     stage = build_stage()
-    setup = beam() >> fiber_laser("Laser")
-    setup.append(stage, at=(300, 0))
-    setup.append(stage, at=(300, 600))
+    cleanup = fiber_laser("Laser") >> stage
+    setup = rows(cleanup, stage)
     setup >> fiber_power_meter("Final power")
     # DOCS:END
     return setup

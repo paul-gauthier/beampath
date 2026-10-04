@@ -145,7 +145,7 @@ check wavelength, polarization, or temporal mode matching.
 
 ## Paths and shared optics
 
-Import `Setup`, `beam`, and `chain` from `beampath`.
+Import `Setup`, `beam`, `chain`, and `rows` from `beampath`.
 
 | Operation | Effect |
 |---|---|
@@ -154,6 +154,7 @@ Import `Setup`, `beam`, and `chain` from `beampath`.
 | `path >> spec` / `path >>= spec` | Append a component, chain, or copy of a built path's setup; advance the same cursor |
 | `path.append(spec, distance=None, at=None)` | Append with spacing or position constraints; return the same cursor |
 | `chain(*specs)` | Compose a reusable sequence of specifications |
+| `rows(*stages, gap=None)` | Copy and fiber-connect paths as vertically stacked stages; return the final path |
 | `path.out(name)` | Select an output with a separate cursor |
 | `.straight()` / `.reflect()` / `.turn()` | Shorthand for the corresponding named output |
 | `path.end` | Get a stable `OpticRef` for the current physical optic |
@@ -220,6 +221,40 @@ Internal distances are preserved.
 See [Composing stages](guide.md#composing-stages) for a runnable example with
 independent rendering and repeated insertion.
 
+### Rows of fiber-connected stages
+
+`rows(*stages: Path, gap=None)` creates a new setup containing independent
+copies of one or more stages. It preserves branches and shared optics inside
+each stage, leaves every source unchanged, and returns a normal `Path` at the
+last stage's copied endpoint. One argument produces a grouped copy.
+
+Each boundary connects the preceding stage's selected output to the next
+stage's root input. Both ports must be fiber. The same source requirements as
+[path copying](#copying-built-paths) apply. Intermediate stages must select an
+unused output; the final stage may end at a terminal or an output group. An
+inputless source, such as a laser, can appear only in the first stage.
+
+Rows run from top to bottom and align their entry optics' reference points
+along x. The first entry keeps its source origin; authored headings are
+preserved. Each stage's pins use its original local coordinates and translate
+with the row. Internal distances remain constrained. Later appends, including
+branches, extend the row containing their upstream optic; an `at=` on such an
+append uses that row's local coordinates.
+
+`gap` is a positive finite minimum clearance in diagram units; omission uses
+the `Style.pitch` supplied to rendering. Additional space is reserved for fiber
+connector clearance when needed. Layout measures artwork, labels, beams,
+internal fibers, and remaining open stubs before placing rows. Replaced stubs,
+inter-row fibers, and the canvas margin do not contribute to row spacing.
+Connecting fibers are routed around the combined drawing after placement.
+
+Arrangements are retained through copying and nesting. In
+`rows(rows(a, b, gap=100), c, gap=300)`, the inner pair stays together and the
+outer gap separates its complete content from `c`. Copy the result with `>>`
+or `.append(..., at=...)` using the usual entry-placement rules. Every render
+recomputes internal geometry and row spacing for its style; no preliminary
+`layout()` call is needed.
+
 ## Headings and angles
 
 Angles are degrees, clockwise positive: east = 0, south = 90, west = 180,
@@ -264,8 +299,9 @@ Fiber placement prefers straight runs. Routing prefers fewer bends, then shorter
 routes, avoiding artwork and labels. Pins remain fixed; layout may rotate fiber
 devices to align their connectors. Fiber lengths are drawing lengths, not
 physical cable lengths. Layout is deterministic but does not guarantee a global
-optimum or wrap long chains into rows. Labels are placed after components and
-do not expand component spacing.
+optimum or automatically wrap long chains. Use [rows](#rows-of-fiber-connected-stages)
+to choose stage boundaries explicitly. Labels are placed after components and
+do not expand component spacing within a stage; they do contribute to row spacing.
 
 Initial free-space inputs and open outputs receive stubs; unconnected fiber
 ports receive routed stubs at their attachments. Connecting a port replaces its

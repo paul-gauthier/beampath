@@ -426,7 +426,7 @@ def _beam_segments(setup, placements, style):
     return segments
 
 
-def _assemble_layout(placements, segments, labels, style, fibers=()):
+def _content_bounds(placements, segments, labels, fibers=()):
     points = []
     for bounds in [p.bounds for p in placements.values()] + [label.bounds for label in labels]:
         points.extend(((bounds[0], bounds[1]), (bounds[2], bounds[3])))
@@ -434,6 +434,10 @@ def _assemble_layout(placements, segments, labels, style, fibers=()):
         points.extend((segment.start, segment.end))
     for route in fibers:
         points.extend(route.points)
-    x0, y0, x1, y1 = envelope(points)
+    return envelope(points)
+
+
+def _assemble_layout(placements, segments, labels, style, fibers=()):
+    x0, y0, x1, y1 = _content_bounds(placements, segments, labels, fibers)
     bounds = x0 - style.margin, y0 - style.margin, x1 + style.margin, y1 + style.margin
     return Layout(placements, tuple(segments), labels, bounds, style, tuple(fibers))

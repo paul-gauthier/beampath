@@ -6,7 +6,9 @@ from dataclasses import replace
 from .errors import LayoutError
 from .fiber_layout import _open_fibers, _orient_fiber_components, _place, _validate
 from .geometry import add, overlap, translated
-from .layout import Layout, Segment, _assemble_layout, _beam_segments, _labels, segment_intersects
+from .layout import (
+    Layout, Segment, _assemble_layout, _beam_segments, _content_bounds, _labels, segment_intersects,
+)
 from .model import Root, Setup
 from .routing import center_route, connector_lead, inflate, route_connection
 
@@ -65,7 +67,9 @@ def _finish(setup, placements, style, children=()):
         labels = _labels(placements, segments + reserved + leads, style, fixed_labels, exclusions)
         fibers = [fixed_fibers[edge.id] if edge.id in fixed_fibers
                   else route_connection(edge, placements, style, labels) for edge in edges] + opens
-    for label in labels:
+    for index, label in enumerate(labels):
+        if any(overlap(label.bounds, other.bounds, 3) for other in labels[index + 1:]):
+            raise LayoutError(f"{label.optic}: stage labels overlap")
         if any(overlap(label.bounds, p.bounds, 3) for p in placements.values()):
             raise LayoutError(f"{label.optic}: stage label overlaps component artwork")
         if any(segment_intersects(s.start, s.end, label.bounds) for s in segments):
@@ -112,16 +116,18 @@ def _group(setup, group, style):
     for child in group.children:
         measured = _group(setup, child, style)
         entry = measured.placements[child.entry].position
+        bounds = _content_bounds(measured.placements, measured.segments, measured.labels, measured.fibers)
         if entry_x is None:
             entry_x = entry[0]
         else:
-            # Layout.bounds includes the outer canvas margin; it is not part
-            # of a stage's content and must not affect row spacing.
-            delta = entry_x - entry[0], bottom + gap - (measured.bounds[1] + style.margin)
+            # Measure content directly: subtracting a potentially large canvas
+            # margin back out of Layout.bounds would introduce roundoff here.
+            delta = entry_x - entry[0], bottom + gap - bounds[1]
             measured = _translate(measured, delta)
+            bounds = translated(bounds, delta)
         children.append(measured)
         placements.update(measured.placements)
-        bottom = measured.bounds[3] - style.margin
+        bottom = bounds[3]
     return _finish(setup, placements, style, children)
 
 

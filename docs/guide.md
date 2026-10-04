@@ -133,13 +133,14 @@ and how constraints apply to a chain.
 ## Composing stages
 
 Build each stage with an ordinary function returning a path. Append that path
-with `>>` or `.append(stage, at=...)` to insert an independent copy of its whole
-setup, including branches and shared optics. Return the output cursor where
-the combined setup should continue:
+with `>>` to insert an independent copy of its whole setup, including branches
+and shared optics. Use `rows(first, second, ...)` to connect stages by fiber and
+stack them vertically, with their entry optics aligned. Return the output
+cursor where the combined setup should continue:
 
 <!-- DOCS:BEGIN composition -->
 ```python
-from beampath import beam
+from beampath import rows
 from beampath.components import *
 
 
@@ -152,9 +153,8 @@ def build_stage():
     return split.straight()
 
 stage = build_stage()
-setup = beam() >> fiber_laser("Laser")
-setup.append(stage, at=(300, 0))
-setup.append(stage, at=(300, 600))
+cleanup = fiber_laser("Laser") >> stage
+setup = rows(cleanup, stage)
 setup >> fiber_power_meter("Final power")
 stage.save("stage.svg")
 setup.save("composition.svg")
@@ -166,14 +166,21 @@ setup.save("composition.svg")
 Runnable example: [composition.py](../examples/composition.py).
 
 The original `stage` remains independently renderable after both insertions.
+`rows()` returns a normal path; the final power meter extends its last row.
+Row spacing includes monitor branches and labels and adapts to the rendering
+style. Set a minimum clear gap with `rows(cleanup, stage, gap=250)`. Nested rows
+keep their arrangements when copied into another setup.
+
 As with component appends, `setup` advances in place. Use `beam() >> stage` to
-start a fresh copy before making further edits. A stage ending at a splitter
-can return the splitter's output group instead, letting the caller choose
-`.straight()`, `.turn()`, or `.reflect()` after insertion.
+start a fresh copy before making further edits. A final stage ending at a
+splitter can return the output group, letting the caller choose `.straight()`,
+`.turn()`, or `.reflect()` after insertion.
 
 Stages need one initial beam root, with every optic connected to it. The
-combined diagram solves spacing and fiber routes together. `at=` pins the
-stage entry and translates its explicit pins; it does not freeze its layout.
+combined diagram solves spacing and fiber routes at render time. For explicit
+placement, `.append(stage, at=(x, y))` pins the stage entry and translates its
+explicit pins. In `rows()`, pins use each stage's local coordinates and move
+with that row.
 See the [composition reference](reference.md#copying-built-paths) for heading,
 positioning, and source requirements. `chain()` remains useful for reusable
 linear lists of component specifications.

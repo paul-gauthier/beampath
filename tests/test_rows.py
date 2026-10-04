@@ -4,7 +4,7 @@ from dataclasses import replace
 import pytest
 
 from beampath import (
-    ComponentError, ConnectionError, HWP, OpticRef, Setup, Style, beam,
+    ComponentError, ConnectionError, HWP, LayoutError, OpticRef, Style, beam,
     fiber_coupler, fiber_laser, fiber_launch, fiber_power_meter, fiber_splitter,
     inline_power_meter, iris, rows,
 )
@@ -55,7 +55,7 @@ def assert_clear(layout):
 
 
 @pytest.mark.parametrize("count", [2, 3])
-@pytest.mark.parametrize("gap", [None, 90, 320])
+@pytest.mark.parametrize("gap", [None, 1, 90, 320])
 def test_rows_align_entries_and_clear_all_stage_content(count, gap):
     sources = [stage(f"Stage {i}", origin=(80 + i * 130, 60 - i * 100)) for i in range(count)]
     before = [snapshot(source) for source in sources]
@@ -90,6 +90,7 @@ def test_style_is_resolved_late_and_canvas_margin_does_not_space_rows():
     assert padded.fibers == standard.fibers
     assert padded.bounds == pytest.approx((standard.bounds[0] - 100, standard.bounds[1] - 100,
                                          standard.bounds[2] + 100, standard.bounds[3] + 100))
+    assert result.layout(style=replace(standard.style, margin=1e10)).placements == standard.placements
     assert snapshot(result) == before
     assert_clear(bigger)
 
@@ -114,6 +115,8 @@ def test_nested_rows_keep_inner_gap_and_are_reusable_with_local_pins():
     layout = outer.layout()
     a, b = outer.setup._layout_groups[0].children
     assert content_bounds(layout, b.members)[1] - content_bounds(layout, a.members)[3] == pytest.approx(310)
+    inner_a, inner_b = a.children[0].children
+    assert content_bounds(layout, inner_b.members)[1] - content_bounds(layout, inner_a.members)[3] == pytest.approx(95)
     assert layout.placements["optic-002"].position[0] - layout.placements["optic-001"].position[0] == (
         pytest.approx(350))
     # Embedding translates the whole arrangement, including all local pins.
@@ -201,6 +204,15 @@ def test_grouped_first_row_can_attach_to_a_free_space_receiver():
     boundary = next(segment for segment in layout.segments if segment.id == "segment-001")
     assert boundary.length == pytest.approx(420)
     assert_clear(layout)
+
+
+def test_incompatible_group_pins_cannot_silently_overlap_labels():
+    split = fiber_laser() >> fiber_splitter()
+    meter = rows(beam() >> fiber_power_meter("A long label " * 6))
+    split.straight().append(meter, at=(0, 600))
+    split.turn().append(meter, at=(150, 600))
+    with pytest.raises(LayoutError, match="stage labels overlap"):
+        split.layout()
 
 
 @pytest.mark.parametrize("case", ["no_stages", "non_path", "free_space", "wrong_input", "terminal",
