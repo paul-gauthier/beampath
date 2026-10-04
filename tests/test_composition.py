@@ -1,4 +1,3 @@
-import runpy
 """Composition copies topology and constraints, without sharing physical optics."""
 import pytest
 
@@ -50,8 +49,8 @@ def test_repeated_branched_stage_copies_are_independent_and_keep_selected_output
     assert len(destination.setup.optics) == 12
 
 
-def test_copy_shared_recombiner_once_and_preserve_all_branches():
-    stage = runpy.run_module("beampath.examples.mzi")["setup"]
+def test_copy_shared_recombiner_once_and_preserve_all_branches(fiber_mzi):
+    stage = fiber_mzi
     before = snapshot(stage)
     svg = stage.to_svg()
     destination = beam().append(fiber_laser(), at=(-500, 0))

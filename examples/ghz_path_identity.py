@@ -11,9 +11,9 @@ Based on the path-identity scheme in
 [Fig. 1 of the PyTheus paper](https://arxiv.org/pdf/2210.09980#page=6).
 """
 
-from beampath.components import HWP, beam_block, beamsplitter, detector, fiber_launch, mirror, spdc
+from beampath.components import HWP, beam_block, beamsplitter, detector, laser, mirror, spdc
 
-setup = fiber_launch("Coherent pump") >> beamsplitter("Pump splitter", turn="right")
+setup = laser("Coherent pump") >> beamsplitter("Pump splitter", turn="right")
 
 hh_ab = (setup.straight() >> spdc("SPDC\nHH", opening_angle=60)).end
 hh_cd = (

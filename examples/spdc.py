@@ -2,7 +2,7 @@
 
 from beampath.components import *
 
-setup = fiber_launch("Pump input") >> spdc()
+setup = laser("Pump input") >> spdc()
 # Small opening angles need longer paths to separate downstream optics.
 setup.out("pump").append(iris("Transmitted pump"), distance=800)
 setup.out("signal").append(fiber_coupler("Signal"), distance=500)

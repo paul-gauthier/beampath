@@ -17,13 +17,13 @@ SVG export works with the base installation. For PNG/PDF, install the
 ## Hello, beampath
 
 <!-- HELLO:BEGIN -->
-![A fiber path folded by two mirrors, with a half-wave plate.](examples/images/hello.png)
+![A laser beam folded by two mirrors, with a half-wave plate and fiber output.](examples/images/hello.png)
 
 ```python
 from beampath.components import *
 
 setup = (
-    fiber_launch()
+    laser()
     >> mirror(turn="right")
     >> HWP()
     >> mirror(turn="left")

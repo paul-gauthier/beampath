@@ -1,4 +1,3 @@
-import runpy
 """Stage groups retain topology and defer row placement until rendering."""
 from dataclasses import replace
 
@@ -187,8 +186,8 @@ def test_single_row_and_group_endpoint_keep_normal_path_semantics():
     assert_clear(grouped.layout())
 
 
-def test_shared_optics_are_copied_once_inside_a_row():
-    mzi = runpy.run_module("beampath.examples.mzi")["setup"]
+def test_shared_optics_are_copied_once_inside_a_row(fiber_mzi):
+    mzi = fiber_mzi
     result = rows(fiber_laser() >> inline_power_meter(), mzi)
     assert len(result.setup.optics) == len(mzi.setup.optics) + 2
     recombiner, = [n for n in result.setup.optics if n.spec.label == "NPBS2"]

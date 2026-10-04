@@ -19,7 +19,7 @@ When an example defines `style`, pass it to `setup.save(..., style=style)`.
 
 ## hello
 
-A fiber path folded by two mirrors, with a half-wave plate.
+A laser beam folded by two mirrors, with a half-wave plate and fiber output.
 
 ![hello diagram](../examples/images/hello.png)
 
@@ -27,7 +27,7 @@ A fiber path folded by two mirrors, with a half-wave plate.
 from beampath.components import *
 
 setup = (
-    fiber_launch()
+    laser()
     >> mirror(turn="right")
     >> HWP()
     >> mirror(turn="left")
@@ -39,7 +39,7 @@ setup = (
 
 ## cage
 
-A linear chain of polarization optics with folded fiber connections.
+A laser-driven polarization chain with a folded path and fiber output.
 
 ![cage diagram](../examples/images/cage.png)
 
@@ -47,7 +47,7 @@ A linear chain of polarization optics with folded fiber connections.
 from beampath.components import *
 
 setup = (
-    fiber_launch()
+    laser()
     >> mirror(turn="right")
     >> mirror(turn="left")
     >> iris()
@@ -131,9 +131,9 @@ A Franson interferometer with SPDC and two matched unequal-arm analyzers.
 ![franson diagram](../examples/images/franson.png)
 
 ```python
-from beampath.components import beam_block, beamsplitter, detector, fiber_launch, mirror, spdc
+from beampath.components import beam_block, beamsplitter, detector, laser, mirror, spdc
 
-setup = fiber_launch("CW pump") >> spdc(opening_angle=60)
+setup = laser("CW pump") >> spdc(opening_angle=60)
 setup.out("pump") >> beam_block("Pump dump")
 
 # Mirror the analyzers about the pump axis. Each straight short arm has length
@@ -173,9 +173,9 @@ Based on the path-identity scheme in
 ![ghz_path_identity diagram](../examples/images/ghz_path_identity.png)
 
 ```python
-from beampath.components import HWP, beam_block, beamsplitter, detector, fiber_launch, mirror, spdc
+from beampath.components import HWP, beam_block, beamsplitter, detector, laser, mirror, spdc
 
-setup = fiber_launch("Coherent pump") >> beamsplitter("Pump splitter", turn="right")
+setup = laser("Coherent pump") >> beamsplitter("Pump splitter", turn="right")
 
 hh_ab = (setup.straight() >> spdc("SPDC\nHH", opening_angle=60)).end
 hh_cd = (
@@ -250,7 +250,7 @@ A Mach–Zehnder interferometer with a shared recombining beamsplitter.
 ```python
 from beampath.components import *
 
-setup = fiber_launch() >> beamsplitter("NPBS1", turn="left")
+setup = laser() >> beamsplitter("NPBS1", turn="left")
 lower = setup.straight() >> HWP() >> mirror(heading="north")
 upper = setup.reflect() >> mirror(heading="east") >> HWP()
 combined = lower.join(upper, beamsplitter("NPBS2", turn="right"))
@@ -305,7 +305,7 @@ A generic SPDC crystal with pump, signal, and idler branches.
 ```python
 from beampath.components import *
 
-setup = fiber_launch("Pump input") >> spdc()
+setup = laser("Pump input") >> spdc()
 # Small opening angles need longer paths to separate downstream optics.
 setup.out("pump").append(iris("Transmitted pump"), distance=800)
 setup.out("signal").append(fiber_coupler("Signal"), distance=500)

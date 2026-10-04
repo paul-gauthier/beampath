@@ -174,7 +174,7 @@ def test_ghz_path_identity_postselects_only_hhhh_and_vvvv():
         ("VV", frozenset("ac")), ("VV", frozenset("bd")),
     }
     assert len(pump_roots) == 1
-    assert nodes[pump_roots.pop()].spec.definition.name == "fiber_launch"
+    assert nodes[pump_roots.pop()].spec.definition.name == "laser"
 
     # Include double emission by one source: only the two disjoint pairings
     # survive the one-photon-per-output condition in the two-pair sector.

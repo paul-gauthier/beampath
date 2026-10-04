@@ -1,8 +1,8 @@
 """A Franson interferometer with SPDC and two matched unequal-arm analyzers."""
 
-from beampath.components import beam_block, beamsplitter, detector, fiber_launch, mirror, spdc
+from beampath.components import beam_block, beamsplitter, detector, laser, mirror, spdc
 
-setup = fiber_launch("CW pump") >> spdc(opening_angle=60)
+setup = laser("CW pump") >> spdc(opening_angle=60)
 setup.out("pump") >> beam_block("Pump dump")
 
 # Mirror the analyzers about the pump axis. Each straight short arm has length

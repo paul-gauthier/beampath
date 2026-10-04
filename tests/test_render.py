@@ -140,7 +140,8 @@ def test_npbs_cube_surface_matches_beam_geometry(initial, turn):
 def test_fiber_transition_orientation_and_mirror_backing():
     layout = runpy.run_module("beampath.examples.cage")["setup"].layout()
     nodes = list(layout.placements.values())
-    launch, couple = nodes[0].instance, nodes[-1].instance
+    launch = (beam() >> fiber_launch()).end.instance
+    couple = nodes[-1].instance
     assert artwork_point(launch, (85, 27))[0] < 0
     assert artwork_point(couple, (85, 27))[0] > 0
     for placed in nodes:

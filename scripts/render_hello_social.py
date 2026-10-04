@@ -40,7 +40,7 @@ def build_social_svg():
     manifest_node.text = json.dumps(manifest, ensure_ascii=False, indent=2)
     element(root, "title").text = "beampath — hello"
     element(root, "desc").text = (
-        "A fiber launch, two mirrors, a half-wave plate, and a fiber coupler, "
+        "A laser, two mirrors, a half-wave plate, and a fiber coupler, "
         "with the Python code that creates the diagram in the upper right."
     )
 

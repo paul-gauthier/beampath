@@ -116,7 +116,8 @@ def test_cage_layout_and_labels():
     grid = [(0, 0), (1, 0), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1),
             (6, 1), (7, 1), (8, 1), (9, 1), (9, 0), (10, 0)]
     for optic, (x, y) in zip(result.placements.values(), grid):
-        assert optic.position == pytest.approx((190 * x, 190 * y))
+        # The laser's nozzle is 60 units ahead of its housing center.
+        assert optic.position == pytest.approx((190 * x + (60 if x else 0), 190 * y))
     assert len(result.placements) == 13
     assert len(result.segments) == 12
     assert [label.text for label in result.labels] == [n.spec.display_label for n in p.setup.optics]

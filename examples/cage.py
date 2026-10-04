@@ -1,9 +1,9 @@
-"""A linear chain of polarization optics with folded fiber connections."""
+"""A laser-driven polarization chain with a folded path and fiber output."""
 
 from beampath.components import *
 
 setup = (
-    fiber_launch()
+    laser()
     >> mirror(turn="right")
     >> mirror(turn="left")
     >> iris()

@@ -1,9 +1,9 @@
-"""A fiber path folded by two mirrors, with a half-wave plate."""
+"""A laser beam folded by two mirrors, with a half-wave plate and fiber output."""
 
 from beampath.components import *
 
 setup = (
-    fiber_launch()
+    laser()
     >> mirror(turn="right")
     >> HWP()
     >> mirror(turn="left")
