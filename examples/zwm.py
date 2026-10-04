@@ -3,7 +3,7 @@
 The shared pump feeds both crystals; their signals meet at a beamsplitter."""
 
 from beampath import beam
-from beampath.components import beamsplitter, fiber_coupler, mirror, spdc
+from beampath.components import *
 
 setup = beam() >> beamsplitter("Pump splitter", turn="right")
 c1 = (setup.straight() >> spdc("NL1", opening_angle=60)).end
@@ -19,4 +19,5 @@ c1.out("idler").connect(c2.input("idler_in"))
 s1 = c1.out("signal") >> mirror("Signal 1", heading="east")
 s2 = c2.out("signal") >> mirror("Signal 2", heading="north")
 combined = s1.join(s2, beamsplitter("Signal combiner", turn="left"))
-combined.straight() >> fiber_coupler("Signal detection")
+combined.straight() >> detector("")
+combined.reflect() >> detector("")
