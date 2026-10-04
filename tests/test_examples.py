@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+from itertools import combinations_with_replacement
 
 import pytest
 
@@ -18,6 +19,7 @@ EXPECTED_COUNTS = {
     "mirror_heading": 3,
     "mzi": 9,
     "franson": 17,
+    "ghz_path_identity": 17,
     "reuse": 8,
     "rendering": 3,
     "custom_component": 4,
@@ -129,6 +131,71 @@ def test_zwm_overlaps_idlers_and_recombines_separate_signals():
     assert signal_ends[0] == signal_ends[1]
     assert nodes[signal_ends[0]].spec.definition.name == "beamsplitter"
     assert signal_inputs == {"primary", "secondary"}
+
+
+def test_ghz_path_identity_postselects_only_hhhh_and_vvvv():
+    path = runpy.run_module("beampath.examples.ghz_path_identity")["setup"]
+    layout = path.layout()
+    nodes = {node.id: node for node in path.setup.optics}
+    crystals = [node for node in nodes.values() if node.spec.definition.name == "spdc"]
+    outgoing = {(edge.source, edge.output): edge for edge in path.setup.connections}
+    incoming = {(edge.target, edge.input): edge for edge in path.setup.connections}
+    assert len(crystals) == 4
+
+    # Follow real connections, including pass-through modes at later sources,
+    # to recover the pair-source graph on the four detected output paths.
+    def detected_mode(source, output):
+        edge = outgoing[source, output]
+        target = nodes[edge.target]
+        while target.spec.definition.name != "detector":
+            if target.spec.definition.name == "spdc":
+                assert edge.input in {"signal_in", "idler_in"}
+                output = edge.input.removesuffix("_in")
+            else:
+                assert target.spec.definition.name == "mirror"
+                output = "out"
+            edge = outgoing[target.id, output]
+            target = nodes[edge.target]
+        return target.spec.display_label
+
+    pairs, pump_roots = {}, set()
+    for crystal in crystals:
+        pairs[crystal.spec.display_label] = frozenset(
+            detected_mode(crystal.id, mode) for mode in ("signal", "idler")
+        )
+        node, port = crystal, "in"
+        while (node.id, port) in incoming:
+            node = nodes[incoming[node.id, port].source]
+            port = node.spec.definition.default_input
+        pump_roots.add(node.id)
+    assert pairs == {"I: HH": {"a", "b"}, "II: HH": {"c", "d"},
+                     "III: VV": {"a", "c"}, "IV: VV": {"b", "d"}}
+    assert len(pump_roots) == 1
+    assert nodes[pump_roots.pop()].spec.definition.name == "fiber_launch"
+
+    # Include double emission by one source: only the two disjoint pairings
+    # survive the one-photon-per-output condition in the two-pair sector.
+    terms = []
+    for first, second in combinations_with_replacement(pairs, 2):
+        if pairs[first].isdisjoint(pairs[second]):
+            photons = {mode: source.split(": ")[1][0]
+                       for source in (first, second) for mode in pairs[source]}
+            assert set(photons) == set("abcd")
+            terms.append("".join(photons[mode] for mode in "abcd"))
+    assert sorted(terms) == ["HHHH", "VVVV"]
+
+    # Path identity is a continuous ray through each downstream crystal.
+    overlaps = [segment for segment in layout.segments
+                if segment.input in {"signal_in", "idler_in"}]
+    assert len(overlaps) == 4
+    for segment in overlaps:
+        continuation = next(s for s in layout.segments
+                            if s.source == segment.target
+                            and s.output == segment.input.removesuffix("_in"))
+        assert segment.end == continuation.start
+        directions = [tuple((b - a) / s.length for a, b in zip(s.start, s.end))
+                      for s in (segment, continuation)]
+        assert directions[0] == pytest.approx(directions[1])
 
 
 @pytest.mark.parametrize("name", EXAMPLES)
