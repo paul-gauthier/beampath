@@ -40,12 +40,12 @@ interferometer shares the recombining beamsplitter between both paths:
 ```python
 from beampath.components import *
 
-split = fiber_launch() >> beamsplitter("NPBS1", turn="right")
-a = split.straight() >> HWP() >> mirror(heading="south")
-b = split.reflect() >> LP() >> QWP() >> mirror(heading="east")
-combined = a.join(b, beamsplitter("NPBS2", turn="left"))
+mzi = fiber_launch() >> beamsplitter("NPBS1", turn="left")
+lower = mzi.straight() >> HWP() >> mirror(heading="north")
+upper = mzi.reflect() >> mirror(heading="east") >> HWP()
+combined = lower.join(upper, beamsplitter("NPBS2", turn="right"))
 combined.reflect() >> fiber_coupler()
-combined.straight() >> iris()
+combined.straight() >> fiber_coupler()
 split.save("mzi.svg")
 ```
 <!-- DOCS:END mzi -->

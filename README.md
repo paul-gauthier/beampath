@@ -14,7 +14,7 @@ pip install 'beampath @ git+https://github.com/paul-gauthier/beampath.git'
 SVG export works with the base installation. For PNG or PDF, see
 [export dependencies and Cairo setup](docs/reference.md#rendering).
 
-## Your first diagram
+## Hello, beampath
 
 Start with a fiber launch, two mirrors, a half-wave plate, and a fiber coupler.
 `>>` connects them in beam order:
