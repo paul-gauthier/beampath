@@ -5,7 +5,6 @@ into (a, c) and (b, d). With coherent pumping, indistinguishable modes,
 balanced pair amplitudes, and zero relative phase, postselecting one photon
 in each output gives (|HHHH⟩ + |VVVV⟩) / √2 in the low-gain regime.
 Pump waveplates rotate the polarization between the two source stages.
-The drawing shows connectivity; optical delays and phase tuning are omitted.
 
 Based on the path-identity scheme in
 [Fig. 1 of the PyTheus paper](https://arxiv.org/pdf/2210.09980#page=6).
@@ -15,7 +14,9 @@ from beampath.components import HWP, beam_block, beamsplitter, detector, laser, 
 
 setup = laser("Coherent pump") >> beamsplitter("Pump splitter", turn="right")
 
-hh_ab = (setup.straight() >> spdc("SPDC\nHH", opening_angle=60)).end
+hh_ab = (
+    setup.straight() >> spdc("SPDC\nHH", opening_angle=60)
+).end
 hh_cd = (
     setup.reflect() >> mirror("", heading="east") >> spdc("SPDC\nHH", opening_angle=60)
 ).end

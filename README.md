@@ -35,11 +35,6 @@ setup.save("hello.svg")
 <!-- HELLO:END -->
 
 Open `hello.svg` in a browser or vector editor; labels remain editable.
-To render a bundled example:
-
-```sh
-python -m beampath.examples --diagram hello
-```
 
 ## Documentation
 
@@ -48,9 +43,6 @@ python -m beampath.examples --diagram hello
 - **[Components](docs/components.md):** every builtin, with a minimal demo and API.
 - **[API and conventions](docs/api.md):** construction, layout, styling, and export.
 - **[Development](docs/development.md):** setup, checks, and documentation generation.
-
-Connections must be acyclic; closed cavities and repeated passes through one
-physical optic are unsupported.
 
 ## Artwork credits
 
