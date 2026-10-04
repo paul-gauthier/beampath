@@ -305,6 +305,7 @@ def _root_origins(setup):
 def _solve_beams(nodes, connections, anchors, style, blocks=None):
     """Continuous spacing for one or more already oriented free-space sections."""
     solver = kiwi.Solver()
+    constraints = []
     xs = {ident: kiwi.Variable(f"{ident}.x") for ident in nodes}
     ys = {ident: kiwi.Variable(f"{ident}.y") for ident in nodes}
     lengths = {edge.id: kiwi.Variable(f"{edge.id}.length") for edge in connections}
@@ -313,9 +314,13 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None):
              for ident, placed in block.placements.items()}
     footprints = {ident: footprint(node, poses.get(ident)) for ident, node in nodes.items()}
 
+    def add_constraint(constraint):
+        solver.addConstraint(constraint)
+        constraints.append(constraint)
+
     def required(constraint, context):
         try:
-            solver.addConstraint(constraint)
+            add_constraint(constraint)
         except kiwi.UnsatisfiableConstraint as exc:
             raise LayoutError(f"{context}: incompatible placement constraints") from exc
 
@@ -348,7 +353,7 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None):
         if edge.distance is None:
             minimum = max(style.pitch, clearance)
             required(length >= minimum, context)
-            solver.addConstraint((length == minimum) | kiwi.strength.weak)
+            add_constraint((length == minimum) | kiwi.strength.weak)
         else:
             required(length == edge.distance, context)
         required(xs[target.id] + b[0] == xs[source.id] + a[0] + length * d[0], context)
@@ -368,14 +373,52 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None):
                 and aligned(inputs[0].direction, outputs[0].direction)
                 and len(incoming.get(node.id, [])) == len(outgoing.get(node.id, [])) == 1):
             a, b = incoming[node.id][0], outgoing[node.id][0]
-            solver.addConstraint((lengths[a.id] == lengths[b.id]) | kiwi.strength.medium)
+            add_constraint((lengths[a.id] == lengths[b.id]) | kiwi.strength.medium)
     solver.updateVariables()
 
-    placements = {}
-    for ident, node in nodes.items():
-        position = clean(xs[ident].value()), clean(ys[ident].value())
-        placements[ident] = PlacedOptic(node, position, translated(footprints[ident], position), poses.get(ident))
-    return placements
+    # Branches can bring nonadjacent optics together even when every connected
+    # pair has enough clearance. Separate colliding artwork by extending the
+    # available beam gaps, keeping all pins, distances, and headings required.
+    # Each accepted constraint permanently separates one pair, so this loop
+    # needs at most one refinement per pair of optics.
+    while True:
+        placements = {}
+        for ident, node in nodes.items():
+            position = clean(xs[ident].value()), clean(ys[ident].value())
+            placements[ident] = PlacedOptic(
+                node, position, translated(footprints[ident], position), poses.get(ident),
+            )
+        items = list(placements.values())
+        collision = next(((a, b) for index, a in enumerate(items) for b in items[index + 1:]
+                          if overlap(a.bounds, b.bounds)), None)
+        if collision is None:
+            return placements
+        a, b = collision
+        candidates = []
+        for axis, coordinates in enumerate((xs, ys)):
+            for first, second in ((a, b), (b, a)):
+                gap = first.bounds[axis + 2] - second.bounds[axis] + style.clearance
+                separation = (footprints[first.id][axis + 2]
+                              - footprints[second.id][axis] + style.clearance)
+                constraint = coordinates[second.id] - coordinates[first.id] >= separation
+                candidates.append((gap, constraint))
+        for _, constraint in sorted(candidates, key=lambda candidate: candidate[0]):
+            try:
+                add_constraint(constraint)
+            except kiwi.UnsatisfiableConstraint:
+                # A rejected inequality can leave Kiwi's internal tableau
+                # changed. Restore accepted constraints before trying another
+                # direction, otherwise a feasible alternative can also fail.
+                solver = kiwi.Solver()
+                for accepted in constraints:
+                    solver.addConstraint(accepted)
+                continue
+            solver.updateVariables()
+            break
+        else:
+            # The caller reports the existing artwork-overlap error when hard
+            # placement constraints leave no room to separate this pair.
+            return placements
 
 
 def _finish_free_space(setup, placements, style):

@@ -158,18 +158,21 @@ def test_ghz_path_identity_postselects_only_hhhh_and_vvvv():
             target = nodes[edge.target]
         return target.spec.display_label
 
-    pairs, pump_roots = {}, set()
+    pairs, polarizations, pump_roots = {}, {}, set()
     for crystal in crystals:
-        pairs[crystal.spec.display_label] = frozenset(
+        pairs[crystal.id] = frozenset(
             detected_mode(crystal.id, mode) for mode in ("signal", "idler")
         )
+        polarizations[crystal.id] = crystal.spec.display_label.splitlines()[-1]
         node, port = crystal, "in"
         while (node.id, port) in incoming:
             node = nodes[incoming[node.id, port].source]
             port = node.spec.definition.default_input
         pump_roots.add(node.id)
-    assert pairs == {"I: HH": {"a", "b"}, "II: HH": {"c", "d"},
-                     "III: VV": {"a", "c"}, "IV: VV": {"b", "d"}}
+    assert {(polarizations[source], modes) for source, modes in pairs.items()} == {
+        ("HH", frozenset("ab")), ("HH", frozenset("cd")),
+        ("VV", frozenset("ac")), ("VV", frozenset("bd")),
+    }
     assert len(pump_roots) == 1
     assert nodes[pump_roots.pop()].spec.definition.name == "fiber_launch"
 
@@ -178,7 +181,7 @@ def test_ghz_path_identity_postselects_only_hhhh_and_vvvv():
     terms = []
     for first, second in combinations_with_replacement(pairs, 2):
         if pairs[first].isdisjoint(pairs[second]):
-            photons = {mode: source.split(": ")[1][0]
+            photons = {mode: polarizations[source][0]
                        for source in (first, second) for mode in pairs[source]}
             assert set(photons) == set("abcd")
             terms.append("".join(photons[mode] for mode in "abcd"))

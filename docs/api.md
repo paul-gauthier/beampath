@@ -25,6 +25,7 @@ Most diagrams can start from the [examples](gallery.md). Import core tools from
   between ports; it cannot be used on a first component or a fiber connection.
   `at=(x, y)` pins a component reference point. The beam origin places its first
   optic. Pins and distances are required constraints; incompatible ones fail.
+  Automatic spacing can stretch free-space paths to separate overlapping optics.
   Use `rows()` for explicit stage boundaries; it preserves local pins and headings.
 - **Drawing:** crossings do not imply connections. Open ports have stubs, replaced
   when connected.

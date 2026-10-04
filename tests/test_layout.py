@@ -7,10 +7,11 @@ import pytest
 
 from beampath import (
     Artwork, ComponentDefinition, ComponentSpec, Geometry, HWP, LP, LayoutError,
-    Port, QWP, Setup, Style, beam, beamsplitter, component, fiber_launch, fiber_coupler, iris,
+    Port, QWP, Setup, Style, beam, beamsplitter, component, detector, fiber_launch, fiber_coupler, iris,
     mirror, register_component,
 )
 from beampath.layout import segment_intersects
+from beampath.geometry import overlap, rotate
 
 
 @pytest.mark.parametrize("direction", [0, 90, 180, 270, 31.7])
@@ -194,6 +195,54 @@ def test_position_hint_and_subpitch_explicit_distance():
     q = beam() >> iris()
     q.append(HWP(), at=(420, 0))
     assert q.layout().segments[0].length == pytest.approx(420)
+
+
+def parallel_detector_inputs(direction):
+    source = ComponentSpec(ComponentDefinition(
+        "small_source", "", Artwork((0, 0), (-5, -5, 5, 5),
+                                   svg='<svg xmlns="http://www.w3.org/2000/svg"/>'),
+        lambda p: Geometry((Port("in", "input"), Port("out", "output"))),
+    ))
+    drawing = Setup()
+    paths = [drawing.beam(direction, origin=rotate((0, y), direction)) >> source
+             for y in (0, 40)]
+    return drawing, paths
+
+
+@pytest.mark.parametrize("direction", [0, 90, 180, 270])
+@pytest.mark.parametrize("fixed,kind", [(None, None), (0, "distance"), (1, "distance"),
+                                       (0, "pin"), (1, "pin")])
+def test_overlapping_branch_optics_separate_without_changing_hard_constraints(direction, fixed, kind):
+    drawing, paths = parallel_detector_inputs(direction)
+    pins = [rotate((212, y), direction) for y in (0, 40)]
+    for index, path in enumerate(paths):
+        hints = {}
+        if index == fixed:
+            hints = {"at": pins[index]} if kind == "pin" else {"distance": 190}
+        path.append(detector(""), **hints)
+    before = drawing.optics, drawing.connections
+    result = drawing.layout()
+    targets = [result.placements[path.end.id] for path in paths]
+    assert not overlap(targets[0].bounds, targets[1].bounds, result.style.clearance)
+    lengths = [next(segment.length for segment in result.segments if segment.target == path.end.id)
+               for path in paths]
+    assert min(lengths) == pytest.approx(190)
+    assert max(lengths) > 190
+    if kind == "distance":
+        assert lengths[fixed] == pytest.approx(190)
+    elif kind == "pin":
+        assert targets[fixed].position == pytest.approx(pins[fixed])
+    assert (drawing.optics, drawing.connections) == before
+    for source, y in zip((drawing.optics[0], drawing.optics[1]), (0, 40)):
+        assert result.placements[source.id].position == pytest.approx(rotate((0, y), direction))
+
+
+def test_overlapping_branch_optics_with_fixed_distances_still_fail():
+    drawing, paths = parallel_detector_inputs(0)
+    for path in paths:
+        path.append(detector(""), distance=190)
+    with pytest.raises(LayoutError, match="artwork overlaps"):
+        drawing.layout()
 
 
 @pytest.mark.parametrize("hints", [{"distance": 10}, {"at": (0, 100)}, {"distance": 200, "at": (300, 0)}])
