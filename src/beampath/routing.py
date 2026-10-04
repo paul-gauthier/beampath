@@ -139,6 +139,20 @@ def orthogonal_path(start, end, boxes, first_direction, last_direction, margin,
     return tuple(reversed(result))
 
 
+def straight_connection(edge, placements, obstacles, clearance):
+    """A direct connection can bypass overlapping endpoint escape corridors."""
+    source, target = placements[edge.source], placements[edge.target]
+    start, end = source.port_position(edge.output), target.port_position(edge.input)
+    direction = math.degrees(math.atan2(end[1] - start[1], end[0] - start[0])) % 360
+    if (math.dist(start, end) > EPSILON
+            and aligned(direction, source.port_exit_direction(edge.output))
+            and aligned(direction + 180, target.port_exit_direction(edge.input))
+            and not any(segment_intersects(start, end, inflate(box, clearance))
+                        for ident, box in obstacles if ident not in {source.id, target.id})):
+        return FiberRoute(edge.id, (start, end), edge.source, edge.output, edge.target, edge.input)
+    return None
+
+
 def route_connection(edge, placements, style, labels=(), peers=()):
     source, target = placements[edge.source], placements[edge.target]
     clearance = max(style.clearance, style.fiber_width)
@@ -150,14 +164,9 @@ def route_connection(edge, placements, style, labels=(), peers=()):
     obstacles += [(f"label-{label.optic}", label.bounds) for label in labels]
     # A clear straight connection needs no detour or escape corridor. Endpoint
     # clearance boxes may overlap when compactly placed devices face each other.
-    direction = math.degrees(math.atan2(end[1] - start[1], end[0] - start[0])) % 360
-    if (math.dist(start, end) > EPSILON
-            and aligned(direction, source.port_exit_direction(edge.output))
-            and aligned(direction + 180, target.port_exit_direction(edge.input))
-            and not any(segment_intersects(start, end, inflate(box, clearance))
-                        for ident, box in obstacles if ident not in {source.id, target.id})
-            and not conflict_score(straight, peers)[0]):
-        return straight
+    direct = straight_connection(edge, placements, obstacles, clearance)
+    if direct is not None and not conflict_score(direct, peers)[0]:
+        return direct
     try:
         for a, b, owner in ((start, first, source.id), (end, last, target.id)):
             for ident, box in obstacles:

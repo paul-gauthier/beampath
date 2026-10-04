@@ -32,6 +32,9 @@ Most diagrams can start from the [examples](gallery.md). Import core tools from
   reported separately from infeasible constraints. Explicit pins and distances
   are never relaxed.
   Use `rows()` for explicit stage boundaries; it preserves local pins and headings.
+  Parent placement reserves a measured stage's fixed labels, cables, and connector
+  clearance as well as its artwork. An unpinned stage can move as a whole to clear
+  surrounding content; fixed positions and distances remain required constraints.
 - **Drawing:** crossings do not imply connections. Open ports have stubs, replaced
   when connected.
   Labels do not expand component spacing inside a stage. If adjacent label

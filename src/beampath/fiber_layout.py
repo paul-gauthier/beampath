@@ -7,10 +7,11 @@ import math
 from .errors import LayoutError
 from .geometry import add, aligned, overlap, translated, unit
 from .layout import (
-    FiberRoute, PlacedOptic, Segment, _assemble_layout, _beam_geometry, _beam_segments,
+    FiberRoute, PlacedOptic, Segment, _assemble_layout, _beam_segments,
     _labels, _project, _root_origins, _solve_beams, footprint, segment_intersects,
 )
 from .routing import connector_lead, inflate, refine_routes, route_connection
+from .occupied import occupied_geometry
 
 
 def _validate(setup):
@@ -96,19 +97,10 @@ def _move(placements, delta):
             for ident, p in placements.items()}
 
 
-def _collides(candidate, placed, drawing, style, clearance):
-    if any(overlap(a.bounds, b.bounds, clearance) for a in candidate.values() for b in placed.values()):
-        return True
+def _collides(candidate, placed, drawing, style, clearance, blocks=None):
     combined = {**placed, **candidate}
-    beams = _beam_geometry(drawing, {ident: p.instance for ident, p in combined.items()}, style,
-                           {ident: p.rotation for ident, p in combined.items()})
-    for beam in beams:
-        segment = beam.placed(combined)
-        for p in combined.values():
-            if p.id not in {segment.source, segment.target} and segment_intersects(
-                    segment.start, segment.end, p.bounds):
-                return True
-    return False
+    return occupied_geometry(drawing, combined, style, blocks).conflict(
+        combined, style, clearance, across=candidate)
 
 
 def _place(setup, style, blocks=None, *, drawing=None):
@@ -162,11 +154,13 @@ def _place(setup, style, blocks=None, *, drawing=None):
                 for rotation in dict.fromkeys((original.rotation, 0, 90, 180, 270)):
                     candidate = replace(original, rotation=rotation,
                                         bounds=translated(footprint(original.instance, rotation), original.position))
-                    if not _collides({ident: candidate}, placed, drawing, style, 0):
+                    if not _collides({ident: candidate}, placed, drawing, style, 0, blocks):
                         block = {ident: candidate}
                         break
-        if _collides(block, placed, drawing, style, 0):
-            raise LayoutError(f"{sections[index][0]}: pinned component artwork overlaps or obstructs a beam")
+        if collision := _collides(block, placed, drawing, style, 0, blocks):
+            context = ("pinned component artwork overlaps"
+                       if collision.first.kind == collision.second.kind == "artwork" else "pinned placement")
+            raise LayoutError(f"{sections[index][0]}: {context}: {collision.context}")
         placed.update(block)
         done.add(index)
     while len(done) < len(sections):
@@ -229,19 +223,22 @@ def _place(setup, style, blocks=None, *, drawing=None):
             delta = right + style.pitch - left, 0
         candidate = _move(block, delta)
         # Shift an unpinned section to a clear lane, preserving its solved beam
-        # geometry. A right-of-all-artwork fallback guarantees finite progress.
-        if _collides(candidate, placed, drawing, style, style.clearance):
-            right = max(p.bounds[2] for p in placed.values())
-            left = min(p.bounds[0] for p in candidate.values())
-            candidate = _move(candidate, (max(style.pitch, right + style.pitch - left), 0))
-        if _collides(candidate, placed, drawing, style, style.clearance):
-            raise LayoutError(f"{sections[index][0]}: cannot place fiber-connected section clear of existing optics")
+        # geometry. The fallback clears all measured content, not just artwork.
+        if _collides(candidate, placed, drawing, style, style.clearance, blocks):
+            combined = {**placed, **candidate}
+            geometry = occupied_geometry(drawing, combined, style, blocks)
+            right = geometry.bounds(combined, within=placed)[2]
+            left = geometry.bounds(combined, within=candidate)[0]
+            gap = max(style.pitch, style.clearance, 3)
+            candidate = _move(candidate, (max(gap, right + gap - left), 0))
+        if collision := _collides(candidate, placed, drawing, style, style.clearance, blocks):
+            raise LayoutError(f"{sections[index][0]}: cannot place fiber-connected section: {collision.context}")
         placed.update(candidate)
         done.add(index)
     return {ident: replace(placed[ident], instance=setup._nodes[ident]) for ident in nodes}
 
 
-def _orient_fiber_components(placements, edges, drawing, style, fixed=()):
+def _orient_fiber_components(placements, edges, drawing, style, fixed=(), blocks=None):
     # Select the drawing pose using actual neighboring ports, after placement.
     # The graph's heading remains None and its geometry is never rewritten.
     for ident, original in list(placements.items()):
@@ -257,11 +254,12 @@ def _orient_fiber_components(placements, edges, drawing, style, fixed=()):
                 continue
             candidate = replace(original, rotation=rotation, bounds=bounds)
             if _collides({ident: candidate}, {key: p for key, p in placements.items() if key != ident},
-                         drawing, style, 0):
+                         drawing, style, 0, blocks):
                 continue
             trial = {**placements, ident: candidate}
             try:
-                routes = [route_connection(edge, trial, style) for edge in incident]
+                labels = tuple(label for block in (blocks or {}).values() for label in block.labels)
+                routes = [route_connection(edge, trial, style, labels) for edge in incident]
             except LayoutError:
                 continue
             score = sum(len(r.points) - 2 for r in routes), sum(r.length for r in routes)

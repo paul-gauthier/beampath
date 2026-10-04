@@ -4,13 +4,14 @@ from __future__ import annotations
 from dataclasses import replace
 
 from .errors import LayoutError
-from .fiber_layout import _open_fibers, _orient_fiber_components, _place, _validate
+from .fiber_layout import _collides, _open_fibers, _orient_fiber_components, _place, _validate
 from .geometry import add, overlap, translated
 from .layout import (
     Layout, Segment, _assemble_layout, _beam_segments, _content_bounds, _labels, segment_intersects,
 )
 from .model import Root, Setup
 from .routing import connector_lead, inflate, refine_routes, route_connection
+from .occupied import occupied_geometry
 
 
 def _translate(layout, delta):
@@ -35,9 +36,10 @@ def _finish(setup, placements, style, children=()):
     fixed_labels = tuple(label for child in children for label in child.labels)
     fixed_fibers = {route.id: route for child in children for route in child.fibers}
     fixed_nodes = {ident for child in children for ident in child.placements}
+    blocks = {next(iter(child.placements)): child for child in children}
     edges = [edge for edge in setup.connections if edge.medium == "fiber"
              and edge.source in placements and edge.target in placements]
-    _orient_fiber_components(placements, edges, setup, style, fixed_nodes)
+    _orient_fiber_components(placements, edges, setup, style, fixed_nodes, blocks)
     segments = _beam_segments(setup, placements, style)
     opens = [fixed_fibers.get(route.id, route) for route in _open_fibers(setup, placements, style)]
 
@@ -122,6 +124,17 @@ def _group(setup, group, style):
             delta = entry_x - entry[0], bottom + gap - bounds[1]
             measured = _translate(measured, delta)
             bounds = translated(bounds, delta)
+            blocks = {next(iter(item.placements)): item for item in (*children, measured)}
+            if _collides(measured.placements, placements, setup, style, 0, blocks):
+                # Keep the entry x coordinate and minimum content gap. Extend
+                # the row only when boundary connector space requires it.
+                combined = {**placements, **measured.placements}
+                geometry = occupied_geometry(setup, combined, style, blocks)
+                bottom_used = geometry.bounds(combined, within=placements)[3]
+                top_used = geometry.bounds(combined, within=measured.placements)[1]
+                extra = max(0, bottom_used + gap - top_used)
+                measured = _translate(measured, (0, extra))
+                bounds = translated(bounds, (0, extra))
         children.append(measured)
         placements.update(measured.placements)
         bottom = bounds[3]

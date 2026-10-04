@@ -340,7 +340,6 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing):
     poses = {ident: placed.rotation for block in blocks.values()
              for ident, placed in block.placements.items()}
     footprints = {ident: footprint(node, poses.get(ident)) for ident, node in nodes.items()}
-    beams = _beam_geometry(drawing, nodes, style, poses)
 
     def add_constraint(constraint):
         solver.addConstraint(constraint)
@@ -414,43 +413,11 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing):
         return result
 
     def conflict(placements):
-        items = list(placements.values())
-        for index, a in enumerate(items):
-            for b in items[index + 1:]:
-                if not overlap(a.bounds, b.bounds):
-                    continue
-                alternatives = []
-                for axis, coordinates in enumerate((xs, ys)):
-                    for first, second in ((a, b), (b, a)):
-                        separation = (footprints[first.id][axis + 2]
-                                      - footprints[second.id][axis] + style.clearance)
-                        alternatives.append(coordinates[second.id] - coordinates[first.id]
-                                            >= separation)
-                return f"{a.id} and {b.id}: component artwork overlaps", alternatives
-        for beam in beams:
-            segment = beam.placed(placements)
-            for obstacle in items:
-                if obstacle.id in {segment.source, segment.target} or not segment_intersects(
-                        segment.start, segment.end, obstacle.bounds):
-                    continue
-                alternatives = []
-                # Separating-axis theorem for a finite segment and an axis-aligned
-                # box: box axes plus the segment normal. Fixed headings keep all
-                # projected endpoints linear, including displaced optical ports.
-                for axis in ((1, 0), (0, 1), (-beam.direction[1], beam.direction[0])):
-                    beam_start, beam_end = (
-                        (xs[owner] + offset[0]) * axis[0] + (ys[owner] + offset[1]) * axis[1]
-                        for owner, offset in ((beam.start_owner, beam.segment.start),
-                                              (beam.end_owner, beam.segment.end)))
-                    advance = sum(d * a for d, a in zip(beam.direction, axis))
-                    low, high = ((beam_start, beam_end) if advance >= 0
-                                 else (beam_end, beam_start))
-                    origin = xs[obstacle.id] * axis[0] + ys[obstacle.id] * axis[1]
-                    lo, hi = _project(footprints[obstacle.id], (0, 0), axis)
-                    alternatives.extend((origin + lo >= high + style.clearance,
-                                         low >= origin + hi + style.clearance))
-                return (f"{segment.id}: beam crosses unrelated optic {obstacle.id}",
-                        alternatives)
+        from .occupied import occupied_geometry
+
+        collision = occupied_geometry(drawing, placements, style, blocks).conflict(placements, style)
+        if collision is not None:
+            return collision.context, collision.alternatives(xs, ys)
         return None
 
     # A greedy separation can block a later collision. Explore alternatives with

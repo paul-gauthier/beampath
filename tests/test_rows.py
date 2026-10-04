@@ -4,7 +4,8 @@ from dataclasses import replace
 import pytest
 
 from beampath import (
-    ComponentError, ConnectionError, HWP, LayoutError, OpticRef, Style, beam,
+    Artwork, ComponentDefinition, ComponentError, ComponentSpec, ConnectionError,
+    Geometry, HWP, LayoutError, OpticRef, Port, Style, beam,
     fiber_coupler, fiber_laser, fiber_launch, fiber_power_meter, fiber_splitter,
     inline_power_meter, iris, rows,
 )
@@ -205,6 +206,17 @@ def test_grouped_first_row_can_attach_to_a_free_space_receiver():
     assert_clear(layout)
 
 
+def test_attached_stage_does_not_reserve_a_phantom_free_space_lead():
+    child = rows(iris("") >> fiber_coupler(""), beam() >> fiber_power_meter(""))
+    path = beam() >> iris("")
+    path.append(child, distance=420)
+    normal = path.layout()
+    long_lead = path.layout(style=Style(open_length=2000))
+    assert normal.placements == long_lead.placements
+    assert normal.fibers == long_lead.fibers
+    assert len([s for s in long_lead.segments if s.source is None]) == 1
+
+
 def test_incompatible_group_pins_cannot_silently_overlap_labels():
     split = fiber_laser() >> fiber_splitter()
     meter = rows(beam() >> fiber_power_meter("A long label " * 6))
@@ -212,6 +224,146 @@ def test_incompatible_group_pins_cannot_silently_overlap_labels():
     split.turn().append(meter, at=(150, 600))
     with pytest.raises(LayoutError, match="stage labels overlap"):
         split.layout()
+
+
+@pytest.mark.parametrize("turn", ["left", "right"])
+@pytest.mark.parametrize("depth", [1, 2])
+@pytest.mark.parametrize("style", [Style(), Style(pitch=20, clearance=40), Style(pitch=5, clearance=2)])
+def test_parent_reserves_fixed_child_label_and_connector_clearance(turn, depth, style):
+    meter = beam() >> inline_power_meter("Transmission\npower meter")
+    for _ in range(depth):
+        meter = rows(meter)
+    original = snapshot(meter)
+    split = beam(origin=(120, -60)) >> fiber_laser("") >> fiber_splitter("", turn=turn)
+    split.turn().append(meter)
+    layout = split.layout(style=style)
+    assert_clear(layout)
+    placed = layout.placements["optic-003"]
+    label, = layout.labels
+    local = meter.layout(style=style)
+    assert placed.rotation == local.placements["optic-001"].rotation
+    assert tuple(label.position[i] - placed.position[i] for i in (0, 1)) == pytest.approx(
+        tuple(local.labels[0].position[i] - local.placements["optic-001"].position[i] for i in (0, 1)))
+    assert snapshot(meter) == original
+    assert layout == split.layout(style=style)
+
+
+def _unlit_box(bounds=(-5, -5, 5, 5), *, source=False):
+    ports = (Port("out", "output"),) if source else (Port("in", "input", draw_lead_in=False),)
+    return ComponentSpec(ComponentDefinition(
+        "box", "", Artwork((0, 0), bounds, svg='<svg xmlns="http://www.w3.org/2000/svg"/>'),
+        lambda p: Geometry(ports), default_input=None if source else "in"))
+
+
+@pytest.mark.parametrize("content", ["label", "fiber", "beam"])
+def test_unpinned_stage_moves_as_a_frame_to_clear_all_fixed_content(content):
+    unit = fiber_launch("Input") >> HWP("Waveplate") >> fiber_coupler("Output")
+    path = fiber_laser("") >> rows(unit, unit)
+    before = path.layout()
+    members = set(before.placements) - {"optic-001"}
+    if content == "label":
+        box = before.labels[0].bounds
+        position = ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)
+    else:
+        if content == "fiber":
+            route = next(r for r in before.fibers
+                         if r.source in members and r.target in members and len(r.points) > 2)
+            segment = max(route.legs, key=lambda s: s.length)
+        else:
+            segment = before.segments[0]
+        position = tuple((a + b) / 2 for a, b in zip(segment.start, segment.end))
+    obstacle = path.setup.beam(origin=position) >> _unlit_box()
+    result = path.layout()
+    assert_clear(result)
+    assert result.placements[obstacle.end.id].position == pytest.approx(position)
+    entry = min(members)
+    delta = tuple(result.placements[entry].position[i] - before.placements[entry].position[i] for i in (0, 1))
+    assert delta != (0, 0)
+    for ident in members:
+        assert result.placements[ident].position == pytest.approx(
+            tuple(before.placements[ident].position[i] + delta[i] for i in (0, 1)))
+
+
+@pytest.mark.parametrize("fixed", [False, True])
+def test_beam_solver_reserves_group_labels_without_relaxing_distance(fixed):
+    source = _unlit_box((-5, -5, 5, 160), source=True)
+    child = rows(iris("Transmission monitoring input") >> fiber_coupler(""),
+                 beam() >> fiber_power_meter(""))
+    path = beam() >> source
+    path.append(child, distance=190 if fixed else None)
+    if fixed:
+        with pytest.raises(LayoutError, match="stage label overlaps component artwork"):
+            path.layout()
+    else:
+        layout = path.layout()
+        assert_clear(layout)
+        boundary = next(s for s in layout.segments if s.source == "optic-001")
+        assert boundary.length > layout.style.pitch
+
+
+def test_parent_can_use_empty_space_inside_a_measured_stage():
+    unit = fiber_launch("") >> HWP("") >> fiber_coupler("")
+    path = fiber_laser("") >> rows(unit, unit)
+    before = path.layout()
+    segment = before.segments[0]
+    position = ((segment.start[0] + segment.end[0]) / 2, segment.start[1] + 80)
+    path.setup.beam(origin=position) >> _unlit_box()
+    result = path.layout()
+    assert_clear(result)
+    for ident, p in before.placements.items():
+        assert result.placements[ident].position == pytest.approx(p.position)
+
+
+def test_fixed_child_connector_conflict_does_not_relax_parent_pins():
+    # A mixed component's optical frame fixes its pose. Rotating a fiber-only
+    # source would otherwise be a legitimate way to escape these position pins.
+    source = ComponentSpec(ComponentDefinition(
+        "fixed-source", "", Artwork((0, 0), (-5, -5, 5, 5),
+                                     svg='<svg xmlns="http://www.w3.org/2000/svg"/>'),
+        lambda p: Geometry((Port("alignment", "output", draw_open=False),
+                            Port("fiber", "output", medium="fiber", exit_direction=270)), heading=0),
+        default_input=None))
+    path = beam() >> source
+    path.out("fiber").append(rows(beam() >> inline_power_meter("Transmission\npower meter")),
+                             at=(0, -175))
+    with pytest.raises(LayoutError, match="pinned placement.*fiber connector has insufficient clearance"):
+        path.layout()
+
+
+def test_rows_expand_for_oblique_boundary_connector_escapes():
+    artwork = Artwork((0, 0), (-300, -20, 300, 20),
+                      svg='<svg xmlns="http://www.w3.org/2000/svg"/>')
+    source = ComponentSpec(ComponentDefinition(
+        "wide-source", "", artwork,
+        lambda p: Geometry((Port("out", "output", medium="fiber", exit_direction=45),)),
+        default_input=None))
+    sink = ComponentSpec(ComponentDefinition(
+        "wide-sink", "", artwork,
+        lambda p: Geometry((Port("in", "input", medium="fiber", exit_direction=270),))))
+    path = rows(beam() >> source, beam() >> sink, gap=1)
+    layout = path.layout()
+    first, second = layout.placements.values()
+    assert first.position == (0, 0)
+    assert second.position[0] == 0
+    assert second.bounds[1] - first.bounds[3] > 2 * layout.style.clearance
+    assert_clear(layout)
+
+
+def test_parent_beam_can_cross_a_fixed_stage_fiber():
+    unit = fiber_launch("") >> HWP("") >> fiber_coupler("")
+    path = fiber_laser("") >> rows(unit, unit)
+    before = path.layout()
+    route = next(r for r in before.fibers if len(r.points) > 2)
+    leg = max(route.legs, key=lambda s: s.length)
+    x, y = (leg.start[0] + leg.end[0]) / 2, leg.start[1]
+    assert leg.start[1] == leg.end[1]
+    crossing = path.setup.beam("south", origin=(x, y - 60)) >> _unlit_box(source=True)
+    result = path.layout()
+    stub = next(s for s in result.segments if s.source == crossing.end.id)
+    assert stub.start[1] < y < stub.end[1]
+    assert_clear(result)
+    for ident, p in before.placements.items():
+        assert result.placements[ident].position == pytest.approx(p.position)
 
 
 @pytest.mark.parametrize("case", ["no_stages", "non_path", "free_space", "wrong_input", "terminal",
