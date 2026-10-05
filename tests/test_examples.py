@@ -31,6 +31,7 @@ EXPECTED_COUNTS = {
     "chsh": 13,
     "hbt": 9,
     "swapping": 24,
+    "quantum_eraser": 16,
 }
 SVG = "{http://www.w3.org/2000/svg}"
 

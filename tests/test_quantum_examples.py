@@ -111,6 +111,33 @@ def test_chsh_has_independent_analyzers_and_correct_waveplate_settings():
     assert abs(s) == pytest.approx(2 * math.sqrt(2))
 
 
+def test_quantum_eraser_removes_system_polarization_tags_before_recombining():
+    _, nodes, edges = diagram("quantum_eraser")
+    crystal, = [node for node in nodes.values() if kind(node) == "spdc"]
+    assert "Ψ+" in crystal.spec.display_label
+    splitter, optics, _ = route(nodes, edges, crystal, "signal")
+    assert [kind(node) for node in optics] == ["mirror", "PBS"]
+    transmitted, b_optics, b_edge = route(nodes, edges, splitter, "straight")
+    reflected, a_optics, a_edge = route(nodes, edges, splitter, "reflect")
+    assert transmitted.id == reflected.id and kind(transmitted) == "beamsplitter"
+    assert {b_edge.input, a_edge.input} == {"primary", "secondary"}
+    assert [kind(node) for node in b_optics] == ["mirror", "beamsplitter"]
+    assert [kind(node) for node in a_optics] == ["mirror", "HWP", "beamsplitter"]
+    assert a_optics[1].spec.display_label == "HWP 45°\nV to H"
+    assert "φ" in b_optics[0].spec.display_label
+    assert detector_outputs(nodes, edges, transmitted) == {"straight": "S1", "reflect": "S2"}
+
+    analyzer, optics, _ = route(nodes, edges, crystal, "idler")
+    assert analyzer.id != splitter.id
+    assert [kind(node) for node in optics] == ["mirror", "HWP", "PBS"]
+    assert optics[1].spec.display_label == "Basis HWP\n0° / 22.5°"
+    assert detector_outputs(nodes, edges, analyzer) == {"straight": "E H / +", "reflect": "E V / −"}
+    for pbs in (splitter, analyzer):
+        assert not any(edge.target == pbs.id and edge.input == "secondary" for edge in edges.values())
+    assert len([node for node in nodes.values() if kind(node) == "detector"]) == 4
+    assert kind(route(nodes, edges, crystal, "pump")[0]) == "beam_block"
+
+
 def test_swapping_combines_inner_photons_and_preserves_outer_analyzers():
     _, nodes, edges = diagram("swapping")
     c1, c2 = [node for node in nodes.values() if kind(node) == "spdc"]
