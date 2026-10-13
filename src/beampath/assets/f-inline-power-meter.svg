@@ -9,7 +9,11 @@
 <line x1="85" y1="29" x2="85" y2="40" stroke="#1B1E89" stroke-width="2.5" stroke-linecap="round"/>
 <rect x="57.5" y="40" width="55" height="38" rx="3" fill="#D4D8E8" stroke="#000000" stroke-width="0.75" />
 <rect x="64.5" y="46" width="40" height="18" rx="2" fill="#101828" stroke="#000000" stroke-width="0.3"/>
-<text x="84.5" y="59" font-family="Helvetica, Arial, sans-serif" font-size="7" fill="#00CC66" text-anchor="middle" font-weight="normal" data-display-readout="true">1.23 mW</text>
+<g fill="#00CC66" data-display-readout="true">
+  <polygon points="71.5,55 72.3,54.2 76.7,54.2 77.5,55 76.7,55.8 72.3,55.8"/>
+  <polygon points="81.5,55 82.3,54.2 86.7,54.2 87.5,55 86.7,55.8 82.3,55.8"/>
+  <polygon points="91.5,55 92.3,54.2 96.7,54.2 97.5,55 96.7,55.8 92.3,55.8"/>
+</g>
 <text x="85" y="20" font-family="Helvetica, Arial, sans-serif" font-size="6" fill="#444444" text-anchor="middle" font-weight="normal" font-style="normal">tap</text>
 <text x="85" y="89" font-family="Helvetica, Arial, sans-serif" font-size="8" fill="#000000" text-anchor="middle" font-weight="bold" font-style="normal">Inline power meter</text>
 </svg>

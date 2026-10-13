@@ -15,7 +15,8 @@ register_component(ComponentDefinition(
     _art("f-inline-power-meter.svg", "fiber-optics/flat_2d/svg/11_inline_components",
          (85, 27), (56.5, 25, 113.5, 79), 1.5,
          adaptations="Housing and display match the standalone f-power-meter.svg at the same scale. "
-                     "Inline power-meter display changed to 1.23 mW and kept aligned with its housing. "
+                     "Numeric display replaced with three green segmented dashes without units, "
+                     "aligned with its housing. "
                      "Embedded through fiber removed; both fiber ports attach at the tap. "
                      "Internal tap fiber matches the routed fiber style."),
     _fiber_meter))

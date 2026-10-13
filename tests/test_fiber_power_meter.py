@@ -86,8 +86,9 @@ def test_meter_after_recoupling_preserves_display_and_credits(heading):
     assert not any(route.target is None for route in layout.fibers)
     root = ET.fromstring(path.to_svg())
     meter = root.find(f"{tag('g')}[@id='components']/{tag('g')}[@id='{path.end.id}']")
-    display, = meter.iter(tag("text"))
-    assert display.text == "-3.2 dBm"
+    display = meter.find(f"{tag('g')}[@data-display-readout='true']")
+    assert len(display.findall(tag("polygon"))) == 3
+    assert not list(meter.iter(tag("text")))
     assert display.get("fill") == "#00CC66"
     assert display.get("data-display-readout") == "true"
     assert display.get("transform") is None

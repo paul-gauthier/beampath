@@ -13,7 +13,8 @@ register_component(ComponentDefinition(
     "fiber_power_meter", "Fiber power meter",
     _art("f-power-meter.svg", "fiber-optics/flat_2d/svg/10_test_equipment",
          (57.5, 27), (29, 7, 86, 47), 1.5,
-         adaptations="Display readout retained aligned with its housing. "
+         adaptations="Numeric display replaced with three green segmented dashes without units, "
+                     "aligned with its housing. "
                      "Embedded fiber line removed; fiber connects at the housing input."),
     _fiber_sink))
 
