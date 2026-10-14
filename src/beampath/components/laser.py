@@ -18,13 +18,13 @@ register_component(ComponentDefinition(
     _laser, default_input=None))
 
 
-def laser(label: str | None = None):
+def laser(label: str | None = None, *lines: str):
     """A generic laser with one free-space output and no input.
 
     The beam starts at the nozzle. Set its direction with beam(direction=...).
     Laser type and wavelength belong in the label.
     """
-    return component("laser", label)
+    return component("laser", label, *lines)
 
 
 def demo():

@@ -31,14 +31,14 @@ register_component(ComponentDefinition(
     _fiber_splitter))
 
 
-def fiber_splitter(label: str | None = None, *, turn: str = "left"):
+def fiber_splitter(label: str | None = None, *lines: str, turn: str = "left"):
     """A continuous fiber with a curved branch ending at a perpendicular output.
 
     turn selects the side of the branch relative to its drawing pose.
     Select outputs with straight() and turn(), or out("straight"/"turn").
     A split ratio can be included in the label.
     """
-    return component("fiber_splitter", label, turn=turn)
+    return component("fiber_splitter", label, *lines, turn=turn)
 
 
 def demo():

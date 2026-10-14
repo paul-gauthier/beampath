@@ -22,9 +22,9 @@ register_component(ComponentDefinition(
     _fiber_meter))
 
 
-def inline_power_meter(label: str | None = None):
+def inline_power_meter(label: str | None = None, *lines: str):
     """A power monitor through which the fiber path continues."""
-    return component("inline_power_meter", label)
+    return component("inline_power_meter", label, *lines)
 
 
 def demo():

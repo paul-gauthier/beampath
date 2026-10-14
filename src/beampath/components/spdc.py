@@ -29,7 +29,7 @@ register_component(ComponentDefinition(
     _spdc))
 
 
-def spdc(label: str | None = None, *, opening_angle: float = 20):
+def spdc(label: str | None = None, *lines: str, opening_angle: float = 20):
     """A generic SPDC crystal with pump, signal, and idler output ports.
 
     opening_angle is the full signal-idler angle in degrees, from 0 to 180.
@@ -42,7 +42,7 @@ def spdc(label: str | None = None, *, opening_angle: float = 20):
     Unconnected optional inputs are not drawn.
     Crystal material and polarization type belong in the optional label.
     """
-    return component("spdc", label, opening_angle=opening_angle)
+    return component("spdc", label, *lines, opening_angle=opening_angle)
 
 
 def demo():

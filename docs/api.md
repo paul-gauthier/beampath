@@ -96,7 +96,7 @@ For advanced details, consult the [model](../src/beampath/model.py),
 | `Artwork` | SVG artwork, optical anchor, conservative source bounds and credits. |
 | `Geometry` | Local ports and artwork pose, relative to primary incidence. |
 | `Port` | Heading of propagation, in the component's reference beam frame. |
-| `component(name, label=None, **parameters)` | Create a specification from a registered component name, optional label, and component parameters. |
+| `component(name, label=None, *lines, **parameters)` | Create a specification from a registered name, optional label lines, and component parameters. |
 | `register_component(definition)` | Register a uniquely named component definition for use through component(). |
 
 ### Style

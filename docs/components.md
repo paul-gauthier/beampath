@@ -5,16 +5,18 @@
 [README](../README.md) · [Gallery](gallery.md) · [Components](components.md) · [API](api.md)
 
 Import factories from `beampath.components` (also available from `beampath`).
-The optional first argument is the label: `None` uses the default, `""` hides
-it, and `\n` creates multiple lines. Each demo shows the component's open
-beam or fiber ports.
+Pass one or more positional strings for label lines, such as `HWP("HWP1", "DDR25")`.
+Newlines within any string also create line breaks. `None` uses the default
+first line: `HWP(None, "DDR25")` displays `HWP` above `DDR25`. An empty label
+with no additional lines hides it; `label=` remains accepted for a single string.
+Each demo shows the component's open beam or fiber ports.
 
 [bandpass_filter](#bandpass_filter) · [beam_block](#beam_block) · [beamsplitter](#beamsplitter) · [detector](#detector) · [fiber_coupler](#fiber_coupler) · [fiber_laser](#fiber_laser) · [fiber_launch](#fiber_launch) · [fiber_power_meter](#fiber_power_meter) · [fiber_splitter](#fiber_splitter) · [HWP](#hwp) · [inline_power_meter](#inline_power_meter) · [iris](#iris) · [laser](#laser) · [LP](#lp) · [mirror](#mirror) · [nd_filter](#nd_filter) · [noise_eater](#noise_eater) · [PBS](#pbs) · [QWP](#qwp) · [spdc](#spdc) · [Custom components](#custom-components)
 
 ## bandpass_filter
 
 ```python
-bandpass_filter(label=None)
+bandpass_filter(label=None, *lines)
 ```
 
 A straight-through free-space bandpass filter.
@@ -33,7 +35,7 @@ setup = beam() >> bandpass_filter()
 ## beam_block
 
 ```python
-beam_block(label=None)
+beam_block(label=None, *lines)
 ```
 
 A beam block with one free-space input and no output, following incidence.
@@ -52,7 +54,7 @@ setup = beam() >> beam_block()
 ## beamsplitter
 
 ```python
-beamsplitter(label=None, *, turn='left')
+beamsplitter(label=None, *lines, turn='left')
 ```
 
 A non-polarizing cube beamsplitter, labeled NPBS by default.
@@ -74,7 +76,7 @@ setup = beam() >> beamsplitter()
 ## detector
 
 ```python
-detector(label=None)
+detector(label=None, *lines)
 ```
 
 A generic detector with one free-space input that ends the beam path.
@@ -96,7 +98,7 @@ setup = beam() >> detector()
 ## fiber_coupler
 
 ```python
-fiber_coupler(label=None, *, heading=None)
+fiber_coupler(label=None, *lines, heading=None)
 ```
 
 Convert free space to fiber, following the incoming beam heading.
@@ -115,7 +117,7 @@ setup = beam() >> fiber_coupler()
 ## fiber_laser
 
 ```python
-fiber_laser(label=None)
+fiber_laser(label=None, *lines)
 ```
 
 A source with a fiber output and no optical heading.
@@ -134,7 +136,7 @@ setup = beam() >> fiber_laser()
 ## fiber_launch
 
 ```python
-fiber_launch(label=None, *, heading=None)
+fiber_launch(label=None, *lines, heading=None)
 ```
 
 Convert fiber to free space, defaulting to an eastward beam heading.
@@ -153,7 +155,7 @@ setup = beam() >> fiber_launch()
 ## fiber_power_meter
 
 ```python
-fiber_power_meter(label=None)
+fiber_power_meter(label=None, *lines)
 ```
 
 A power meter with a single fiber input that ends the path.
@@ -172,7 +174,7 @@ setup = beam() >> fiber_power_meter()
 ## fiber_splitter
 
 ```python
-fiber_splitter(label=None, *, turn='left')
+fiber_splitter(label=None, *lines, turn='left')
 ```
 
 A continuous fiber with a curved branch ending at a perpendicular output.
@@ -195,7 +197,7 @@ setup = beam() >> fiber_splitter()
 ## HWP
 
 ```python
-HWP(label=None)
+HWP(label=None, *lines)
 ```
 
 A straight-through half-wave plate, labeled HWP by default.
@@ -214,7 +216,7 @@ setup = beam() >> HWP()
 ## inline_power_meter
 
 ```python
-inline_power_meter(label=None)
+inline_power_meter(label=None, *lines)
 ```
 
 A power monitor through which the fiber path continues.
@@ -233,7 +235,7 @@ setup = beam() >> inline_power_meter()
 ## iris
 
 ```python
-iris(label=None)
+iris(label=None, *lines)
 ```
 
 A straight-through free-space aperture.
@@ -252,7 +254,7 @@ setup = beam() >> iris()
 ## laser
 
 ```python
-laser(label=None)
+laser(label=None, *lines)
 ```
 
 A generic laser with one free-space output and no input.
@@ -274,7 +276,7 @@ setup = beam() >> laser()
 ## LP
 
 ```python
-LP(label=None)
+LP(label=None, *lines)
 ```
 
 A straight-through linear polarizer, labeled LP by default.
@@ -293,7 +295,7 @@ setup = beam() >> LP()
 ## mirror
 
 ```python
-mirror(label=None, *, angle=None, heading=None, turn=None)
+mirror(label=None, *lines, angle=None, heading=None, turn=None)
 ```
 
 Reflect using exactly one of angle, heading, or turn.
@@ -316,7 +318,7 @@ setup = beam() >> mirror(turn="left")
 ## nd_filter
 
 ```python
-nd_filter(label=None)
+nd_filter(label=None, *lines)
 ```
 
 A straight-through free-space neutral-density filter.
@@ -335,7 +337,7 @@ setup = beam() >> nd_filter()
 ## noise_eater
 
 ```python
-noise_eater(label=None)
+noise_eater(label=None, *lines)
 ```
 
 A straight-through NEL03A noise eater.
@@ -354,7 +356,7 @@ setup = beam() >> noise_eater()
 ## PBS
 
 ```python
-PBS(label=None, *, turn='left')
+PBS(label=None, *lines, turn='left')
 ```
 
 A polarizing cube beamsplitter, labeled PBS by default.
@@ -384,7 +386,7 @@ setup = beam() >> PBS()
 ## QWP
 
 ```python
-QWP(label=None)
+QWP(label=None, *lines)
 ```
 
 A straight-through quarter-wave plate, labeled QWP by default.
@@ -403,7 +405,7 @@ setup = beam() >> QWP()
 ## spdc
 
 ```python
-spdc(label=None, *, opening_angle=20)
+spdc(label=None, *lines, opening_angle=20)
 ```
 
 A generic SPDC crystal with pump, signal, and idler output ports.

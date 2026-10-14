@@ -10,9 +10,9 @@ register_component(ComponentDefinition(
          (53, 35), (47, 9, 59, 61), 1.5), _straight))
 
 
-def nd_filter(label: str | None = None):
+def nd_filter(label: str | None = None, *lines: str):
     """A straight-through free-space neutral-density filter."""
-    return component("nd_filter", label)
+    return component("nd_filter", label, *lines)
 
 
 def demo():

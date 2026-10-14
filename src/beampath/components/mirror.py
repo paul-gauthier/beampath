@@ -54,7 +54,7 @@ register_component(ComponentDefinition(
     resolve_incidence=_mirror_incidence))
 
 
-def mirror(label: str | None = None, *, angle: float | None = None,
+def mirror(label: str | None = None, *lines: str, angle: float | None = None,
            heading: str | float | None = None, turn: str | None = None):
     """Reflect using exactly one of angle, heading, or turn.
 
@@ -65,7 +65,7 @@ def mirror(label: str | None = None, *, angle: float | None = None,
     parameters = {name: value for name, value in
                   (("angle", angle), ("heading", heading), ("turn", turn))
                   if value is not None}
-    return component("mirror", label, **parameters)
+    return component("mirror", label, *lines, **parameters)
 
 
 def demo():

@@ -14,12 +14,12 @@ register_component(ComponentDefinition(
     _fiber_coupler, label_anchor=(85, 27)))
 
 
-def fiber_coupler(label: str | None = None, *, heading: str | float | None = None):
+def fiber_coupler(label: str | None = None, *lines: str, heading: str | float | None = None):
     """Convert free space to fiber, following the incoming beam heading."""
     parameters = {}
     if heading is not None:
         parameters["heading"] = heading
-    return component("fiber_coupler", label, **parameters)
+    return component("fiber_coupler", label, *lines, **parameters)
 
 
 def demo():

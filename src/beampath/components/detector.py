@@ -18,13 +18,13 @@ register_component(ComponentDefinition(
     _detector))
 
 
-def detector(label: str | None = None):
+def detector(label: str | None = None, *lines: str):
     """A generic detector with one free-space input that ends the beam path.
 
     The flat face follows the incoming beam. Detector type (such as a
     single-photon detector) belongs in the label.
     """
-    return component("detector", label)
+    return component("detector", label, *lines)
 
 
 def demo():

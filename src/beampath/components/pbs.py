@@ -12,7 +12,7 @@ register_component(ComponentDefinition(
     _cube_splitter, default_input="primary"))
 
 
-def PBS(label: str | None = None, *, turn: str = "left"):
+def PBS(label: str | None = None, *lines: str, turn: str = "left"):
     """A polarizing cube beamsplitter, labeled PBS by default.
 
     The cube transmits p polarization and reflects s polarization. For the
@@ -26,7 +26,7 @@ def PBS(label: str | None = None, *, turn: str = "left"):
     They are not universal H/V labels when both inputs are occupied. Polarization
     conventions are descriptive; beampath does not simulate polarization.
     """
-    return component("PBS", label, turn=turn)
+    return component("PBS", label, *lines, turn=turn)
 
 
 def demo():

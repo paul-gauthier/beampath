@@ -10,9 +10,9 @@ register_component(ComponentDefinition(
          (53, 35), (47, 9, 59, 61), 1.5), _straight))
 
 
-def bandpass_filter(label: str | None = None):
+def bandpass_filter(label: str | None = None, *lines: str):
     """A straight-through free-space bandpass filter."""
-    return component("bandpass_filter", label)
+    return component("bandpass_filter", label, *lines)
 
 
 def demo():

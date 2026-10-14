@@ -9,9 +9,9 @@ register_component(ComponentDefinition(
                        (54, 35), (49, 9, 59, 61), 1.5), _straight))
 
 
-def QWP(label: str | None = None):
+def QWP(label: str | None = None, *lines: str):
     """A straight-through quarter-wave plate, labeled QWP by default."""
-    return component("QWP", label)
+    return component("QWP", label, *lines)
 
 
 def demo():

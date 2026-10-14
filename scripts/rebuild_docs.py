@@ -136,9 +136,11 @@ def gallery_page(diagrams, project):
 def components_page(diagrams, custom_example):
     page = GENERATED + "# Components\n\n" + NAV
     page += ("Import factories from `beampath.components` (also available from `beampath`).\n"
-             "The optional first argument is the label: `None` uses the default, `\"\"` hides\n"
-             "it, and `\\n` creates multiple lines. Each demo shows the component's open\n"
-             "beam or fiber ports.\n\n")
+             "Pass one or more positional strings for label lines, such as `HWP(\"HWP1\", \"DDR25\")`.\n"
+             "Newlines within any string also create line breaks. `None` uses the default\n"
+             "first line: `HWP(None, \"DDR25\")` displays `HWP` above `DDR25`. An empty label\n"
+             "with no additional lines hides it; `label=` remains accepted for a single string.\n"
+             "Each demo shows the component's open beam or fiber ports.\n\n")
     page += " · ".join(f"[{d.slug}](#{d.slug.lower()})" for d in diagrams)
     page += " · [Custom components](#custom-components)\n\n"
     for diagram in diagrams:

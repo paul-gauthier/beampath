@@ -19,9 +19,9 @@ register_component(ComponentDefinition(
     _fiber_sink))
 
 
-def fiber_power_meter(label: str | None = None):
+def fiber_power_meter(label: str | None = None, *lines: str):
     """A power meter with a single fiber input that ends the path."""
-    return component("fiber_power_meter", label)
+    return component("fiber_power_meter", label, *lines)
 
 
 def demo():

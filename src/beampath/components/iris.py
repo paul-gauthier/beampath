@@ -10,9 +10,9 @@ register_component(ComponentDefinition(
          (50, 40), (24, 14, 76, 66), 1.5), _straight))
 
 
-def iris(label: str | None = None):
+def iris(label: str | None = None, *lines: str):
     """A straight-through free-space aperture."""
-    return component("iris", label)
+    return component("iris", label, *lines)
 
 
 def demo():

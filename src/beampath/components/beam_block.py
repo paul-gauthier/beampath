@@ -18,9 +18,9 @@ register_component(ComponentDefinition(
     _beam_block))
 
 
-def beam_block(label: str | None = None):
+def beam_block(label: str | None = None, *lines: str):
     """A beam block with one free-space input and no output, following incidence."""
-    return component("beam_block", label)
+    return component("beam_block", label, *lines)
 
 
 def demo():

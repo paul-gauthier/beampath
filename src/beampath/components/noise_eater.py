@@ -13,9 +13,9 @@ register_component(ComponentDefinition(
     _straight))
 
 
-def noise_eater(label: str | None = None):
+def noise_eater(label: str | None = None, *lines: str):
     """A straight-through NEL03A noise eater."""
-    return component("noise_eater", label)
+    return component("noise_eater", label, *lines)
 
 
 def demo():

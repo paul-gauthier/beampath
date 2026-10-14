@@ -17,9 +17,9 @@ register_component(ComponentDefinition(
     _fiber_source, default_input=None))
 
 
-def fiber_laser(label: str | None = None):
+def fiber_laser(label: str | None = None, *lines: str):
     """A source with a fiber output and no optical heading."""
-    return component("fiber_laser", label)
+    return component("fiber_laser", label, *lines)
 
 
 def demo():

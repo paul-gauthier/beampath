@@ -211,12 +211,15 @@ def test_text_is_editable_upright_and_labels_escaped():
 
 
 @pytest.mark.parametrize("direction", [0, 90, 37])
-@pytest.mark.parametrize("content", [
-    "HWP\nIn Rotation Mount", 'A < B\n& "C"', "\nHWP\n\nIn Rotation Mount\n",
+@pytest.mark.parametrize("parts", [
+    ("HWP\nIn Rotation Mount",), ('A < B\n& "C"',), ("\nHWP\n\nIn Rotation Mount\n",),
+    ("HWP", "In Rotation Mount"), ("HWP\nDDR25", 'A < B\n& "C"', "λ/2"),
+    ("", "HWP\n", "In Rotation Mount", ""),
 ])
-def test_multiline_labels_render_as_centered_editable_lines(direction, content):
+def test_multiline_labels_render_as_centered_editable_lines(direction, parts):
+    content = "\n".join(parts)
     style = Style(font_size=36)
-    layout = (beam(direction) >> HWP(content)).layout(style=style)
+    layout = (beam(direction) >> HWP(*parts)).layout(style=style)
     label, = layout.labels
     root = ET.fromstring(render_svg(layout))
     group = root.find(f"{tag('g')}[@id='component-labels']")
@@ -382,14 +385,17 @@ def test_pdf_is_vector_with_selectable_labels_page_size_and_credits(tmp_path, wi
         assert asset["source_url"] in reader.metadata.subject
 
 
-def test_pdf_preserves_multiline_unicode_labels(tmp_path):
+@pytest.mark.parametrize("parts", [
+    ("λ/2\nIn Rotation Mount",), ("λ/2", "In\nRotation Mount"),
+])
+def test_pdf_preserves_multiline_unicode_labels(tmp_path, parts):
     pypdf = pytest.importorskip("pypdf")
     try:
         import cairosvg
     except (ImportError, OSError):
         pytest.skip("Optional PDF converter or native Cairo is unavailable")
-    label = "λ/2\nIn Rotation Mount"
-    path = beam("south") >> HWP(label)
+    label = "\n".join(parts)
+    path = beam("south") >> HWP(*parts)
     dest = path.save(tmp_path / "waveplate.pdf")
     reader = pypdf.PdfReader(dest)
     text = reader.pages[0].extract_text()

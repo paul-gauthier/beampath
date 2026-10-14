@@ -9,9 +9,9 @@ register_component(ComponentDefinition(
                        (54, 35), (49, 9, 59, 61), 1.5), _straight))
 
 
-def HWP(label: str | None = None):
+def HWP(label: str | None = None, *lines: str):
     """A straight-through half-wave plate, labeled HWP by default."""
-    return component("HWP", label)
+    return component("HWP", label, *lines)
 
 
 def demo():

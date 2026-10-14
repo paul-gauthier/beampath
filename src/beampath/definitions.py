@@ -272,10 +272,20 @@ def register_component(definition: ComponentDefinition) -> None:
     _registry[definition.name] = definition
 
 
-def component(name: str, label: str | None = None, **parameters) -> ComponentSpec:
-    """Create a specification from a registered component name, optional label, and component parameters."""
+def component(name: str, label: str | None = None, *lines: str, **parameters) -> ComponentSpec:
+    """Create a specification from a registered name, optional label lines, and component parameters.
+
+    Positional label strings are joined with newlines; newlines within any
+    string also create line breaks. None uses the default first line, and
+    an empty label with no additional lines hides it. label= remains accepted.
+    """
     try:
         definition = _registry[name]
     except KeyError as exc:
         raise ComponentError(f"Unknown component {name!r}") from exc
+    if lines:
+        first = definition.default_label if label is None else label
+        if any(not isinstance(line, str) for line in (first, *lines)):
+            raise ComponentError("Label lines must be strings")
+        label = "\n".join((first, *lines))
     return ComponentSpec(definition, label, parameters)

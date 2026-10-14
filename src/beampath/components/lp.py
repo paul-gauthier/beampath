@@ -10,9 +10,9 @@ register_component(ComponentDefinition(
          (49, 35), (44, 7, 54, 63), 1.5), _straight))
 
 
-def LP(label: str | None = None):
+def LP(label: str | None = None, *lines: str):
     """A straight-through linear polarizer, labeled LP by default."""
-    return component("LP", label)
+    return component("LP", label, *lines)
 
 
 def demo():

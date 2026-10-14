@@ -11,13 +11,13 @@ register_component(ComponentDefinition(
     _cube_splitter, default_input="primary"))
 
 
-def beamsplitter(label: str | None = None, *, turn: str = "left"):
+def beamsplitter(label: str | None = None, *lines: str, turn: str = "left"):
     """A non-polarizing cube beamsplitter, labeled NPBS by default.
 
     turn selects a 90° reflection left (default) or right relative to the
     primary incoming beam. Select outputs with straight() and reflect().
     """
-    return component("beamsplitter", label, turn=turn)
+    return component("beamsplitter", label, *lines, turn=turn)
 
 
 def demo():
