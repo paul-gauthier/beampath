@@ -2,6 +2,7 @@
 from .fiber_launch import fiber_launch
 from .fiber_coupler import fiber_coupler
 from .mirror import mirror
+from .flip_mirror import flip_mirror
 from .beamsplitter import beamsplitter
 from .pbs import PBS
 from .iris import iris
@@ -21,7 +22,7 @@ from .detector import detector
 from .beam_block import beam_block
 
 __all__ = [
-    "fiber_launch", "fiber_coupler", "mirror", "beamsplitter", "PBS", "iris", "LP", "HWP", "QWP",
+    "fiber_launch", "fiber_coupler", "mirror", "flip_mirror", "beamsplitter", "PBS", "iris", "LP", "HWP", "QWP",
     "noise_eater", "nd_filter", "bandpass_filter", "fiber_laser", "laser", "inline_power_meter",
     "fiber_splitter", "fiber_power_meter", "spdc", "detector", "beam_block",
 ]

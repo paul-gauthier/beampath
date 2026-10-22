@@ -11,7 +11,7 @@ first line: `HWP(None, "DDR25")` displays `HWP` above `DDR25`. An empty label
 with no additional lines hides it; `label=` remains accepted for a single string.
 Each demo shows the component's open beam or fiber ports.
 
-[bandpass_filter](#bandpass_filter) · [beam_block](#beam_block) · [beamsplitter](#beamsplitter) · [detector](#detector) · [fiber_coupler](#fiber_coupler) · [fiber_laser](#fiber_laser) · [fiber_launch](#fiber_launch) · [fiber_power_meter](#fiber_power_meter) · [fiber_splitter](#fiber_splitter) · [HWP](#hwp) · [inline_power_meter](#inline_power_meter) · [iris](#iris) · [laser](#laser) · [LP](#lp) · [mirror](#mirror) · [nd_filter](#nd_filter) · [noise_eater](#noise_eater) · [PBS](#pbs) · [QWP](#qwp) · [spdc](#spdc) · [Custom components](#custom-components)
+[bandpass_filter](#bandpass_filter) · [beam_block](#beam_block) · [beamsplitter](#beamsplitter) · [detector](#detector) · [fiber_coupler](#fiber_coupler) · [fiber_laser](#fiber_laser) · [fiber_launch](#fiber_launch) · [fiber_power_meter](#fiber_power_meter) · [fiber_splitter](#fiber_splitter) · [flip_mirror](#flip_mirror) · [HWP](#hwp) · [inline_power_meter](#inline_power_meter) · [iris](#iris) · [laser](#laser) · [LP](#lp) · [mirror](#mirror) · [nd_filter](#nd_filter) · [noise_eater](#noise_eater) · [PBS](#pbs) · [QWP](#qwp) · [spdc](#spdc) · [Custom components](#custom-components)
 
 ## bandpass_filter
 
@@ -193,6 +193,31 @@ setup = beam() >> fiber_splitter()
 ```
 
 [Source](../src/beampath/components/fiber_splitter.py)
+
+## flip_mirror
+
+```python
+flip_mirror(label=None, *lines, turn='left')
+```
+
+A flip-in/out mirror with straight-through and reflected output paths.
+
+straight() selects the bypass with the mirror out; reflect() selects the
+path with the mirror in, turning 90° left (default) or right according to
+turn. Directions are relative to the incoming beam at the single "in" port.
+The two outputs depict alternative mirror positions. The dashed artwork
+indicates the alternate mirror position.
+
+<img src="images/components/flip_mirror.png" alt="flip_mirror demo" width="420">
+
+```python
+from beampath import beam
+from beampath.components import flip_mirror
+
+setup = beam() >> flip_mirror()
+```
+
+[Source](../src/beampath/components/flip_mirror.py)
 
 ## HWP
 

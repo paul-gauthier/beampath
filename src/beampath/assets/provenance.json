@@ -34,6 +34,17 @@
       "center_basis": "Midpoint of the actual reflecting line from (50,15) to (75,55)."
     },
     {
+      "file": "fs-flip-mirror.svg",
+      "origin": "original beampath schematic artwork",
+      "sha256": "fefbb4b7f6341ea199623c4713336cd20597c51db74e97ceab982faf0ded0a97",
+      "center": [
+        0,
+        0
+      ],
+      "center_basis": "Midpoint of the solid 45-degree reflecting surface from (-18,18) to (18,-18).",
+      "design_basis": "User-requested redesign: solid and dashed mirror positions meet at a shared hinge and differ by exactly 90 degrees. The motor, hinge, and dashed flipped-out mirror remain clear of the incoming, straight-through, and reflected beam paths. The complete assembly mirrors vertically for right turns."
+    },
+    {
       "file": "fs-iris.svg",
       "source_url": "https://raw.githubusercontent.com/itgall/photonics-component-library/7e44e14341489b067d7c8e1390af87b9c423103e/free-space-optics/flat_2d/svg/23_apertures_beam_control/fs-iris.svg",
       "sha256": "e7fa8c5b6770b4625a927b869ebe85e5b0c470d8afa45c876a7aafbbc1dc1a83",

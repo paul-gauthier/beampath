@@ -33,6 +33,7 @@ def test_default_hidden_and_keyword_labels_are_preserved(name):
 @pytest.mark.parametrize("name,parameters", [
     ("beamsplitter", {"turn": "right"}),
     ("PBS", {"turn": "right"}),
+    ("flip_mirror", {"turn": "right"}),
     ("fiber_splitter", {"turn": "right"}),
     ("fiber_launch", {"heading": "north"}),
     ("fiber_coupler", {"heading": "south"}),
