@@ -14,6 +14,7 @@ from .geometry import (
     rotate, translated, unit,
 )
 from .model import OpticInstance, Setup
+from .label_geometry import clearance as label_clearance
 
 
 @dataclass(frozen=True)
@@ -284,7 +285,8 @@ def _root_origins(setup):
 _BEAM_SEARCH_LIMIT = 1000
 
 
-def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing, initial=None):
+def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing, initial=None,
+                 label_budget=None, label_complete=None):
     """Continuous spacing for one or more already oriented free-space sections."""
     solver = kiwi.Solver()
     constraints = []
@@ -341,8 +343,9 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing, in
                                    _label_span(source.spec.display_label, d, style) / 2)
                 target_reach = max(0, -_project(footprints[target.id], b, d)[0],
                                    _label_span(target.spec.display_label, d, style) / 2)
-                minimum = max(minimum, _label_span(edge.label, d, style) + 2 * style.label_gap
-                              + source_reach + target_reach)
+                minimum = max(minimum, _label_span(edge.label, d, style)
+                              + 2 * (style.label_gap + label_clearance(style))
+                              + 2 * max(source_reach, target_reach))
             required(length >= minimum, context)
             add_constraint((length == minimum) | kiwi.strength.weak)
         else:
@@ -408,7 +411,8 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing, in
         from .labels import solve_spacing
 
         return solve_spacing(drawing, style, blocks, initial,
-                             constraints, xs, ys, lengths, placements_now, _BEAM_SEARCH_LIMIT)
+                             constraints, xs, ys, lengths, placements_now, _BEAM_SEARCH_LIMIT,
+                             budget=label_budget, complete=label_complete)
 
     # A greedy separation can block a later collision. Explore alternatives with
     # backtracking; each branch permanently separates the selected conflict.
@@ -450,15 +454,9 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing, in
 
 
 def _finish_free_space(setup, placements, style):
-    segments = _beam_segments(setup, placements, style)
-    from .labels import LabelPlacementError, space_labels
+    from .labels import finish_layout
 
-    try:
-        labels = _labels(placements, segments, style)
-    except LabelPlacementError:
-        placements, labels = space_labels(setup, placements, style)
-        segments = _beam_segments(setup, placements, style)
-    return _assemble_layout(placements, segments, labels, style, setup=setup)
+    return finish_layout(setup, placements, style)
 
 
 def _beam_geometry(setup, nodes, style, poses=None):
@@ -499,7 +497,8 @@ def _beam_geometry(setup, nodes, style, poses=None):
                 text = setup._output_labels.get((placed.id, port.name))
                 if text:
                     reach = max(0, reach, _label_span(placed.instance.spec.display_label, d, style) / 2)
-                    length = max(length, _label_span(text, d, style) + 2 * (reach + style.label_gap))
+                    length = max(length, _label_span(text, d, style)
+                                 + 2 * (reach + style.label_gap + label_clearance(style)))
                 b = a[0] + length * d[0], a[1] + length * d[1]
                 segment = Segment(f"stub-{placed.id}-{index:02d}", a, b, placed.id, port.name)
                 beams.append(_Beam(segment, placed.id, placed.id, d))
@@ -516,7 +515,8 @@ def _beam_geometry(setup, nodes, style, poses=None):
         length = max(style.open_length, reach + style.clearance)
         if root.label:
             reach = max(0, reach, _label_span(placed.instance.spec.display_label, d, style) / 2)
-            length = max(length, _label_span(root.label, d, style) + 2 * (reach + style.label_gap))
+            length = max(length, _label_span(root.label, d, style)
+                         + 2 * (reach + style.label_gap + label_clearance(style)))
         a = b[0] - length * d[0], b[1] - length * d[1]
         segment = Segment(f"lead-in-{placed.id}-{index:02d}", a, b, None, None, placed.id, root.input)
         beams.append(_Beam(segment, placed.id, placed.id, d))
@@ -553,9 +553,7 @@ def _content_bounds(placements, segments, labels, fibers=()):
 
 
 def _assemble_layout(placements, segments, labels, style, fibers=(), *, setup=None):
-    if setup is not None:
-        from .segment_labels import place_segment_labels
-        labels = place_segment_labels(setup, placements, segments, fibers, labels, style)
+    """Assemble an already accepted drawing without changing its geometry."""
     x0, y0, x1, y1 = _content_bounds(placements, segments, labels, fibers)
     bounds = x0 - style.margin, y0 - style.margin, x1 + style.margin, y1 + style.margin
     return Layout(placements, tuple(segments), labels, bounds, style, tuple(fibers))

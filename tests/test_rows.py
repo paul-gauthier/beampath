@@ -222,7 +222,7 @@ def test_incompatible_group_pins_cannot_silently_overlap_labels():
     meter = rows(beam() >> fiber_power_meter("A long label " * 6))
     split.straight().append(meter, at=(0, 600))
     split.turn().append(meter, at=(150, 600))
-    with pytest.raises(LayoutError, match="stage labels overlap"):
+    with pytest.raises(LayoutError, match="stage labels overlap|stage label overlaps component artwork"):
         split.layout()
 
 
@@ -326,7 +326,8 @@ def test_fixed_child_connector_conflict_does_not_relax_parent_pins():
     path = beam() >> source
     path.out("fiber").append(rows(beam() >> inline_power_meter("Transmission\npower meter")),
                              at=(0, -175))
-    with pytest.raises(LayoutError, match="pinned placement.*fiber connector has insufficient clearance"):
+    with pytest.raises(LayoutError, match="pinned placement.*(fiber connector has insufficient clearance"
+                                         "|stage label overlaps component artwork)"):
         path.layout()
 
 

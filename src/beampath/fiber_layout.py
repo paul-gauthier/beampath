@@ -7,12 +7,12 @@ import math
 from .errors import LayoutError
 from .geometry import add, aligned, overlap, translated, unit
 from .layout import (
-    FiberRoute, PlacedOptic, Segment, _assemble_layout, _beam_segments,
-    _label_span, _labels, _project, _root_origins, _solve_beams, footprint, segment_intersects,
+    FiberRoute, PlacedOptic, _label_span, _project, _root_origins,
+    _solve_beams, footprint, segment_intersects,
 )
-from .routing import connector_lead, inflate, refine_routes, route_connection
+from .routing import connector_lead, inflate, route_connection
 from .occupied import occupied_geometry
-from .labels import LabelPlacementError, space_labels
+from .label_geometry import clearance as label_clearance
 
 
 def _validate(setup):
@@ -218,8 +218,9 @@ def _place(setup, style, blocks=None, *, drawing=None):
                                    _label_span(source.instance.spec.display_label, direction, style) / 2)
                 target_reach = max(0, -_project(target_component.bounds, target, direction)[0],
                                    _label_span(target_component.instance.spec.display_label, direction, style) / 2)
-                gap = max(gap, _label_span(edge.label, direction, style) + 2 * style.label_gap
-                          + source_reach + target_reach)
+                gap = max(gap, _label_span(edge.label, direction, style)
+                          + 2 * (style.label_gap + label_clearance(style))
+                          + 2 * max(source_reach, target_reach))
             delta = add(origin, (gap * direction[0], gap * direction[1]))
             delta = add(delta, (-direction[1] * lane * style.pitch, direction[0] * lane * style.pitch))
             delta = delta[0] - target[0], delta[1] - target[1]
@@ -296,7 +297,8 @@ def _open_fibers(setup, placements, style):
             if text:
                 reach = max(math.dist(a, nearest),
                             _label_span(p.instance.spec.display_label, direction, style) / 2)
-                length = max(length, _label_span(text, direction, style) + 2 * (reach + style.label_gap))
+                length = max(length, _label_span(text, direction, style)
+                             + 2 * (reach + style.label_gap + label_clearance(style)))
             b = add(a, (length * direction[0], length * direction[1]))
             if any(segment_intersects(a, b, other.bounds) for other in placements.values() if other.id != p.id):
                 b = nearest
@@ -310,29 +312,10 @@ def _open_fibers(setup, placements, style):
 
 
 def mixed_layout(setup, style):
+    from .labels import finish_layout
+
     _validate(setup)
     placements = _place(setup, style)
     edges = [e for e in setup.connections if e.medium == "fiber"]
     _orient_fiber_components(placements, edges, setup, style)
-    segments = _beam_segments(setup, placements, style)
-    open_routes = _open_fibers(setup, placements, style)
-    fibers = [route_connection(edge, placements, style) for edge in edges] + open_routes
-    try:
-        labels = _labels(placements, segments + [leg for r in fibers for leg in r.legs], style)
-    except LabelPlacementError:
-        # Reserve the straight connector leads while trying label positions,
-        # then route cable interiors around the resulting label obstacles.
-        leads = [leg for r in open_routes for leg in r.legs]
-        for edge in edges:
-            for ident, name in ((edge.source, edge.output), (edge.target, edge.input)):
-                a, b = connector_lead(placements[ident], name, max(style.clearance, style.fiber_width))
-                leads.append(Segment(f"lead-{ident}-{name}", a, b, ident, name))
-        try:
-            labels = _labels(placements, segments + leads, style)
-        except LabelPlacementError:
-            placements, labels = space_labels(setup, placements, style)
-            segments = _beam_segments(setup, placements, style)
-            open_routes = _open_fibers(setup, placements, style)
-        fibers = [route_connection(edge, placements, style, labels) for edge in edges] + open_routes
-    fibers = refine_routes(edges, placements, style, labels, fibers)
-    return _assemble_layout(placements, segments, labels, style, fibers, setup=setup)
+    return finish_layout(setup, placements, style)

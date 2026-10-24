@@ -7,7 +7,7 @@ from beampath import (
     FiberRoute, HWP, beam, fiber_coupler, fiber_laser, fiber_launch,
     fiber_power_meter, fiber_splitter, inline_power_meter, rows,
 )
-from beampath import group_layout, routing
+from beampath import routing
 from beampath.errors import LayoutError
 from beampath.fiber_conflicts import conflict_score, route_contacts, route_set_score
 from beampath.geometry import add, rotate
@@ -71,11 +71,11 @@ def test_composition_removes_crossing_without_moving_optics_or_adding_bends(monk
     setup = rows(cleanup, stage)
     setup >> fiber_power_meter("Final power")
 
-    def old_refinement(edges, placements, style, labels, fibers, fixed=()):
+    def old_refinement(edges, placements, style, labels, fibers, fixed=(), **kwargs):
         return [r if r.id in fixed else routing.center_route(r, placements, style, labels) for r in fibers]
 
     with monkeypatch.context() as patch:
-        patch.setattr(group_layout, "refine_routes", old_refinement)
+        patch.setattr(routing, "refine_routes", old_refinement)
         original = setup.layout()
     result = setup.layout()
     assert route_set_score(original.fibers)[0] == 1

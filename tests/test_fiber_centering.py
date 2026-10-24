@@ -74,10 +74,9 @@ def test_centering_uses_labels_anywhere_along_the_run(label_x, expected_y):
 
 
 def test_label_placement_precedes_centering(monkeypatch):
-    from beampath import fiber_layout
+    from beampath import labels
 
     label = Label("note", "Note", (300, 20), (280, 10, 320, 40))
-    monkeypatch.setattr(fiber_layout, "_labels", lambda *args: (label,))
     path = return_path()
     initial = path.layout()
     raw = route_connection(path.setup.connections[0], initial.placements, initial.style)
@@ -88,6 +87,17 @@ def test_label_placement_precedes_centering(monkeypatch):
     else:
         label = replace(label, bounds=(280, 50, 320, 90))
         expected_y = (110 + 339.2) / 2
+
+    prototypes = labels._prototypes
+
+    def with_note(drawing, placements, style, blocks):
+        result = prototypes(drawing, placements, style, blocks)
+        anchor = next(iter(placements))
+        delta = tuple(-value for value in placements[anchor].position)
+        result["note"] = (labels._Candidate(anchor, labels.move_label(label, delta)),)
+        return result
+
+    monkeypatch.setattr(labels, "_prototypes", with_note)
     result = path.layout()
     route, = result.fibers
     assert route.points[2][1] == pytest.approx(expected_y)

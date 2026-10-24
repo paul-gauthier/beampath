@@ -40,17 +40,23 @@ Most diagrams can start from the [examples](gallery.md). Import core tools from
   surrounding content; fixed positions and distances remain required constraints.
 - **Drawing:** crossings do not imply connections. Open ports have stubs, replaced
   when connected.
-  Labels stay beside their components, with their own artwork at least three
-  diagram units closer than any other component. Placement tries the eight
-  adjacent positions jointly, expanding automatic spacing when needed to clear
-  labels, artwork, and paths. Explicit pins and distances remain fixed;
-  incompatible constraints raise a label-specific layout error instead of
-  displacing the label farther away. Label searches are deterministic and
-  bounded, with budget exhaustion reported separately from infeasibility.
+  Labels stay beside their components at `Style.label_gap`. Unrelated text
+  blocks reserve `max(3, Style.font_size)` units of clearance; a component's own
+  artwork must be that much closer to its label than any other component.
+  Clearance uses the same rectangular bounds for candidate selection and
+  spacing. Component labels and beam annotations choose positions jointly,
+  expanding automatic spacing when needed to clear text, artwork, and paths.
+  Explicit pins and distances remain fixed. The joint search shares a
+  1,000-state budget across label choices, spacing, and fiber rerouting;
+  budget exhaustion is reported separately from exhausted adjacent candidates.
 - **Fiber routing:** prefer fewer crossings, touches, and overlapping runs before
   minimizing bends and length. Routes may take longer detours to avoid contacts;
   artwork and labels remain clear. Centering and corner rounding also consider
   neighboring fibers. Open stubs and measured child-stage routes stay fixed.
+  Fiber annotations are placed on the resulting routes. Movable peer cables can
+  reroute around text; any changed route's annotation is regenerated so it stays
+  attached to its cable. If routing or annotations cannot fit, the joint search
+  also tries other component and beam-label positions.
   Refinement is deterministic and bounded, rather than a global optimization:
   remaining fiber contacts are allowed and do not create optical junctions.
 

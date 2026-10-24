@@ -257,7 +257,7 @@ def center_route(route, placements, style, labels=(), peers=()):
     return replace(route, points=tuple(points))
 
 
-def refine_routes(edges, placements, style, labels, routes, fixed=()):
+def refine_routes(edges, placements, style, labels, routes, fixed=(), *, budget=None):
     """Improve only conflicted movable routes, then safely center the set.
 
     Every accepted reroute strictly improves the complete set's score; three
@@ -275,6 +275,8 @@ def refine_routes(edges, placements, style, labels, routes, fixed=()):
             peers = routes[:i] + routes[i + 1:]
             if not conflict_score(routes[i], peers)[0]:
                 continue
+            if budget is not None:
+                budget.tick(f"{routes[i].id}: fiber route refinement")
             try:
                 candidate = route_connection(by_id[routes[i].id], placements, style, labels, peers)
             except LayoutError:

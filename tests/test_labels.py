@@ -1,6 +1,5 @@
 """Labels stay nearby and unambiguously belong to their physical components."""
 import importlib
-import math
 import runpy
 
 import pytest
@@ -13,26 +12,22 @@ from beampath import (
 from beampath.examples._discovery import example_names
 from beampath.geometry import add, overlap, rotate
 from beampath.layout import segment_intersects
+from beampath.label_geometry import bounds_distance as distance, clearance
 from beampath.labels import space_labels
 
 
-def distance(a, b):
-    return math.hypot(max(0, a[0] - b[2], b[0] - a[2]),
-                      max(0, a[1] - b[3], b[1] - a[3]))
-
-
 def assert_labels_clear(layout):
+    padding = clearance(layout.style)
     for index, label in enumerate(layout.labels):
         owner = layout.placements.get(label.optic)
         if owner is not None:
             gap = distance(label.bounds, owner.bounds)
-            assert gap >= layout.style.label_gap - 1e-7
-            assert gap <= math.sqrt(2) * layout.style.label_gap + 1e-7
+            assert gap == pytest.approx(layout.style.label_gap, abs=1e-7)
         for other in layout.placements.values():
             assert not overlap(label.bounds, other.bounds)
             if owner is not None and other.id != owner.id:
-                assert distance(label.bounds, other.bounds) >= gap + 3 - 1e-7
-        assert all(not overlap(label.bounds, other.bounds, 3) for other in layout.labels[index + 1:])
+                assert distance(label.bounds, other.bounds) >= gap + padding - 1e-7
+        assert all(not overlap(label.bounds, other.bounds, padding) for other in layout.labels[index + 1:])
         lines = list(layout.segments) + [leg for route in layout.fibers for leg in route.legs]
         assert all(not segment_intersects(line.start, line.end, label.bounds) for line in lines)
 
@@ -112,7 +107,10 @@ def test_competing_labels_fit_jointly_with_all_positions_fixed():
     setup.beam(origin=(130, 0)) >> box("Wide second label")
     layout = setup.layout()
     a, b = layout.labels
-    assert a.bounds[1] * b.bounds[1] < 0  # Opposite sides resolve the shared space.
+    offsets = [tuple((label.bounds[axis] + label.bounds[axis + 2]) / 2
+                     - layout.placements[label.optic].position[axis] for axis in (0, 1))
+               for label in (a, b)]
+    assert any(offsets[0][axis] * offsets[1][axis] < 0 for axis in (0, 1))
     assert [p.position for p in layout.placements.values()] == [(0, 0), (130, 0)]
     assert_labels_clear(layout)
 

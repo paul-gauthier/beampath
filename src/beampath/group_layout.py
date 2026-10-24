@@ -3,16 +3,11 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from .errors import LayoutError
-from .fiber_layout import _collides, _open_fibers, _orient_fiber_components, _place, _validate
-from .geometry import add, overlap, translated
-from .layout import (
-    Layout, Segment, _assemble_layout, _beam_segments, _content_bounds, _labels, segment_intersects,
-)
+from .fiber_layout import _collides, _orient_fiber_components, _place, _validate
+from .geometry import add, translated
+from .layout import Layout, _content_bounds
 from .model import Root, Setup
-from .routing import connector_lead, inflate, refine_routes, route_connection
 from .occupied import occupied_geometry
-from .labels import LabelPlacementError, associated, boundary_leads, space_labels
 
 
 def _translate(layout, delta):
@@ -29,80 +24,16 @@ def _translate(layout, delta):
 
 
 def _finish(setup, placements, style, children=(), *, scope=None, resolved_labels=None):
-    """Keep measured child content intact; route new edges around all labels.
+    """Finish the surrounding scope while retaining measured child frames."""
+    from .labels import finish_layout
 
-    Use the full graph for port occupancy even inside a local frame. A boundary
-    connection must not temporarily grow a stub (or leave room for one).
-    """
-    fixed_labels = tuple(label for child in children for label in child.labels)
-    fixed_fibers = {route.id: route for child in children for route in child.fibers}
     fixed_nodes = {ident for child in children for ident in child.placements}
     blocks = {next(iter(child.placements)): child for child in children}
     edges = [edge for edge in setup.connections if edge.medium == "fiber"
              and edge.source in placements and edge.target in placements]
     if resolved_labels is None:
         _orient_fiber_components(placements, edges, setup, style, fixed_nodes, blocks)
-    segments = _beam_segments(setup, placements, style)
-    boundaries = boundary_leads(setup, placements, style)
-    opens = [fixed_fibers.get(route.id, route) for route in _open_fibers(setup, placements, style)]
-
-    # Reserve escapes even for connections that leave this scope, so local
-    # labels cannot obstruct the return fiber routed by the enclosing group.
-    leads = []
-    for edge in setup.connections:
-        if edge.medium != "fiber":
-            continue
-        for ident, port in ((edge.source, edge.output), (edge.target, edge.input)):
-            if ident in placements:
-                a, b = connector_lead(placements[ident], port, max(style.clearance, style.fiber_width))
-                leads.append(Segment(f"lead-{ident}-{port}", a, b, ident, port))
-    clearance = max(style.clearance, style.fiber_width)
-    exclusions = tuple(inflate((min(s.start[0], s.end[0]), min(s.start[1], s.end[1]),
-                                max(s.start[0], s.end[0]), max(s.start[1], s.end[1])), clearance)
-                       for s in leads)
-    fibers = [fixed_fibers[edge.id] if edge.id in fixed_fibers
-              else route_connection(edge, placements, style, fixed_labels) for edge in edges] + opens
-    try:
-        if resolved_labels is not None:
-            labels = resolved_labels
-        else:
-            try:
-                labels = _labels(placements, segments + boundaries + leads + [leg for r in fibers for leg in r.legs],
-                                 style, fixed_labels, exclusions)
-            except LabelPlacementError:
-                reserved = [leg for route in (*fixed_fibers.values(), *opens) for leg in route.legs]
-                labels = _labels(placements, segments + boundaries + reserved + leads, style, fixed_labels, exclusions)
-            for label in fixed_labels:
-                if not associated(label, placements):
-                    raise LabelPlacementError(label.optic, label.text)
-    except LabelPlacementError:
-        placements, labels = space_labels(scope or setup, placements, style, blocks, drawing=setup)
-        moved = []
-        for entry, child in blocks.items():
-            delta = tuple(placements[entry].position[i] - child.placements[entry].position[i] for i in (0, 1))
-            moved.append(_translate(child, delta))
-        return _finish(setup, placements, style, moved, scope=scope, resolved_labels=labels)
-    if resolved_labels is not None or any(segment_intersects(leg.start, leg.end, label.bounds)
-                                          for route in fibers for leg in route.legs for label in labels):
-        fibers = [fixed_fibers[edge.id] if edge.id in fixed_fibers
-                  else route_connection(edge, placements, style, labels) for edge in edges] + opens
-    for index, label in enumerate(labels):
-        if any(overlap(label.bounds, other.bounds, 3) for other in labels[index + 1:]):
-            raise LayoutError(f"{label.optic}: stage labels overlap")
-        if any(overlap(label.bounds, p.bounds, 0 if p.id == label.optic else 3) for p in placements.values()):
-            raise LayoutError(f"{label.optic}: stage label overlaps component artwork")
-        if any(segment_intersects(s.start, s.end, label.bounds) for s in segments):
-            raise LayoutError(f"{label.optic}: beam crosses a stage label")
-
-    fibers = refine_routes(edges, placements, style, labels, fibers, fixed_fibers)
-    for route in fibers:
-        for leg in route.legs:
-            if any(segment_intersects(leg.start, leg.end, p.bounds) for p in placements.values()
-                   if p.id not in {route.source, route.target}):
-                raise LayoutError(f"{route.id}: stage fiber crosses unrelated artwork")
-            if any(segment_intersects(leg.start, leg.end, label.bounds) for label in labels):
-                raise LayoutError(f"{route.id}: stage fiber crosses a label")
-    return _assemble_layout(placements, segments, labels, style, fibers, setup=setup)
+    return finish_layout(setup, placements, style, scope=scope, blocks=blocks)
 
 
 def _place_children(scope, setup, style, children):

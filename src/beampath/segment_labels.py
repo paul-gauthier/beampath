@@ -5,14 +5,12 @@ import math
 
 from .errors import LayoutError
 from .geometry import EPSILON, overlap
+from .label_geometry import clearance
 from .layout import Label, _text_size, segment_intersects
 from .routing import inflate
 
 
-_SEARCH_LIMIT = 1000
-
-
-def _texts(setup, placements, routes):
+def _texts(setup, placements, routes, *, medium=None):
     """Resolve graph-owned labels without depending on layout-only fiber bends."""
     by_id = {route.id: route for route in routes}
     by_output = {(route.source, route.output): route for route in routes if route.source is not None}
@@ -27,13 +25,17 @@ def _texts(setup, placements, routes):
         result[route.id] = text
 
     for edge in setup.connections:
-        if edge.source in placements and edge.target in placements:
+        if (edge.source in placements and edge.target in placements
+                and (medium is None or edge.medium == medium)):
             add(by_id.get(edge.id), edge.label, edge.id)
     for (ident, port), text in setup._output_labels.items():
-        if ident in placements:
+        if (ident in placements
+                and (medium is None or placements[ident].instance.port(port).medium == medium)):
             add(by_output.get((ident, port)), text, f"{ident}.{port}")
     for root in setup._roots:
-        if root.optic in placements:
+        if (root.optic in placements
+                and (medium is None or (root.input is not None
+                     and placements[root.optic].instance.port(root.input).medium == medium))):
             add(by_input.get((root.optic, root.input)), root.label, f"{root.optic}.{root.input}")
     return result
 
@@ -67,54 +69,48 @@ def _candidates(route, text, style):
                 yield Label(None, text, (cx, baseline), bounds, route.id)
 
 
-def place_segment_labels(setup, placements, segments, fibers, fixed, style):
-    """Find a deterministic, collision-free joint assignment beside the routes.
+def domains(setup, placements, segments, fibers, fixed, style, *,
+            defer_peers=False, movable=()):
+    """Generate clear annotation choices from the current route geometry.
 
-    Measured child-stage labels remain fixed. Every new label avoids artwork,
-    all beam and cable legs, and the already placed component/stage labels.
+    Movable peer fibers may be deferred while a caller tries routing them around
+    a caption. Its own route, free-space beams, and measured child fibers always
+    obstruct that caption. The caller must reroute and validate deferred peers
+    before accepting the assignment.
     """
     routes = (*segments, *fibers)
     texts = _texts(setup, placements, routes)
     existing = {label.segment for label in fixed if label.segment is not None}
-    lines = [(segment, style.beam_width / 2) for segment in segments]
-    lines += [(leg, style.fiber_width / 2) for route in fibers for leg in route.legs]
-    domains = {}
+    movable = set(movable) - existing
+    fiber_ids = {route.id for route in fibers}
+    lines = [(segment, style.beam_width / 2, None) for segment in segments]
+    lines += [(leg, style.fiber_width / 2, route.id) for route in fibers for leg in route.legs]
+    padding = clearance(style)
+    result = {}
     for route in routes:
         if route.id not in texts or route.id in existing:
             continue
-        domains[route.id] = tuple(
+        obstacles = [(line, width) for line, width, owner in lines
+                     if not (defer_peers and route.id in fiber_ids and owner in movable
+                             and owner != route.id)]
+        result[route.id] = tuple(
             label for label in _candidates(route, texts[route.id], style)
-            if not any(overlap(label.bounds, p.bounds, 3) for p in placements.values())
-            and not any(overlap(label.bounds, other.bounds, 3) for other in fixed)
+            if not any(overlap(label.bounds, p.bounds, padding) for p in placements.values())
+            and not any(overlap(label.bounds, other.bounds, padding) for other in fixed)
             and not any(segment_intersects(line.start, line.end, inflate(label.bounds, padding))
-                        for line, padding in lines)
+                        for line, padding in obstacles)
         )
-    if not domains:
-        return tuple(fixed)
-    attempts = 0
-    failed = next(iter(domains))
+    return result
 
-    def search(remaining, chosen):
-        nonlocal attempts, failed
-        if not remaining:
-            return chosen
-        ident = min(remaining, key=lambda key: len(remaining[key]))
-        failed = ident
-        for label in remaining[ident]:
-            if attempts >= _SEARCH_LIMIT:
-                raise LayoutError(f"{ident} ({texts[ident]}): segment label search budget exhausted "
-                                  f"({_SEARCH_LIMIT} candidate states)")
-            attempts += 1
-            reduced = {key: tuple(other for other in options if not overlap(label.bounds, other.bounds, 3))
-                       for key, options in remaining.items() if key != ident}
-            if any(not options for options in reduced.values()):
-                continue
-            result = search(reduced, {**chosen, ident: label})
-            if result is not None:
-                return result
-        return None
 
-    selected = search(domains, {})
-    if selected is None:
-        raise LayoutError(f"{failed} ({texts[failed]}): no clear adjacent position for its segment label")
-    return tuple(fixed) + tuple(selected[ident] for ident in domains)
+def place_segment_labels(setup, placements, segments, fibers, fixed, style, *, budget=None):
+    """Place route captions with the same search and clearance as optic labels."""
+    from .labels import LabelPlacementError, search_domains
+
+    texts = _texts(setup, placements, (*segments, *fibers))
+    choices = domains(setup, placements, segments, fibers, fixed, style)
+    try:
+        return search_domains(choices, style, fixed, budget=budget, texts=texts)
+    except LabelPlacementError as exc:
+        raise LayoutError(f"{exc.optic} ({texts[exc.optic]}): no clear adjacent position "
+                          "for its segment label") from exc
