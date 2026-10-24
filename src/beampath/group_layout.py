@@ -102,7 +102,7 @@ def _finish(setup, placements, style, children=(), *, scope=None, resolved_label
                 raise LayoutError(f"{route.id}: stage fiber crosses unrelated artwork")
             if any(segment_intersects(leg.start, leg.end, label.bounds) for label in labels):
                 raise LayoutError(f"{route.id}: stage fiber crosses a label")
-    return _assemble_layout(placements, segments, labels, style, fibers)
+    return _assemble_layout(placements, segments, labels, style, fibers, setup=setup)
 
 
 def _place_children(scope, setup, style, children):

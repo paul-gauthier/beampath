@@ -267,8 +267,9 @@ def render_svg(layout: Layout) -> str:
     labels = element(svg, "g", id="component-labels", font_size=number(style.font_size),
                      font_weight="normal", text_anchor="middle", fill="#000000")
     for label in layout.labels:
-        text = element(labels, "text", id=f"{label.optic}-label", x=number(label.position[0]),
-                       y=number(label.position[1]))
+        attributes = {"data_segment": label.segment} if label.segment is not None else {}
+        text = element(labels, "text", id=f"{label.optic or label.segment}-label", x=number(label.position[0]),
+                       y=number(label.position[1]), **attributes)
         lines = label.text.split("\n")
         if len(lines) == 1:
             text.text = label.text
@@ -276,7 +277,10 @@ def render_svg(layout: Layout) -> str:
             for index, line in enumerate(lines):
                 element(text, "tspan", x=number(label.position[0]),
                         y=number(label.position[1] + index * style.font_size * 1.25)).text = line
-        manifest["labels"].append({"optic": label.optic, "text": label.text, "position": label.position})
+        entry = {"optic": label.optic, "text": label.text, "position": label.position}
+        if label.segment is not None:
+            entry["segment"] = label.segment
+        manifest["labels"].append(entry)
     element(metadata, "metadata", id="asset-attribution-manifest").text = json.dumps(manifest, ensure_ascii=False, indent=2)
     ET.indent(svg, space="  ")
     return '<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(svg, encoding="unicode") + "\n"

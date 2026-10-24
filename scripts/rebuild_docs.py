@@ -167,7 +167,7 @@ def components_page(diagrams, custom_example):
 def api_summary():
     groups = {
         "Construction and connections": (
-            beampath.beam, beampath.chain, beampath.rows, Setup, Setup.beam, Setup.add,
+            beampath.beam, beampath.label, beampath.chain, beampath.rows, Setup, Setup.beam, Setup.add,
             BeamPath.append, BeamPath.out, BeamPath.end, BeamPath.connect, BeamPath.join,
             beampath.OpticRef.input, beampath.OpticRef.out,
         ),

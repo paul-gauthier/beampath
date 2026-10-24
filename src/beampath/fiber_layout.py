@@ -8,7 +8,7 @@ from .errors import LayoutError
 from .geometry import add, aligned, overlap, translated, unit
 from .layout import (
     FiberRoute, PlacedOptic, Segment, _assemble_layout, _beam_segments,
-    _labels, _project, _root_origins, _solve_beams, footprint, segment_intersects,
+    _label_span, _labels, _project, _root_origins, _solve_beams, footprint, segment_intersects,
 )
 from .routing import connector_lead, inflate, refine_routes, route_connection
 from .occupied import occupied_geometry
@@ -213,6 +213,13 @@ def _place(setup, style, blocks=None, *, drawing=None):
                 clearance = (_project(inflate(source.bounds, margin), origin, direction)[1]
                              - _project(inflate(target_component.bounds, margin), target, direction)[0])
             gap = max(style.pitch, clearance)
+            if edge.label:
+                source_reach = max(0, _project(source.bounds, origin, direction)[1],
+                                   _label_span(source.instance.spec.display_label, direction, style) / 2)
+                target_reach = max(0, -_project(target_component.bounds, target, direction)[0],
+                                   _label_span(target_component.instance.spec.display_label, direction, style) / 2)
+                gap = max(gap, _label_span(edge.label, direction, style) + 2 * style.label_gap
+                          + source_reach + target_reach)
             delta = add(origin, (gap * direction[0], gap * direction[1]))
             delta = add(delta, (-direction[1] * lane * style.pitch, direction[0] * lane * style.pitch))
             delta = delta[0] - target[0], delta[1] - target[1]
@@ -283,6 +290,13 @@ def _open_fibers(setup, placements, style):
             a, nearest = connector_lead(p, port.name, style.clearance)
             direction = unit(p.port_exit_direction(port.name))
             length = max(style.open_length, math.dist(a, nearest))
+            text = (setup._output_labels.get((p.id, port.name)) if output else
+                    next((root.label for root in setup._roots
+                          if root.optic == p.id and root.input == port.name), None))
+            if text:
+                reach = max(math.dist(a, nearest),
+                            _label_span(p.instance.spec.display_label, direction, style) / 2)
+                length = max(length, _label_span(text, direction, style) + 2 * (reach + style.label_gap))
             b = add(a, (length * direction[0], length * direction[1]))
             if any(segment_intersects(a, b, other.bounds) for other in placements.values() if other.id != p.id):
                 b = nearest
@@ -321,4 +335,4 @@ def mixed_layout(setup, style):
             open_routes = _open_fibers(setup, placements, style)
         fibers = [route_connection(edge, placements, style, labels) for edge in edges] + open_routes
     fibers = refine_routes(edges, placements, style, labels, fibers)
-    return _assemble_layout(placements, segments, labels, style, fibers)
+    return _assemble_layout(placements, segments, labels, style, fibers, setup=setup)

@@ -52,6 +52,37 @@ Most diagrams can start from the [examples](gallery.md). Import core tools from
   Refinement is deterministic and bounded, rather than a global optimization:
   remaining fiber contacts are allowed and do not create optical junctions.
 
+## Segment labels
+
+Insert `label(...)` between components to label their beam or fiber connection.
+A bare string is shorthand for a single label string:
+
+```python
+from beampath import label
+from beampath.components import HWP, fiber_laser, fiber_launch
+
+setup = (
+    fiber_laser()
+    >> label("Input fiber", "2 m")
+    >> fiber_launch()
+    >> "780 nm"
+    >> HWP()
+)
+```
+
+The connected ports determine whether the segment is a beam or a fiber; the
+label syntax is the same for both. Positional strings become separate lines,
+and newlines within a string also create line breaks. Placement is automatic.
+See the [segment labels example](gallery.md#segment_labels) for a complete setup.
+
+A label marks the current outgoing segment, including an open output stub.
+Appending or connecting the next component retains that label on the connection.
+Before the first component, `beam() >> label("Input")` labels its incoming lead
+when that component has a drawn input port.
+Choose an output first when labeling a branch, for example
+`splitter.turn() >> "Monitor" >> fiber_power_meter()`.
+Use one marker per segment; write `label("Pump", "780 nm")` for multiple lines.
+
 ## API summary
 
 Signatures and descriptions below are generated from Python. The rendering
@@ -66,12 +97,13 @@ For advanced details, consult the [model](../src/beampath/model.py),
 | API | Purpose |
 |---|---|
 | `beam(direction='east', *, origin=(0, 0))` | Start a setup with an incoming stub at its first free-space input. |
-| `chain(*specs)` | Combine component specifications or existing chains into a reusable linear sequence. |
+| `label(*lines)` | Label the next segment; positional strings are joined with newlines. |
+| `chain(*specs)` | Combine components, segment labels, or existing chains into a reusable sequence. |
 | `rows(*stages, gap=None)` | Copy and fiber-connect stages in vertically stacked, entry-aligned rows. |
 | `Setup()` | Own a diagram containing paths, branches, and shared physical optics. |
 | `Setup.beam(direction='east', *, origin=(0, 0))` | Start another path in this setup, with the given heading and first-optic origin. |
 | `Setup.add(spec, *, at=None)` | Create a physical optic for explicit shared-input connections; return its reference. |
-| `Path.append(spec, *, distance=None, at=None)` | Append a component, chain, or independent copy of a built path; advance and return this cursor. |
+| `Path.append(spec, *, distance=None, at=None)` | Append a component, segment label, chain, or copied path; return this cursor. |
 | `Path.out(name)` | Select a named output using a new cursor; choose before continuing from a splitter. |
 | `Path.end` | Return a stable reference to the current physical optic, retained when this cursor advances. |
 | `Path.connect(target, *, distance=None)` | Connect to an existing optic input in the same setup; consume this cursor and return its optic reference. |
@@ -171,6 +203,8 @@ and preserve attribution. See [component authoring](../src/beampath/components/R
 `layout()` returns a snapshot: `placements` maps optic IDs to positions/bounds;
 `segments`, `fibers`, and `labels` describe the drawing; `bounds` includes margins.
 `setup.optics` and `setup.connections` expose immutable graph views.
+In `layout().labels`, component labels identify their `optic`; segment labels
+have `optic=None` and identify the beam segment or fiber route with `segment`.
 
 ## Errors and limits
 

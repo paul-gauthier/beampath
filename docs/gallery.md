@@ -14,7 +14,7 @@ python -m beampath.examples --diagram hello --png
 Outputs go to `build/examples/`. Use `--diagram all` for every example;
 add `--pdf` for PDF. PNG/PDF need the [export dependencies](api.md#export).
 
-[hello](#hello) · [cage](#cage) · [chsh](#chsh) · [fiber_splitter](#fiber_splitter) · [franson](#franson) · [ghz_path_identity](#ghz_path_identity) · [hbt](#hbt) · [hom](#hom) · [mirror_heading](#mirror_heading) · [mixed_fiber](#mixed_fiber) · [mzi](#mzi) · [quantum_eraser](#quantum_eraser) · [rendering](#rendering) · [reuse](#reuse) · [spdc](#spdc) · [swapping](#swapping) · [zwm](#zwm)
+[hello](#hello) · [cage](#cage) · [chsh](#chsh) · [fiber_splitter](#fiber_splitter) · [franson](#franson) · [ghz_path_identity](#ghz_path_identity) · [hbt](#hbt) · [hom](#hom) · [mirror_heading](#mirror_heading) · [mixed_fiber](#mixed_fiber) · [mzi](#mzi) · [quantum_eraser](#quantum_eraser) · [rendering](#rendering) · [reuse](#reuse) · [segment_labels](#segment_labels) · [spdc](#spdc) · [swapping](#swapping) · [zwm](#zwm)
 
 ## hello
 
@@ -430,6 +430,33 @@ setup.save("reuse.svg")
 ```
 
 [Source](../examples/reuse.py)
+
+## segment_labels
+
+Label beam and fiber connections with label(...) or a bare string.
+
+![segment_labels diagram](../examples/images/segment_labels.png)
+
+```python
+from beampath import label
+from beampath.components import HWP, fiber_coupler, fiber_laser, fiber_launch, fiber_power_meter
+
+setup = (
+    fiber_laser("Laser")
+    >> label("Input fiber", "2 m")
+    >> fiber_launch()
+    >> "780 nm"
+    >> HWP()
+    >> label("Prepared beam")
+    >> fiber_coupler()
+    >> "Output fiber"
+    >> fiber_power_meter("Power")
+)
+
+setup.save("segment_labels.svg")
+```
+
+[Source](../examples/segment_labels.py)
 
 ## spdc
 

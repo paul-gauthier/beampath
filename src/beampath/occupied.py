@@ -111,7 +111,7 @@ class _Scene:
                     label_bounds = bounds_a if a.kind == "label" else bounds_b
                     if label.owner == art.owner:
                         padding = 0
-                    else:
+                    elif label.owner in artwork_bounds:
                         separation = bounds_distance(label_bounds, artwork_bounds[label.owner]) + ASSOCIATION_MARGIN
                         if bounds_distance(bounds_a, bounds_b) + EPSILON < separation:
                             context = (f"{label.owner}: stage label overlaps component artwork {art.owner}"
@@ -161,7 +161,7 @@ class _Scene:
             if within is not None and box.anchor not in within:
                 continue
             bounds = box.placed(placements)
-            if box.kind == "label":
+            if box.kind == "label" and box.owner in placements:
                 bounds = inflate(bounds, bounds_distance(bounds, placements[box.owner].bounds) + ASSOCIATION_MARGIN)
             x0, y0, x1, y1 = bounds
             points.extend(((x0, y0), (x1, y1)))
@@ -193,7 +193,7 @@ def occupied_geometry(drawing, placements, style, blocks=None, *, labels=(), res
     for entry, block in blocks.items():
         origin = block.placements[entry].position
         offset = -origin[0], -origin[1]
-        boxes.extend(_Box(entry, translated(label.bounds, offset), label.optic, "label", entry)
+        boxes.extend(_Box(entry, translated(label.bounds, offset), label.optic or label.segment, "label", entry)
                      for label in block.labels)
         for route in block.fibers:
             for leg in route.legs:

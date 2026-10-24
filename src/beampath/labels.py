@@ -73,6 +73,8 @@ def candidates(placements, style):
 
 
 def associated(label, placements):
+    if label.optic is None:
+        return True  # A segment label is associated with its route, not an optic.
     own = bounds_distance(label.bounds, placements[label.optic].bounds)
     return all(bounds_distance(label.bounds, p.bounds) + EPSILON >= own + ASSOCIATION_MARGIN
                for p in placements.values() if p.id != label.optic)

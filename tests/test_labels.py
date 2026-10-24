@@ -23,13 +23,14 @@ def distance(a, b):
 
 def assert_labels_clear(layout):
     for index, label in enumerate(layout.labels):
-        owner = layout.placements[label.optic]
-        gap = distance(label.bounds, owner.bounds)
-        assert gap >= layout.style.label_gap - 1e-7
-        assert gap <= math.sqrt(2) * layout.style.label_gap + 1e-7
+        owner = layout.placements.get(label.optic)
+        if owner is not None:
+            gap = distance(label.bounds, owner.bounds)
+            assert gap >= layout.style.label_gap - 1e-7
+            assert gap <= math.sqrt(2) * layout.style.label_gap + 1e-7
         for other in layout.placements.values():
             assert not overlap(label.bounds, other.bounds)
-            if other.id != owner.id:
+            if owner is not None and other.id != owner.id:
                 assert distance(label.bounds, other.bounds) >= gap + 3 - 1e-7
         assert all(not overlap(label.bounds, other.bounds, 3) for other in layout.labels[index + 1:])
         lines = list(layout.segments) + [leg for route in layout.fibers for leg in route.legs]

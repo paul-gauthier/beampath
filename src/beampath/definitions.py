@@ -170,6 +170,38 @@ def _freeze(value):
 
 
 @dataclass(frozen=True)
+class SegmentLabel:
+    """Reusable text annotating one free-space or fiber connection."""
+
+    text: str
+
+    def __post_init__(self):
+        if not isinstance(self.text, str):
+            raise ComponentError("Segment label must be a string")
+
+    def __rshift__(self, other):
+        from .model import beam
+        return beam().append(self).append(other)
+
+    def __rrshift__(self, other):
+        if isinstance(other, str):
+            from .model import beam
+            return beam().append(other).append(self)
+        return NotImplemented
+
+
+def label(*lines: str) -> SegmentLabel:
+    """Label the next segment; positional strings are joined with newlines.
+
+    Insert between components with >>, or before the first component to label
+    its incoming stub. An empty string hides a segment label.
+    """
+    if not lines or any(not isinstance(line, str) for line in lines):
+        raise ComponentError("A segment label needs one or more strings")
+    return SegmentLabel("\n".join(lines))
+
+
+@dataclass(frozen=True)
 class ComponentSpec:
     """An immutable component template. Inserting it repeatedly creates independent physical optics."""
     definition: ComponentDefinition
@@ -228,35 +260,49 @@ class ComponentSpec:
         from .model import beam
         return beam().append(self).append(other)
 
+    def __rrshift__(self, other):
+        if isinstance(other, str):
+            from .model import beam
+            return beam().append(other).append(self)
+        return NotImplemented
+
 
 @dataclass(frozen=True)
 class Chain:
     """A reusable sequence of component templates; each insertion creates independent optics."""
-    specs: tuple[ComponentSpec, ...]
+    specs: tuple[ComponentSpec | SegmentLabel, ...]
 
     def __post_init__(self):
         specs = tuple(self.specs)
-        if not specs or any(not isinstance(s, ComponentSpec) for s in specs):
-            raise ComponentError("A chain needs component specifications")
+        if not specs or any(not isinstance(s, (ComponentSpec, SegmentLabel)) for s in specs):
+            raise ComponentError("A chain needs component specifications or segment labels")
         object.__setattr__(self, "specs", specs)
 
     def __rshift__(self, other):
         from .model import beam
         return beam().append(self).append(other)
 
+    def __rrshift__(self, other):
+        if isinstance(other, str):
+            from .model import beam
+            return beam().append(other).append(self)
+        return NotImplemented
 
-def chain(*specs: ComponentSpec | Chain) -> Chain:
-    """Combine component specifications or existing chains into a reusable linear sequence."""
+
+def chain(*specs: ComponentSpec | SegmentLabel | str | Chain) -> Chain:
+    """Combine components, segment labels, or existing chains into a reusable sequence."""
     items = []
     for spec in specs:
         if isinstance(spec, Chain):
             items.extend(spec.specs)
-        elif isinstance(spec, ComponentSpec):
+        elif isinstance(spec, (ComponentSpec, SegmentLabel)):
             items.append(spec)
+        elif isinstance(spec, str):
+            items.append(label(spec))
         else:
-            raise ComponentError("chain() accepts component specifications and chains")
+            raise ComponentError("chain() accepts component specifications, segment labels, and chains")
     if not items:
-        raise ComponentError("A chain must contain at least one component")
+        raise ComponentError("A chain must contain at least one item")
     return Chain(tuple(items))
 
 

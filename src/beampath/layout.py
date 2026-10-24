@@ -78,6 +78,14 @@ def _text_size(text: str, font_size: float) -> Point:
     return font_size * width + 4, font_size * 1.25 * len(lines)
 
 
+def _label_span(text, direction, style):
+    """The along-path extent of an upright text block."""
+    if not text:
+        return 0
+    width, height = _text_size(text, style.font_size)
+    return abs(direction[0]) * width + abs(direction[1]) * height
+
+
 @dataclass(frozen=True)
 class PlacedOptic:
     instance: OpticInstance
@@ -176,12 +184,17 @@ class FiberRoute:
 
 @dataclass(frozen=True)
 class Label:
-    """An upright text block, positioned at its first line's centered baseline."""
+    """An upright text block belonging to an optic or a drawn segment.
 
-    optic: str
+    position is the first line's centered baseline. Segment labels have
+    optic=None and segment set to the beam segment or fiber route ID.
+    """
+
+    optic: str | None
     text: str
     position: Point
     bounds: Bounds
+    segment: str | None = None
 
 
 @dataclass(frozen=True)
@@ -323,6 +336,13 @@ def _solve_beams(nodes, connections, anchors, style, blocks=None, *, drawing, in
         required(length >= clearance, context)
         if edge.distance is None:
             minimum = max(style.pitch, clearance)
+            if edge.label:
+                source_reach = max(0, _project(footprints[source.id], a, d)[1],
+                                   _label_span(source.spec.display_label, d, style) / 2)
+                target_reach = max(0, -_project(footprints[target.id], b, d)[0],
+                                   _label_span(target.spec.display_label, d, style) / 2)
+                minimum = max(minimum, _label_span(edge.label, d, style) + 2 * style.label_gap
+                              + source_reach + target_reach)
             required(length >= minimum, context)
             add_constraint((length == minimum) | kiwi.strength.weak)
         else:
@@ -438,7 +458,7 @@ def _finish_free_space(setup, placements, style):
     except LabelPlacementError:
         placements, labels = space_labels(setup, placements, style)
         segments = _beam_segments(setup, placements, style)
-    return _assemble_layout(placements, segments, labels, style)
+    return _assemble_layout(placements, segments, labels, style, setup=setup)
 
 
 def _beam_geometry(setup, nodes, style, poses=None):
@@ -475,6 +495,10 @@ def _beam_geometry(setup, nodes, style, poses=None):
                 d = unit(placed.port_direction(port.name))
                 reach = _project(placed.bounds, a, d)[1]
                 length = max(style.open_length, reach + style.clearance)
+                text = setup._output_labels.get((placed.id, port.name))
+                if text:
+                    reach = max(0, reach, _label_span(placed.instance.spec.display_label, d, style) / 2)
+                    length = max(length, _label_span(text, d, style) + 2 * (reach + style.label_gap))
                 b = a[0] + length * d[0], a[1] + length * d[1]
                 segment = Segment(f"stub-{placed.id}-{index:02d}", a, b, placed.id, port.name)
                 beams.append(_Beam(segment, placed.id, placed.id, d))
@@ -489,6 +513,9 @@ def _beam_geometry(setup, nodes, style, poses=None):
         d = unit(placed.port_direction(root.input))
         reach = -_project(placed.bounds, b, d)[0]
         length = max(style.open_length, reach + style.clearance)
+        if root.label:
+            reach = max(0, reach, _label_span(placed.instance.spec.display_label, d, style) / 2)
+            length = max(length, _label_span(root.label, d, style) + 2 * (reach + style.label_gap))
         a = b[0] - length * d[0], b[1] - length * d[1]
         segment = Segment(f"lead-in-{placed.id}-{index:02d}", a, b, None, None, placed.id, root.input)
         beams.append(_Beam(segment, placed.id, placed.id, d))
@@ -524,7 +551,10 @@ def _content_bounds(placements, segments, labels, fibers=()):
     return envelope(points)
 
 
-def _assemble_layout(placements, segments, labels, style, fibers=()):
+def _assemble_layout(placements, segments, labels, style, fibers=(), *, setup=None):
+    if setup is not None:
+        from .segment_labels import place_segment_labels
+        labels = place_segment_labels(setup, placements, segments, fibers, labels, style)
     x0, y0, x1, y1 = _content_bounds(placements, segments, labels, fibers)
     bounds = x0 - style.margin, y0 - style.margin, x1 + style.margin, y1 + style.margin
     return Layout(placements, tuple(segments), labels, bounds, style, tuple(fibers))

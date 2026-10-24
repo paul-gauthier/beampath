@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path as FilePath
 from typing import TYPE_CHECKING
 
-from .definitions import Chain, ComponentSpec, Geometry, Port
+from .definitions import Chain, ComponentSpec, Geometry, Port, SegmentLabel
 from .errors import ComponentError, ConnectionError
 from .geometry import Point, aligned, finite, heading, point
 
@@ -50,6 +50,7 @@ class Connection:
     input: str
     distance: float | None = None
     medium: str = "free_space"
+    label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,7 @@ class Root:
     input: str | None
     direction: float
     origin: Point
+    label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -136,6 +138,7 @@ class Setup:
         self._nodes: dict[str, OpticInstance] = {}
         self._connections: list[Connection] = []
         self._roots: list[Root] = []
+        self._output_labels: dict[tuple[str, str], str] = {}
         # A copied fiber input loses its root but still starts the same oriented
         # free-space section. These seeds carry orientation, never placement.
         self._heading_seeds: dict[str, float] = {}
@@ -152,12 +155,12 @@ class Setup:
     @contextmanager
     def _transaction(self):
         snapshot = (self._nodes.copy(), self._connections.copy(), self._roots.copy(),
-                    self._heading_seeds.copy(), self._layout_groups)
+                    self._heading_seeds.copy(), self._layout_groups, self._output_labels.copy())
         try:
             yield
         except Exception:
             (self._nodes, self._connections, self._roots, self._heading_seeds,
-             self._layout_groups) = snapshot
+             self._layout_groups, self._output_labels) = snapshot
             raise
 
     def _inherit_group(self, upstream: str | None, members: frozenset[str],
@@ -189,7 +192,8 @@ class Setup:
                 or any(r.optic == optic and r.input == port for r in self._roots))
 
     def _connect(self, source: str, output: str, target: str, input_name: str,
-                 distance: float | None, *, resolve: bool = True, inherit: bool = True):
+                 distance: float | None, *, resolve: bool = True, inherit: bool = True,
+                 label: str | None = None):
         outgoing = self._nodes[source].port(output, "output")
         incoming = self._nodes[target].port(input_name, "input")
         if outgoing.medium != incoming.medium:
@@ -210,20 +214,25 @@ class Setup:
             if node not in reachable:
                 reachable.add(node)
                 todo.extend(c.target for c in self._connections if c.source == node)
+        label = _connection_label(self._output_labels.get((source, output)), label)
         self._connections.append(Connection(f"segment-{len(self._connections) + 1:03d}",
-                                            source, output, target, input_name, distance, outgoing.medium))
+                                            source, output, target, input_name, distance, outgoing.medium, label))
+        self._output_labels.pop((source, output), None)
         if inherit and not any(target in group.members for group in self._layout_groups):
             self._inherit_group(source, frozenset((target,)))
         if resolve:
             self._resolve_headings()
 
     def _bind_root(self, optic: str, input_name: str | None, direction: float, origin: Point,
-                   *, resolve: bool = True):
+                   *, resolve: bool = True, label: str | None = None):
         if input_name is not None and self._input_used(optic, input_name):
             raise ConnectionError(f"{optic}.{input_name}: input is already connected")
         if any(r.optic == optic and r.input == input_name for r in self._roots):
             raise ConnectionError(f"{optic}: port already starts a beam")
-        self._roots.append(Root(optic, input_name, direction, origin))
+        if label is not None and (input_name is None
+                                  or not self._nodes[optic].port(input_name).draw_lead_in):
+            raise ConnectionError("An incoming segment label needs a drawn input port")
+        self._roots.append(Root(optic, input_name, direction, origin, label))
         if resolve:
             self._resolve_headings()
 
@@ -323,6 +332,12 @@ def _distance(value: float | None) -> float | None:
     return value
 
 
+def _connection_label(first: str | None, second: str | None) -> str | None:
+    if first is not None and second is not None:
+        raise ConnectionError("This segment already has a label; use label(*lines) for multiple lines")
+    return first if first is not None else second
+
+
 class Path:
     """A mutable cursor in a setup. Appending advances this same object; assignment does not copy it."""
 
@@ -334,6 +349,7 @@ class Path:
         self._initial_heading = initial_heading
         self._origin = origin
         self._consumed = False
+        self._initial_label: str | None = None
 
     def _check(self):
         if self._consumed:
@@ -359,34 +375,53 @@ class Path:
             raise ConnectionError(f"{self._end}.{self._port}: output is already connected")
         return self._end, self._port
 
-    def append(self, spec: ComponentSpec | Chain | Path, *, distance: float | None = None,
+    def append(self, spec: ComponentSpec | SegmentLabel | str | Chain | Path, *, distance: float | None = None,
                at: Point | None = None) -> Path:
-        """Append a component, chain, or independent copy of a built path; advance and return this cursor.
+        """Append a component, segment label, chain, or copied path; return this cursor.
 
         distance fixes the new free-space gap between ports. at pins the
         component reference point. Both apply to the first optic of a chain.
         A copied path includes its entire setup, branches, and shared optics.
         It needs one connected root; the source remains unchanged. at moves
-        the entry and its explicit pins together. See rows() for stacked stages."""
+        the entry and its explicit pins together. See rows() for stacked stages.
+        A label() marker or bare string labels the selected outgoing segment,
+        including an open stub, or the incoming stub before the first component."""
         self._check()
-        if not isinstance(spec, (ComponentSpec, Chain, Path)):
-            raise ConnectionError("append() needs a component specification, chain, or path")
+        if isinstance(spec, str):
+            spec = SegmentLabel(spec)
+        if not isinstance(spec, (ComponentSpec, SegmentLabel, Chain, Path)):
+            raise ConnectionError("append() needs a component specification, segment label, chain, or path")
         distance = _distance(distance)
         at = point(at) if at is not None else None
-        old_cursor = self._end, self._port
+        old_cursor = self._end, self._port, self._initial_label
         try:
             with self.setup._transaction():
                 if isinstance(spec, Path):
                     self._append_path(spec, distance, at)
                 else:
                     specs = spec.specs if isinstance(spec, Chain) else (spec,)
-                    for index, item in enumerate(specs):
-                        self._append_one(item, distance if index == 0 else None,
-                                         at if index == 0 else None)
+                    first = True
+                    for item in specs:
+                        if isinstance(item, SegmentLabel):
+                            self._append_label(item)
+                        else:
+                            self._append_one(item, distance if first else None,
+                                             at if first else None)
+                            first = False
+                    if first and (distance is not None or at is not None):
+                        raise ConnectionError("distance= and at= need a component, not a segment label")
         except Exception:
-            self._end, self._port = old_cursor
+            self._end, self._port, self._initial_label = old_cursor
             raise
         return self
+
+    def _append_label(self, spec: SegmentLabel):
+        if self._end is None:
+            self._initial_label = _connection_label(self._initial_label, spec.text)
+        else:
+            frontier = self._frontier()
+            self.setup._output_labels[frontier] = _connection_label(
+                self.setup._output_labels.get(frontier), spec.text)
 
     def _append_one(self, spec: ComponentSpec, distance: float | None, at: Point | None):
         frontier = self._frontier() if self._end is not None else None
@@ -396,7 +431,8 @@ class Path:
         default_input = spec.definition.default_input
         if frontier is None:
             self.setup._bind_root(ref.id, default_input, self._initial_heading,
-                                  at if at is not None else self._origin)
+                                  at if at is not None else self._origin, label=self._initial_label)
+            self._initial_label = None
         elif default_input is None:
             raise ConnectionError(f"{ref.id}: cannot append an optic without an input")
         else:
@@ -447,20 +483,26 @@ class Path:
             (mapping[ident], direction) for ident, direction in source.setup._heading_seeds.items())
         entry = mapping[root.optic]
         if frontier is None:
-            self.setup._bind_root(entry, root.input, self._initial_heading, origin, resolve=False)
+            self.setup._bind_root(entry, root.input, self._initial_heading, origin, resolve=False,
+                                  label=_connection_label(self._initial_label, root.label))
+            self._initial_label = None
         else:
             incoming = source.setup._nodes[root.optic].port(root.input, "input")
             if incoming.medium == "fiber" and any(
                 p.medium == "free_space" for p in source.setup._nodes[root.optic].geometry.ports
             ):
                 self.setup._heading_seeds[entry] = root.direction
-            self.setup._connect(*frontier, entry, root.input, distance, resolve=False, inherit=False)
+            self.setup._connect(*frontier, entry, root.input, distance, resolve=False, inherit=False,
+                                label=root.label)
         # Clone edges in source order after the boundary, then resolve the whole
         # graph once: a partial branch or join can imply a different orientation.
         for edge in source.setup._connections:
             self.setup._connections.append(replace(
                 edge, id=f"segment-{len(self.setup._connections) + 1:03d}",
                 source=mapping[edge.source], target=mapping[edge.target]))
+        self.setup._output_labels.update(
+            ((mapping[ident], output), text)
+            for (ident, output), text in source.setup._output_labels.items())
         self.setup._resolve_headings()
         self._end, self._port = mapping[source._end], source._port
         if inherit:
@@ -474,6 +516,11 @@ class Path:
 
     def __irshift__(self, spec):
         return self.append(spec)
+
+    def __rrshift__(self, other):
+        if isinstance(other, (str, SegmentLabel)):
+            return beam().append(other).append(self)
+        return NotImplemented
 
     def out(self, name: str) -> Path:
         """Select a named output using a new cursor; choose before continuing from a splitter."""
@@ -502,9 +549,10 @@ class Path:
                 if distance is not None:
                     raise ConnectionError("An initial beam has no preceding segment")
                 self.setup._bind_root(target.optic.id, target.name, self._initial_heading,
-                                      target.optic.instance.at or self._origin)
+                                      target.optic.instance.at or self._origin, label=self._initial_label)
             else:
                 self.setup._connect(*self._frontier(), target.optic.id, target.name, distance)
+        self._initial_label = None
         self._consumed = True
         return target.optic
 
