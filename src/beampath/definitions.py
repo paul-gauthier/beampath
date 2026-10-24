@@ -69,6 +69,8 @@ class Geometry:
 
     heading constrains a free-space frame; default_heading seeds an otherwise
     unconstrained frame after explicit constraints have propagated.
+    reverse_ports pairs forward port names with their reciprocal counterparts;
+    a reverse view selects these ports without changing the artwork or frame.
     """
 
     ports: tuple[Port, ...]
@@ -76,6 +78,7 @@ class Geometry:
     reflected: bool = False
     heading: float | None = None
     default_heading: float | None = None
+    reverse_ports: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self):
         object.__setattr__(self, "ports", tuple(self.ports))
@@ -84,6 +87,23 @@ class Geometry:
         names = [p.name for p in self.ports]
         if len(names) != len(set(names)):
             raise ComponentError("Port names must be unique within an optic")
+        try:
+            pairs = tuple(tuple(pair) for pair in self.reverse_ports)
+        except TypeError:
+            raise ComponentError("Reverse ports must pair distinct, existing port names once") from None
+        ports = {p.name: p for p in self.ports}
+        seen = set()
+        for pair in pairs:
+            if len(pair) != 2 or any(not isinstance(name, str) or name not in ports or name in seen
+                                     for name in pair):
+                raise ComponentError("Reverse ports must pair distinct, existing port names once")
+            a, b = (ports[name] for name in pair)
+            if (a.name == b.name or a.kind != b.kind or a.medium != "free_space"
+                    or b.medium != "free_space" or a.absolute or b.absolute
+                    or not math.isclose((b.direction - a.direction) % 360, 180, abs_tol=1e-7)):
+                raise ComponentError("Reverse ports must have the same kind and opposite free-space headings")
+            seen.update(pair)
+        object.__setattr__(self, "reverse_ports", pairs)
         object.__setattr__(self, "artwork_rotation", finite(self.artwork_rotation, "artwork rotation"))
         for name in ("heading", "default_heading"):
             if getattr(self, name) is not None:
@@ -254,6 +274,8 @@ class ComponentSpec:
             p.name: p.direction for p in self.geometry.ports if p.kind == "input"
         }:
             raise ComponentError("An incidence resolver must preserve input directions")
+        if geometry.reverse_ports != self.geometry.reverse_ports:
+            raise ComponentError("An incidence resolver must preserve reverse port mappings")
         return geometry
 
     def __rshift__(self, other):

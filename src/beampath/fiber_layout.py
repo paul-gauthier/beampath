@@ -32,7 +32,7 @@ def _validate(setup):
         if node.heading is None and any(p.medium == "free_space" for p in node.geometry.ports):
             raise LayoutError(f"{node.id}: free-space section has no initial heading")
         for port in node.geometry.ports:
-            if port.kind == "input" and port.required and not setup._input_used(node.id, port.name):
+            if port.kind == "input" and port.required and not setup._input_satisfied(node.id, port.name):
                 raise LayoutError(f"{node.id}.{port.name}: required input is not connected")
 
 

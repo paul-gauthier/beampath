@@ -70,8 +70,14 @@ def _cube_splitter(parameters):
     # The retained cube diagonal reflects left; rotate it for a right turn.
     return Geometry((Port("primary", "input"),
                      Port("secondary", "input", reflected, required=False),
-                     Port("straight", "output"), Port("reflect", "output", reflected)),
-                    artwork_rotation=0 if left else -90)
+                     Port("straight", "output"), Port("reflect", "output", reflected),
+                     Port("reverse_primary", "input", 180, required=False),
+                     Port("reverse_secondary", "input", (reflected + 180) % 360, required=False),
+                     Port("reverse_straight", "output", 180),
+                     Port("reverse_reflect", "output", (reflected + 180) % 360)),
+                    artwork_rotation=0 if left else -90,
+                    reverse_ports=tuple((name, "reverse_" + name)
+                                        for name in ("primary", "secondary", "straight", "reflect")))
 
 
 def _fiber_transition(parameters, *, launch):

@@ -25,6 +25,12 @@ def PBS(label: str | None = None, *lines: str, turn: str = "left"):
     secondary input, transmission exits reflect and reflection exits straight.
     They are not universal H/V labels when both inputs are occupied. Polarization
     conventions are descriptive; beampath does not simulate polarization.
+
+    Use optic.reverse() for the same cube viewed from the opposite direction.
+    Its default input receives a returning beam from the forward straight arm.
+    Its reflect() exits opposite the forward reflected output; its straight()
+    returns toward the source. Output names remain relative to that view's
+    primary input, including when connecting its secondary input.
     """
     return component("PBS", label, *lines, turn=turn)
 

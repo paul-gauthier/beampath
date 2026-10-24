@@ -14,7 +14,7 @@ python -m beampath.examples --diagram hello --png
 Outputs go to `build/examples/`. Use `--diagram all` for every example;
 add `--pdf` for PDF. PNG/PDF need the [export dependencies](api.md#export).
 
-[hello](#hello) · [cage](#cage) · [chsh](#chsh) · [fiber_splitter](#fiber_splitter) · [franson](#franson) · [ghz_path_identity](#ghz_path_identity) · [hbt](#hbt) · [hom](#hom) · [mirror_heading](#mirror_heading) · [mixed_fiber](#mixed_fiber) · [mzi](#mzi) · [quantum_eraser](#quantum_eraser) · [rendering](#rendering) · [reuse](#reuse) · [segment_labels](#segment_labels) · [spdc](#spdc) · [swapping](#swapping) · [zwm](#zwm)
+[hello](#hello) · [cage](#cage) · [chsh](#chsh) · [fiber_splitter](#fiber_splitter) · [franson](#franson) · [ghz_path_identity](#ghz_path_identity) · [hbt](#hbt) · [hom](#hom) · [mirror_heading](#mirror_heading) · [mixed_fiber](#mixed_fiber) · [mzi](#mzi) · [quantum_eraser](#quantum_eraser) · [rendering](#rendering) · [retroreflection](#retroreflection) · [reuse](#reuse) · [segment_labels](#segment_labels) · [spdc](#spdc) · [swapping](#swapping) · [zwm](#zwm)
 
 ## hello
 
@@ -414,6 +414,29 @@ setup.save("rendering.svg", style=style)
 ```
 
 [Source](../examples/rendering.py)
+
+## retroreflection
+
+Return a beam through one beamsplitter and send its reflection to a detector.
+
+![retroreflection diagram](../examples/images/retroreflection.png)
+
+```python
+from beampath import beam
+from beampath.components import beamsplitter, detector, mirror
+
+setup = beam("east") >> beamsplitter("BS", turn="left")
+bs = setup.end
+back = bs.reverse()
+
+(bs.straight() >> mirror(angle=0)).connect(back.input())
+back.reflect() >> detector("xxx")
+bs.reflect() >> detector("yyy")
+
+setup.save("retroreflection.svg")
+```
+
+[Source](../examples/retroreflection.py)
 
 ## reuse
 

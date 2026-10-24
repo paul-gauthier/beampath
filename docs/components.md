@@ -61,6 +61,13 @@ A non-polarizing cube beamsplitter, labeled NPBS by default.
 
 turn selects a 90° reflection left (default) or right relative to the
 primary incoming beam. Select outputs with straight() and reflect().
+Inputs are primary (default) and optional secondary.
+
+Use optic.reverse() to address the same cube from the opposite direction.
+Its default input receives a returning beam from the forward straight arm;
+reflect() exits opposite the forward reflected output, and straight()
+returns toward the source. For eastward primary incidence and turn="left",
+forward reflect() points north and reverse reflect() points south.
 
 <img src="images/components/beamsplitter.png" alt="beamsplitter demo" width="420">
 
@@ -327,7 +334,10 @@ Reflect using exactly one of angle, heading, or turn.
 
 heading sets the absolute outbound direction. turn is a relative 90-degree
 left or right turn. angle sets the surface normal relative to incidence:
-angle=-45 turns an eastward beam south. Grazing incidence is invalid.
+angle=-45 turns an eastward beam south; angle=0 reflects back along the
+incident path. For an eastward beam, heading="west" gives the same return.
+Connect a returning beam to an existing optic's reverse().input() when
+that optic supports reverse traversal. Grazing incidence is invalid.
 
 <img src="images/components/mirror.png" alt="mirror demo" width="420">
 
@@ -396,6 +406,12 @@ Output names describe geometry relative to primary incidence: for the
 secondary input, transmission exits reflect and reflection exits straight.
 They are not universal H/V labels when both inputs are occupied. Polarization
 conventions are descriptive; beampath does not simulate polarization.
+
+Use optic.reverse() for the same cube viewed from the opposite direction.
+Its default input receives a returning beam from the forward straight arm.
+Its reflect() exits opposite the forward reflected output; its straight()
+returns toward the source. Output names remain relative to that view's
+primary input, including when connecting its secondary input.
 
 <img src="images/components/PBS.png" alt="PBS demo" width="420">
 

@@ -60,7 +60,10 @@ def mirror(label: str | None = None, *lines: str, angle: float | None = None,
 
     heading sets the absolute outbound direction. turn is a relative 90-degree
     left or right turn. angle sets the surface normal relative to incidence:
-    angle=-45 turns an eastward beam south. Grazing incidence is invalid.
+    angle=-45 turns an eastward beam south; angle=0 reflects back along the
+    incident path. For an eastward beam, heading="west" gives the same return.
+    Connect a returning beam to an existing optic's reverse().input() when
+    that optic supports reverse traversal. Grazing incidence is invalid.
     """
     parameters = {name: value for name, value in
                   (("angle", angle), ("heading", heading), ("turn", turn))

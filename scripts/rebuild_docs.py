@@ -168,8 +168,9 @@ def api_summary():
     groups = {
         "Construction and connections": (
             beampath.beam, beampath.label, beampath.chain, beampath.rows, Setup, Setup.beam, Setup.add,
-            BeamPath.append, BeamPath.out, BeamPath.end, BeamPath.connect, BeamPath.join,
-            beampath.OpticRef.input, beampath.OpticRef.out,
+            BeamPath.append, BeamPath.out, BeamPath.end, BeamPath.reverse,
+            BeamPath.connect, BeamPath.join,
+            beampath.OpticRef.input, beampath.OpticRef.out, beampath.OpticRef.reverse,
         ),
         "Layout and export": (Setup.layout, Setup.to_svg, Setup.save),
         "Custom components": (

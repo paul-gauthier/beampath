@@ -101,21 +101,43 @@ class OpticRef:
     """A stable reference to a physical optic, used to select its inputs or outputs."""
     setup: Setup
     id: str
+    _reversed: bool = field(default=False, repr=False)
 
     @property
     def instance(self) -> OpticInstance:
         return self.setup._nodes[self.id]
+
+    def reverse(self) -> OpticRef:
+        """View reciprocal ports on the same physical optic (supported by BS and PBS cubes).
+
+        straight() returns toward primary incidence; reflect() leaves on the
+        opposite side to the forward reflection. Calling reverse() twice
+        returns the forward view. The optic's artwork and placement are shared.
+        """
+        if not self.instance.geometry.reverse_ports:
+            raise ConnectionError(f"{self.id}: this optic does not support reverse traversal")
+        return OpticRef(self.setup, self.id, not self._reversed)
+
+    def _port_name(self, name: str) -> str:
+        if self._reversed:
+            try:
+                return dict(self.instance.geometry.reverse_ports)[name]
+            except KeyError:
+                raise ConnectionError(f"{self.id}: no reverse port {name!r}") from None
+        return name
 
     def input(self, name: str | None = None) -> InputRef:
         """Select a named input, or the component default when omitted, for path.connect()."""
         name = name if name is not None else self.instance.spec.definition.default_input
         if name is None:
             raise ConnectionError(f"{self.id}: this optic has no default input")
+        name = self._port_name(name)
         self.instance.port(name, "input")
         return InputRef(self, name)
 
     def out(self, name: str) -> Path:
         """Select an unused output of this physical optic and return a path cursor."""
+        name = self._port_name(name)
         self.instance.port(name, "output")
         if self.setup._output_used(self.id, name):
             raise ConnectionError(f"{self.id}.{name}: output is already connected")
@@ -191,6 +213,22 @@ class Setup:
         return (any(c.target == optic and c.input == port for c in self._connections)
                 or any(r.optic == optic and r.input == port for r in self._roots))
 
+    def _input_satisfied(self, optic: str, port: str) -> bool:
+        """A required forward input can instead be fed from its reverse side."""
+        counterpart = dict(self._nodes[optic].geometry.reverse_ports).get(port)
+        return (self._input_used(optic, port)
+                or (counterpart is not None and self._input_used(optic, counterpart)))
+
+    def _output_active(self, optic: str, port: str) -> bool:
+        """Only show a reversible optic's open beams on occupied input sides."""
+        node = self._nodes[optic]
+        pairs = dict(node.geometry.reverse_ports)
+        if port not in pairs and port not in pairs.values():
+            return True
+        names = set(pairs.values()) if port in pairs.values() else set(pairs)
+        return any(p.kind == "input" and p.name in names and self._input_used(optic, p.name)
+                   for p in node.geometry.ports)
+
     def _connect(self, source: str, output: str, target: str, input_name: str,
                  distance: float | None, *, resolve: bool = True, inherit: bool = True,
                  label: str | None = None):
@@ -206,14 +244,8 @@ class Setup:
             raise ConnectionError(f"{source}.{output}: output is already connected")
         if self._input_used(target, input_name):
             raise ConnectionError(f"{target}.{input_name}: input is already connected")
-        reachable, todo = set(), [target]
-        while todo:
-            node = todo.pop()
-            if node == source:
-                raise ConnectionError(f"{target}.{input_name}: closed paths are not supported")
-            if node not in reachable:
-                reachable.add(node)
-                todo.extend(c.target for c in self._connections if c.source == node)
+        # A physical cycle can be a valid return pass through different ports.
+        # Heading propagation and the placement solver validate its geometry.
         label = _connection_label(self._output_labels.get((source, output)), label)
         self._connections.append(Connection(f"segment-{len(self._connections) + 1:03d}",
                                             source, output, target, input_name, distance, outgoing.medium, label))
@@ -360,7 +392,8 @@ class Path:
         """Return a stable reference to the current physical optic, retained when this cursor advances."""
         if self._end is None:
             raise ConnectionError("This path has no first component yet")
-        return OpticRef(self.setup, self._end)
+        reciprocal = {name for _, name in self.setup._nodes[self._end].geometry.reverse_ports}
+        return OpticRef(self.setup, self._end, self._port in reciprocal)
 
     def _frontier(self) -> tuple[str, str]:
         self._check()
@@ -437,7 +470,8 @@ class Path:
             raise ConnectionError(f"{ref.id}: cannot append an optic without an input")
         else:
             self.setup._connect(*frontier, ref.id, default_input, distance)
-        outputs = [p.name for p in spec.geometry.ports if p.kind == "output"]
+        reciprocal = {name for _, name in spec.geometry.reverse_ports}
+        outputs = [p.name for p in spec.geometry.ports if p.kind == "output" and p.name not in reciprocal]
         self._end, self._port = ref.id, outputs[0] if len(outputs) == 1 else None
 
     def _append_path(self, source: Path, distance: float | None, at: Point | None,
@@ -536,6 +570,11 @@ class Path:
     def reflect(self) -> Path:
         return self.out("reflect")
 
+    def reverse(self) -> OpticRef:
+        """Select the reciprocal view of the current physical optic; keep this cursor unchanged."""
+        self._check()
+        return self.end.reverse()
+
     def connect(self, target: InputRef, *, distance: float | None = None) -> OpticRef:
         """Connect to an existing optic input in the same setup; consume this cursor and return its optic reference."""
         self._check()
@@ -566,7 +605,8 @@ class Path:
             raise ConnectionError("Cannot join a path to itself")
         if not isinstance(spec, ComponentSpec):
             raise ConnectionError("join() needs a component specification")
-        inputs = [p.name for p in spec.geometry.ports if p.kind == "input"]
+        reciprocal = {name for _, name in spec.geometry.reverse_ports}
+        inputs = [p.name for p in spec.geometry.ports if p.kind == "input" and p.name not in reciprocal]
         primary = spec.definition.default_input
         if len(inputs) != 2 or primary not in inputs:
             raise ConnectionError("join() needs an optic with two inputs and a default input")
@@ -577,7 +617,7 @@ class Path:
             self.setup._connect(*a, ref.id, primary, None)
             self.setup._connect(*b, ref.id, secondary, None)
         self._consumed = other._consumed = True
-        outputs = [p.name for p in spec.geometry.ports if p.kind == "output"]
+        outputs = [p.name for p in spec.geometry.ports if p.kind == "output" and p.name not in reciprocal]
         return Path(self.setup, ref.id, outputs[0] if len(outputs) == 1 else None)
 
     def layout(self, **kwargs) -> Layout:

@@ -16,6 +16,13 @@ def beamsplitter(label: str | None = None, *lines: str, turn: str = "left"):
 
     turn selects a 90° reflection left (default) or right relative to the
     primary incoming beam. Select outputs with straight() and reflect().
+    Inputs are primary (default) and optional secondary.
+
+    Use optic.reverse() to address the same cube from the opposite direction.
+    Its default input receives a returning beam from the forward straight arm;
+    reflect() exits opposite the forward reflected output, and straight()
+    returns toward the source. For eastward primary incidence and turn="left",
+    forward reflect() points north and reverse reflect() points south.
     """
     return component("beamsplitter", label, *lines, turn=turn)
 

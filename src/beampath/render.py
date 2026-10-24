@@ -14,7 +14,7 @@ from collections.abc import Mapping
 import xml.etree.ElementTree as ET
 
 from .definitions import Artwork
-from .geometry import clean, finite
+from .geometry import EPSILON, clean, finite
 from .layout import Layout, Style
 from .model import Setup
 
@@ -131,6 +131,86 @@ def _render_pdf(svg: str, width: int | None, dpi: float) -> bytes:
     return output.getvalue()
 
 
+def _visible_shared_span(start, direction, low, high, bounds):
+    """Find the longest shared interval that artwork does not cover."""
+    spans = [(low, high)]
+    for box in bounds:
+        covered_low, covered_high = low, high
+        for axis in (0, 1):
+            if abs(direction[axis]) < EPSILON:
+                if not box[axis] <= start[axis] <= box[axis + 2]:
+                    covered_high = covered_low
+                    break
+            else:
+                ends = [(box[side] - start[axis]) / direction[axis]
+                        for side in (axis, axis + 2)]
+                covered_low = max(covered_low, min(ends))
+                covered_high = min(covered_high, max(ends))
+        if covered_high - covered_low > EPSILON:
+            spans = [(a, b) for left, right in spans
+                     for a, b in ((left, min(right, covered_low)),
+                                  (max(left, covered_high), right))
+                     if b - a > EPSILON]
+    return max(spans, key=lambda span: span[1] - span[0], default=None)
+
+
+def _arrow_tip_distances(layout):
+    """Separate return-beam arrows within their longest visible shared span.
+
+    Distances are measured from each segment's own start, so placing both
+    arrows one third into an overlap puts their tips at opposite thirds.
+    Beams without a counterpropagating overlap retain their midpoint arrow.
+    """
+    segments = layout.segments
+    tips = [segment.length / 2 for segment in segments]
+    shared = [0.0] * len(segments)
+    # The triangle's half-width is two marker units, scaled by beam width.
+    padding = 2 * layout.style.beam_width
+    for index, first in enumerate(segments):
+        dx = (first.end[0] - first.start[0]) / first.length
+        dy = (first.end[1] - first.start[1]) / first.length
+        for other_index in range(index + 1, len(segments)):
+            second = segments[other_index]
+            sx = (second.end[0] - second.start[0]) / second.length
+            sy = (second.end[1] - second.start[1]) / second.length
+            if dx * sx + dy * sy >= 0:
+                continue
+            offsets = [(point[0] - first.start[0], point[1] - first.start[1])
+                       for point in (second.start, second.end)]
+            if any(abs(dx * y - dy * x) > EPSILON for x, y in offsets):
+                continue
+            projected = [dx * x + dy * y for x, y in offsets]
+            low, high = max(0, min(projected)), min(first.length, max(projected))
+            span = high - low
+            if span <= EPSILON:
+                continue
+            owners = dict.fromkeys((first.source, first.target, second.source, second.target))
+            bounds = [(box[0] - padding, box[1] - padding,
+                       box[2] + padding, box[3] + padding)
+                      for owner in owners if owner in layout.placements
+                      for box in (layout.placements[owner].bounds,)]
+            visible = _visible_shared_span(first.start, (dx, dy), low, high, bounds)
+            if visible is None:
+                continue
+            low, high = visible
+            span = high - low
+
+            def tip_offset(segment):
+                body = max(min(12, segment.length / 4), 6 * layout.style.beam_width)
+                return min(span, max(span / 3, body))
+
+            if span > shared[index]:
+                tips[index] = low + tip_offset(first)
+                shared[index] = span
+            if span > shared[other_index]:
+                overlap_end = (first.start[0] + high * dx, first.start[1] + high * dy)
+                reverse_low = ((overlap_end[0] - second.start[0]) * sx
+                               + (overlap_end[1] - second.start[1]) * sy)
+                tips[other_index] = reverse_low + tip_offset(second)
+                shared[other_index] = span
+    return tips
+
+
 def render_svg(layout: Layout) -> str:
     x0, y0, x1, y1 = layout.bounds
     style = layout.style
@@ -178,7 +258,8 @@ def render_svg(layout: Layout) -> str:
             width=number(x1 - x0), height=number(y1 - y0), fill=style.background)
     beams = element(svg, "g", id="optical-path", fill="none", stroke=style.beam_color,
                     stroke_width=number(style.beam_width), stroke_linecap="butt")
-    for segment in layout.segments:
+    arrow_tips = _arrow_tip_distances(layout)
+    for segment, tip_distance in zip(layout.segments, arrow_tips):
         element(beams, "line", id=segment.id,
                 x1=number(segment.start[0]), y1=number(segment.start[1]),
                 x2=number(segment.end[0]), y2=number(segment.end[1]),
@@ -186,8 +267,12 @@ def render_svg(layout: Layout) -> str:
                 data_target=segment.target or "", data_input=segment.input or "")
         dx = (segment.end[0] - segment.start[0]) / segment.length
         dy = (segment.end[1] - segment.start[1]) / segment.length
-        mx, my = ((segment.start[i] + segment.end[i]) / 2 for i in (0, 1))
-        arrow_length = min(12, segment.length / 4)
+        if tip_distance == segment.length / 2:
+            mx, my = ((segment.start[i] + segment.end[i]) / 2 for i in (0, 1))
+        else:
+            mx = segment.start[0] + tip_distance * dx
+            my = segment.start[1] + tip_distance * dy
+        arrow_length = min(12, segment.length / 4, tip_distance)
         element(beams, "line", id=f"{segment.id}-arrow",
                 x1=number(mx - arrow_length * dx), y1=number(my - arrow_length * dy),
                 x2=number(mx), y2=number(my), marker_end="url(#beam-arrow)")

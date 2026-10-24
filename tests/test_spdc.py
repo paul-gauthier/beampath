@@ -173,9 +173,10 @@ def test_noncollinear_example_preserves_full_opening_angle_in_layout():
     setup = runpy.run_module("beampath.examples.spdc")["setup"]
     assert all(edge.distance is None for edge in setup.setup.connections)
     layout = setup.layout()
-    assert len(layout.labels) == 5
+    assert len([label for label in layout.labels if label.optic is not None]) == 5
+    assert {label.text for label in layout.labels if label.segment is not None} == {"Pump", "Signal", "Idler"}
     root = ET.fromstring(setup.to_svg())
-    assert len(list(root.iter(tag("text")))) == 5
+    assert len(list(root.iter(tag("text")))) == len(layout.labels)
     repeated = setup.layout()
     for ident, placed in layout.placements.items():
         assert repeated.placements[ident].position == pytest.approx(placed.position, abs=1e-7, rel=0)

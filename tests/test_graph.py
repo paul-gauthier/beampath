@@ -284,12 +284,12 @@ def test_stale_cursor_and_occupied_input():
         p.setup.beam().connect(target.input())
 
 
-def test_cycle_rejection_is_atomic():
+def test_inconsistent_cycle_rejection_is_atomic():
     p = iris() >> beamsplitter(turn="right")
     splitter = p.end
     q = p.reflect() >> mirror(angle=45)
     before = p.setup.optics, p.setup.connections
-    with pytest.raises(ConnectionError, match="closed paths"):
+    with pytest.raises(ConnectionError, match="incoming direction disagrees"):
         q.connect(splitter.input("secondary"))
     assert (p.setup.optics, p.setup.connections) == before
     q >> iris()

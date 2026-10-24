@@ -11,9 +11,9 @@ import pytest
 
 from beampath import (
     Artwork, ComponentDefinition, ComponentSpec, Geometry, Port, Style, beam,
-    bandpass_filter, beamsplitter, fiber_launch, fiber_coupler, iris, HWP, LP, QWP, mirror, nd_filter,
+    bandpass_filter, beamsplitter, detector, fiber_launch, fiber_coupler, iris, HWP, LP, QWP, mirror, nd_filter,
 )
-from beampath.layout import artwork_point
+from beampath.layout import Layout, Segment, artwork_point, segment_intersects
 from beampath.render import artwork_bytes, render_svg, tag
 
 
@@ -52,6 +52,98 @@ def test_incoming_stub_renders_with_arrow_and_open_source_metadata():
     assert incoming["output"] is None
     assert incoming["target"] == "optic-001" and incoming["input"] == "in"
     assert len(manifest["optics"]) == 3
+
+
+@pytest.mark.parametrize("direction", [0, 90, 37])
+@pytest.mark.parametrize("forward,backward,expected", [
+    ((0, 190), (190, 0), (190 / 3, 380 / 3)),
+    ((0, 190), (130, 40), (70, 100)),
+    ((-95, 0), (0, -190), (-190 / 3, -95 / 3)),
+])
+def test_counterpropagating_beams_have_separate_arrows_and_keep_source_metadata(
+        direction, forward, backward, expected):
+    dx, dy = math.cos(math.radians(direction)), math.sin(math.radians(direction))
+
+    def point(distance):
+        return distance * dx, distance * dy
+
+    segments = (
+        Segment("outbound", point(forward[0]), point(forward[1]),
+                None, None, "bs", "primary"),
+        Segment("return", point(backward[0]), point(backward[1]),
+                "bs", "reverse_straight"),
+    )
+    layout = Layout({}, segments, (), (-200, -200, 200, 200), Style())
+    root = ET.fromstring(render_svg(layout))
+    beams = root.find(f"{tag('g')}[@id='optical-path']")
+    assert len(beams.findall(tag("line"))) == 4
+    for segment, tip in zip(segments, expected):
+        line = beams.find(f"{tag('line')}[@id='{segment.id}']")
+        assert (float(line.get("x1")), float(line.get("y1"))) == pytest.approx(segment.start)
+        assert (float(line.get("x2")), float(line.get("y2"))) == pytest.approx(segment.end)
+        assert line.get("data-source") == (segment.source or "")
+        assert line.get("data-output") == (segment.output or "")
+        assert line.get("data-target") == (segment.target or "")
+        assert line.get("data-input") == (segment.input or "")
+        arrow = beams.find(f"{tag('line')}[@id='{segment.id}-arrow']")
+        assert (float(arrow.get("x2")), float(arrow.get("y2"))) == pytest.approx(point(tip))
+        assert arrow.get("marker-end") == "url(#beam-arrow)"
+        assert sum((float(arrow.get(f"{axis}2")) - float(arrow.get(f"{axis}1")))
+                   * (segment.end[i] - segment.start[i])
+                   for i, axis in enumerate(("x", "y"))) > 0
+    manifest = json.loads(root.find(
+        f"{tag('metadata')}/{tag('metadata')}[@id='asset-attribution-manifest']").text)
+    assert manifest["segments"] == [
+        {"id": segment.id, "start": list(segment.start), "end": list(segment.end),
+         "source": segment.source, "output": segment.output,
+         "target": segment.target, "input": segment.input}
+        for segment in segments
+    ]
+
+
+@pytest.mark.parametrize("other_start,other_end", [
+    ((190, 0), (380, 0)),   # Same direction.
+    ((380, 0), (190, 0)),   # Only endpoints touch.
+    ((190, 1), (0, 1)),     # A parallel neighboring beam.
+    ((95, -95), (95, 95)),  # Crossing beams.
+])
+def test_beams_without_counterpropagating_overlap_keep_midpoint_arrows(other_start, other_end):
+    segments = (Segment("first", (0, 0), (190, 0), None, None),
+                Segment("second", other_start, other_end, None, None))
+    layout = Layout({}, segments, (), (-200, -200, 400, 200), Style())
+    root = ET.fromstring(render_svg(layout))
+    for segment in segments:
+        arrow = root.find(f"{tag('g')}[@id='optical-path']/{tag('line')}[@id='{segment.id}-arrow']")
+        assert (float(arrow.get("x2")), float(arrow.get("y2"))) == pytest.approx(
+            tuple((a + b) / 2 for a, b in zip(segment.start, segment.end)))
+
+
+@pytest.mark.parametrize("direction", [0, 90, 37])
+def test_reverse_beamsplitter_arrow_tips_and_bodies_remain_outside_artwork(direction):
+    setup = beam(direction) >> beamsplitter("BS", turn="left")
+    bs = setup.end
+    back = bs.reverse()
+    (bs.straight() >> mirror(angle=0)).connect(back.input())
+    back.reflect() >> detector("xxx")
+    bs.reflect() >> detector("yyy")
+    layout = setup.layout()
+    root = ET.fromstring(render_svg(layout))
+    returning = [segment for segment in layout.segments
+                 if segment.source is None or segment.output in {"straight", "out", "reverse_straight"}]
+    assert len(returning) == 4
+    for segment in returning:
+        arrow = root.find(f"{tag('g')}[@id='optical-path']/{tag('line')}[@id='{segment.id}-arrow']")
+        start = float(arrow.get("x1")), float(arrow.get("y1"))
+        tip = float(arrow.get("x2")), float(arrow.get("y2"))
+        dx = (segment.end[0] - segment.start[0]) / segment.length
+        dy = (segment.end[1] - segment.start[1]) / segment.length
+        # Marker coordinates are scaled by the inherited beam stroke width.
+        width = layout.style.beam_width
+        base_left = tip[0] - 6 * width * dx - 2 * width * dy, tip[1] - 6 * width * dy + 2 * width * dx
+        base_right = tip[0] - 6 * width * dx + 2 * width * dy, tip[1] - 6 * width * dy - 2 * width * dx
+        edges = ((start, tip), (tip, base_left), (base_left, base_right), (base_right, tip))
+        assert all(not segment_intersects(a, b, placed.bounds)
+                   for a, b in edges for placed in layout.placements.values()), segment.id
 
 
 def test_each_physical_optic_and_beam_segment_render_once(shared_optic_setup):

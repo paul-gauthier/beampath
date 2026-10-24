@@ -265,7 +265,7 @@ def layout(setup: Setup, *, style: Style | None = None) -> Layout:
         if node.heading is None:
             raise LayoutError(f"{node.id}: connect the optic to an initial beam")
         for port in node.geometry.ports:
-            if port.kind == "input" and port.required and not setup._input_used(node.id, port.name):
+            if port.kind == "input" and port.required and not setup._input_satisfied(node.id, port.name):
                 raise LayoutError(f"{node.id}.{port.name}: required input is not connected")
 
     placements, _ = _solve_beams(nodes, setup.connections, anchors, style, drawing=setup)
@@ -485,6 +485,7 @@ def _beam_geometry(setup, nodes, style, poses=None):
                              and setup._output_used(placed.id, p.name)]
         for index, port in enumerate(placed.instance.geometry.ports):
             if (port.kind == "output" and port.medium == "free_space" and port.draw_open
+                    and setup._output_active(placed.id, port.name)
                     and not setup._output_used(placed.id, port.name)):
                 # Collinear modes share a drawn path. An unused coincident port
                 # must not add a second arrow or a stub past the next optic.

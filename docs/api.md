@@ -14,6 +14,8 @@ Most diagrams can start from the [examples](gallery.md). Import core tools from
   it. `.out()` selects another cursor; `.straight()`, `.reflect()`, and `.turn()`
   are named-output shortcuts. Each port connects once. `connect()` and `join()`
   consume incoming cursors; select outputs on their returned reference/path.
+  Beamsplitters and PBS cubes support `.reverse()` to select a view of the same
+  physical optic for backward traversal, preserving its placement and artwork.
 - **Ownership:** connected or joined paths must belong to one setup. Separate
   `beam()` calls create separate setups; `Setup.beam()` adds roots to one diagram.
   Saving any path saves its entire setup. Appending a path copies its entire
@@ -83,6 +85,26 @@ Choose an output first when labeling a branch, for example
 `splitter.turn() >> "Monitor" >> fiber_power_meter()`.
 Use one marker per segment; write `label("Pump", "780 nm")` for multiple lines.
 
+## Returning beams
+
+`mirror(angle=0)` reflects back along the incident path. For an eastward beam,
+`mirror(heading="west")` does the same. Both `beamsplitter()` and `PBS()` support
+`back = bs.reverse()`, a view that shares the original optic's identity,
+placement, and artwork. Connect the return from the forward straight arm to
+`back.input()`. With eastward incidence and `turn="left"`, the forward reflection
+goes north and `back.reflect()` goes south. `back.straight()` goes west, toward
+the source. See the [retroreflection example](gallery.md#retroreflection).
+
+Reversing a view twice selects the original view. `path.reverse()` is a shortcut
+for `path.end.reverse()`; retain `path.end` before advancing a cursor when you
+need to revisit an optic later.
+
+Each directed input and output still connects once. Reverse outputs appear when
+that view receives a beam, so adding reciprocal ports does not add unused stubs
+to forward-only diagrams. Counterpropagating beams share their physical path and
+have separate direction arrows. Layout checks the headings, distances, and
+clearance of returning paths.
+
 ## API summary
 
 Signatures and descriptions below are generated from Python. The rendering
@@ -106,10 +128,12 @@ For advanced details, consult the [model](../src/beampath/model.py),
 | `Path.append(spec, *, distance=None, at=None)` | Append a component, segment label, chain, or copied path; return this cursor. |
 | `Path.out(name)` | Select a named output using a new cursor; choose before continuing from a splitter. |
 | `Path.end` | Return a stable reference to the current physical optic, retained when this cursor advances. |
+| `Path.reverse()` | Select the reciprocal view of the current physical optic; keep this cursor unchanged. |
 | `Path.connect(target, *, distance=None)` | Connect to an existing optic input in the same setup; consume this cursor and return its optic reference. |
 | `Path.join(other, spec, *, at=None)` | Join two paths in the same setup at a new two-input optic; consume both cursors and return its output cursor. |
 | `OpticRef.input(name=None)` | Select a named input, or the component default when omitted, for path.connect(). |
 | `OpticRef.out(name)` | Select an unused output of this physical optic and return a path cursor. |
+| `OpticRef.reverse()` | View reciprocal ports on the same physical optic (supported by BS and PBS cubes). |
 
 ### Layout and export
 
@@ -209,10 +233,13 @@ have `optic=None` and identify the beam segment or fiber route with `segment`.
 ## Errors and limits
 
 `ComponentError` indicates an invalid component or parameter. `ConnectionError`
-indicates an invalid port, heading, owner, consumed cursor, or cycle. `LayoutError`
+indicates an invalid port, heading, owner, or consumed cursor. `LayoutError`
 indicates incompatible geometry, pins, or unresolved clearance/routing. All inherit
 from `BeampathError` (`ValueError`). Export arguments may raise `ValueError`;
 missing converters raise `RuntimeError`.
 
-Connections must be acyclic. Closed cavities and repeated passes through one
-physical optic are unsupported.
+Repeated passes through one physical optic use its forward and reverse directed
+ports. Cyclic connections are allowed when their headings and placement
+constraints agree. A return does not automatically retrace intermediate optics:
+connect each pass explicitly, using reverse views where supported. Beampath draws
+the specified paths; it does not simulate propagation around a cavity.
