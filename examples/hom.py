@@ -11,11 +11,11 @@ Based on [Hong, Ou, and Mandel (1987)](https://doi.org/10.1103/PhysRevLett.59.20
 
 from beampath.components import bandpass_filter, beam_block, beamsplitter, detector, laser, mirror, spdc
 
-setup = laser("Pump") >> spdc("SPDC\nDegenerate", opening_angle=60)
+setup = laser("Pump") >> "Pump" >> spdc("SPDC\nDegenerate", opening_angle=60)
 setup.out("pump") >> beam_block("Pump dump")
 
-signal = setup.out("signal") >> bandpass_filter("Matched filter") >> mirror("", heading="east")
-idler = setup.out("idler") >> bandpass_filter("Matched filter") >> mirror("Delay τ", heading="north")
+signal = setup.out("signal") >> "Signal" >> bandpass_filter("Matched filter") >> mirror("", heading="east")
+idler = setup.out("idler") >> "Idler" >> bandpass_filter("Matched filter") >> mirror("Delay τ", heading="north")
 combined = signal.join(idler, beamsplitter("50:50", turn="left"))
 combined.straight() >> detector("D1")
 combined.reflect() >> detector("D2")

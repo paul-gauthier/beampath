@@ -2,7 +2,7 @@
 
 from beampath.components import *
 
-setup = laser("Pump input") >> spdc()
+setup = laser("Pump input") >> "Pump" >> spdc()
 setup.out("pump") >> beam_block("Transmitted pump")
-setup.out("signal") >> fiber_coupler("Signal")
-setup.out("idler") >> fiber_coupler("Idler")
+setup.out("signal") >> "Signal" >> fiber_coupler()
+setup.out("idler") >> "Idler" >> fiber_coupler()

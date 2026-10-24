@@ -2,7 +2,7 @@
 
 from beampath.components import beam_block, beamsplitter, detector, laser, mirror, spdc
 
-setup = laser("CW pump") >> spdc(opening_angle=60)
+setup = laser("CW pump") >> "Pump" >> spdc(opening_angle=60)
 setup.out("pump") >> beam_block("Pump dump")
 
 # Mirror the analyzers about the pump axis. Each straight short arm has length
@@ -12,11 +12,11 @@ for channel, suffix, outward, inward, return_heading in (
     ("signal", "s", "left", "right", "south"),
     ("idler", "i", "right", "left", "north"),
 ):
-    incoming = setup.out(channel).append(mirror("", heading="east"), distance=700)
+    incoming = (setup.out(channel) >> channel.capitalize()).append(mirror("", heading="east"), distance=700)
     split = incoming >> beamsplitter(f"{channel.capitalize()}\n50:50", turn=outward)
-    short = split.straight()
-    long = split.reflect().append(mirror(f"Long {suffix}\nPZT phase φ{suffix}", heading="east"),
-                                  distance=300)
+    short = split.straight() >> "Short arm"
+    long = (split.reflect() >> "Long arm").append(
+        mirror(f"Long {suffix}\nPZT phase φ{suffix}", heading="east"), distance=300)
     long.append(mirror("", heading=return_heading), distance=600)
     combined = short.join(long, beamsplitter("50:50", turn=inward))
     combined.straight() >> detector(f"D{suffix}+")

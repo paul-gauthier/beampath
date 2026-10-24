@@ -124,8 +124,8 @@ A straight-through fiber output with a perpendicular power-monitor branch.
 from beampath.components import *
 
 setup = fiber_laser("Input laser") >> fiber_splitter("90:10 splitter", turn="left")
-setup.straight() >> fiber_launch("Main output")
-setup.turn() >> fiber_power_meter("Power monitor")
+setup.straight() >> "Main fiber" >> fiber_launch("Main output")
+setup.turn() >> "Monitor fiber" >> fiber_power_meter("Power monitor")
 
 setup.save("fiber_splitter.svg")
 ```
@@ -141,7 +141,7 @@ A Franson interferometer with SPDC and two matched unequal-arm analyzers.
 ```python
 from beampath.components import beam_block, beamsplitter, detector, laser, mirror, spdc
 
-setup = laser("CW pump") >> spdc(opening_angle=60)
+setup = laser("CW pump") >> "Pump" >> spdc(opening_angle=60)
 setup.out("pump") >> beam_block("Pump dump")
 
 # Mirror the analyzers about the pump axis. Each straight short arm has length
@@ -151,11 +151,11 @@ for channel, suffix, outward, inward, return_heading in (
     ("signal", "s", "left", "right", "south"),
     ("idler", "i", "right", "left", "north"),
 ):
-    incoming = setup.out(channel).append(mirror("", heading="east"), distance=700)
+    incoming = (setup.out(channel) >> channel.capitalize()).append(mirror("", heading="east"), distance=700)
     split = incoming >> beamsplitter(f"{channel.capitalize()}\n50:50", turn=outward)
-    short = split.straight()
-    long = split.reflect().append(mirror(f"Long {suffix}\nPZT phase φ{suffix}", heading="east"),
-                                  distance=300)
+    short = split.straight() >> "Short arm"
+    long = (split.reflect() >> "Long arm").append(
+        mirror(f"Long {suffix}\nPZT phase φ{suffix}", heading="east"), distance=300)
     long.append(mirror("", heading=return_heading), distance=600)
     combined = short.join(long, beamsplitter("50:50", turn=inward))
     combined.straight() >> detector(f"D{suffix}+")
@@ -268,11 +268,11 @@ Based on [Hong, Ou, and Mandel (1987)](https://doi.org/10.1103/PhysRevLett.59.20
 ```python
 from beampath.components import bandpass_filter, beam_block, beamsplitter, detector, laser, mirror, spdc
 
-setup = laser("Pump") >> spdc("SPDC\nDegenerate", opening_angle=60)
+setup = laser("Pump") >> "Pump" >> spdc("SPDC\nDegenerate", opening_angle=60)
 setup.out("pump") >> beam_block("Pump dump")
 
-signal = setup.out("signal") >> bandpass_filter("Matched filter") >> mirror("", heading="east")
-idler = setup.out("idler") >> bandpass_filter("Matched filter") >> mirror("Delay τ", heading="north")
+signal = setup.out("signal") >> "Signal" >> bandpass_filter("Matched filter") >> mirror("", heading="east")
+idler = setup.out("idler") >> "Idler" >> bandpass_filter("Matched filter") >> mirror("Delay τ", heading="north")
 combined = signal.join(idler, beamsplitter("50:50", turn="left"))
 combined.straight() >> detector("D1")
 combined.reflect() >> detector("D2")
@@ -306,14 +306,18 @@ A laser and inline power monitors surrounding a free-space waveplate.
 ![mixed_fiber diagram](../examples/images/mixed_fiber.png)
 
 ```python
+from beampath import label
 from beampath.components import *
 
 setup = (
     fiber_laser("Tunable laser")
+    >> label("Input fiber")
     >> inline_power_meter("Input power")
     >> fiber_launch()
+    >> "Free-space"
     >> HWP()
     >> fiber_coupler()
+    >> "Output fiber"
     >> inline_power_meter("Output power")
 )
 
@@ -329,11 +333,12 @@ A Mach–Zehnder interferometer with a shared recombining beamsplitter.
 ![mzi diagram](../examples/images/mzi.png)
 
 ```python
+from beampath import label
 from beampath.components import *
 
 setup = laser() >> beamsplitter("NPBS1", turn="left")
-lower = setup.straight() >> HWP() >> mirror(heading="north")
-upper = setup.reflect() >> mirror(heading="east") >> HWP()
+lower = setup.straight() >> label("Lower arm") >> HWP() >> mirror(heading="north")
+upper = setup.reflect() >> "Upper arm" >> mirror(heading="east") >> HWP()
 combined = lower.join(upper, beamsplitter("NPBS2", turn="right"))
 combined.reflect() >> detector()
 combined.straight() >> detector()
@@ -467,10 +472,10 @@ A generic SPDC crystal with pump, signal, and idler branches.
 ```python
 from beampath.components import *
 
-setup = laser("Pump input") >> spdc()
+setup = laser("Pump input") >> "Pump" >> spdc()
 setup.out("pump") >> beam_block("Transmitted pump")
-setup.out("signal") >> fiber_coupler("Signal")
-setup.out("idler") >> fiber_coupler("Idler")
+setup.out("signal") >> "Signal" >> fiber_coupler()
+setup.out("idler") >> "Idler" >> fiber_coupler()
 
 setup.save("spdc.svg")
 ```
